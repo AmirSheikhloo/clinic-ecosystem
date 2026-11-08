@@ -11,8 +11,8 @@
 | Milestone | Result | Notes |
 |---|---|---|
 | **M0-A** | **COMPLETE** | Legacy inventory recorded as **NOT ACCESSIBLE**; authorization file committed. |
-| **M0-B** | **NOT ACCEPTED** | Bootstrap files present; required PostgreSQL isolation tests **NOT RUN** (Docker unavailable). |
-| **M0-C** | **NOT ACCEPTED** | TP0001 + CP Alembic baseline present; required PostgreSQL migration tests **NOT RUN** (Docker unavailable). |
+| **M0-B** | **NOT ACCEPTED** | Bootstrap files present; required PostgreSQL isolation tests pending green CI evidence (Agent Docker unavailable). |
+| **M0-C** | **NOT ACCEPTED** | TP0001 + CP Alembic baseline present; required PostgreSQL migration tests pending green CI evidence (Agent Docker unavailable). |
 
 ## Agent environment
 

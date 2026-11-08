@@ -26,9 +26,16 @@
 
 ## Milestone acceptance implication
 
-- **M0-B:** implementation files present; status **NOT ACCEPTED** (required isolation tests NOT RUN).
-- **M0-C:** migration files present; status **NOT ACCEPTED** (required migration tests NOT RUN).
+- **M0-B:** implementation files present; status **NOT ACCEPTED** until required isolation tests **PASS** in CI (or another Docker-capable runner).
+- **M0-C:** migration files present; status **NOT ACCEPTED** until required migration tests **PASS** in CI (or another Docker-capable runner).
+- Creating the GitHub Actions workflow alone does **not** change M0-B/M0-C acceptance.
 
-## Exact blocker
+## CI path for evidence
 
-Docker CLI/daemon is not available in the Agent execution environment, so real PostgreSQL 15 Testcontainers cannot run.
+- Workflow: `.github/workflows/m0-postgres-integration.yml`
+- Runner: GitHub-hosted `ubuntu-24.04` (Docker available)
+- Required suites must be discovered and executed; skips of required integration/migration tests fail the workflow.
+
+## Exact blocker (Agent environment)
+
+Docker CLI/daemon is not available in the Cursor Cloud Agent execution environment, so real PostgreSQL 15 Testcontainers cannot run **here**. CI is the authorized evidence path.

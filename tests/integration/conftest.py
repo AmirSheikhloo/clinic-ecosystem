@@ -110,8 +110,21 @@ async def _set_role_password(
     await conn.execute(f"ALTER ROLE {role} PASSWORD {quoted}")
 
 
+async def _assert_server_is_postgres_15(admin_dsn: str) -> None:
+    conn = await asyncpg.connect(admin_dsn)
+    try:
+        version = await conn.fetchval("SHOW server_version")
+        assert version is not None
+        assert str(version).startswith("15."), (
+            f"Testcontainers must provide PostgreSQL 15.x, got {version!r}"
+        )
+    finally:
+        await conn.close()
+
+
 async def _bootstrap_cloud(admin: DbEndpoint, passwords: dict[str, str]) -> None:
     admin_dsn = admin.asyncpg_dsn()
+    await _assert_server_is_postgres_15(admin_dsn)
     await _create_database(admin_dsn, "control_plane")
     await _create_database(admin_dsn, "tenant_app")
 
@@ -127,6 +140,7 @@ async def _bootstrap_cloud(admin: DbEndpoint, passwords: dict[str, str]) -> None
 
 async def _bootstrap_local(admin: DbEndpoint, passwords: dict[str, str]) -> None:
     admin_dsn = admin.asyncpg_dsn()
+    await _assert_server_is_postgres_15(admin_dsn)
     await _create_database(admin_dsn, "local_hub")
     conn = await asyncpg.connect(admin_dsn)
     try:

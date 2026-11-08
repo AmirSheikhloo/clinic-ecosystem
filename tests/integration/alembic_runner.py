@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -23,11 +24,32 @@ def _config(script_location: Path, database_url: str, env_var: str) -> Config:
     return cfg
 
 
-def upgrade_tenant_plane(database_url: str, revision: str = "head") -> None:
-    cfg = _config(TENANT_PLANE_DIR, database_url, "TENANT_PLANE_DATABASE_URL")
+def _upgrade(script_location: Path, env_var: str, database_url: str, revision: str) -> None:
+    cfg = _config(script_location, database_url, env_var)
     command.upgrade(cfg, revision)
+
+
+def upgrade_tenant_plane(database_url: str, revision: str = "head") -> None:
+    """Run Tenant Plane migrations. Safe from sync contexts only.
+
+    Prefer :func:`upgrade_tenant_plane_async` from async pytest tests so
+    Alembic's ``asyncio.run`` does not nest inside a running event loop.
+    """
+    _upgrade(TENANT_PLANE_DIR, "TENANT_PLANE_DATABASE_URL", database_url, revision)
 
 
 def upgrade_control_plane(database_url: str, revision: str = "head") -> None:
-    cfg = _config(CONTROL_PLANE_DIR, database_url, "CONTROL_PLANE_DATABASE_URL")
-    command.upgrade(cfg, revision)
+    """Run Control Plane migrations. Safe from sync contexts only."""
+    _upgrade(CONTROL_PLANE_DIR, "CONTROL_PLANE_DATABASE_URL", database_url, revision)
+
+
+async def upgrade_tenant_plane_async(
+    database_url: str, revision: str = "head"
+) -> None:
+    await asyncio.to_thread(upgrade_tenant_plane, database_url, revision)
+
+
+async def upgrade_control_plane_async(
+    database_url: str, revision: str = "head"
+) -> None:
+    await asyncio.to_thread(upgrade_control_plane, database_url, revision)

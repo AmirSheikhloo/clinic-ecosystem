@@ -6,8 +6,8 @@ import asyncpg
 import pytest
 
 from tests.integration.alembic_runner import (
-    upgrade_control_plane,
-    upgrade_tenant_plane,
+    upgrade_control_plane_async,
+    upgrade_tenant_plane_async,
 )
 from tests.integration.docker_probe import DOCKER_AVAILABLE, SKIP_REASON
 
@@ -48,10 +48,16 @@ async def _public_tables(conn: asyncpg.Connection) -> set[str]:
     return {r["tablename"] for r in rows}
 
 
+async def _assert_postgres_15(conn: asyncpg.Connection) -> None:
+    version = await conn.fetchval("SHOW server_version")
+    assert version is not None
+    assert str(version).startswith("15."), f"expected PostgreSQL 15.x, got {version!r}"
+
+
 @pytest.mark.asyncio
 async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> None:
-    upgrade_tenant_plane(plane_topology.cloud_tenant.sqlalchemy_async_url())
-    upgrade_tenant_plane(plane_topology.local_hub.sqlalchemy_async_url())
+    await upgrade_tenant_plane_async(plane_topology.cloud_tenant.sqlalchemy_async_url())
+    await upgrade_tenant_plane_async(plane_topology.local_hub.sqlalchemy_async_url())
 
     for endpoint in (plane_topology.cloud_tenant, plane_topology.local_hub):
         # Connect as admin on the same cluster to inspect schema broadly
@@ -66,6 +72,8 @@ async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> N
         )
         conn = await asyncpg.connect(dsn)
         try:
+            await _assert_postgres_15(conn)
+
             # btree_gist installed
             ext = await conn.fetchval(
                 "SELECT 1 FROM pg_extension WHERE extname = 'btree_gist'"
@@ -115,7 +123,7 @@ async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> N
 @pytest.mark.asyncio
 async def test_tp0001_rejects_invalid_status(plane_topology) -> None:
     # Ensure migration applied (idempotent for already-migrated DBs in session)
-    upgrade_tenant_plane(plane_topology.cloud_tenant.sqlalchemy_async_url())
+    await upgrade_tenant_plane_async(plane_topology.cloud_tenant.sqlalchemy_async_url())
     admin = plane_topology.cloud_admin
     dsn = (
         f"postgresql://{admin.user}:{admin.password}"
@@ -144,8 +152,8 @@ async def test_tp0001_rejects_invalid_status(plane_topology) -> None:
 
 @pytest.mark.asyncio
 async def test_tp0001_does_not_mutate_control_plane_db(plane_topology) -> None:
-    upgrade_control_plane(plane_topology.cloud_control.sqlalchemy_async_url())
-    upgrade_tenant_plane(plane_topology.cloud_tenant.sqlalchemy_async_url())
+    await upgrade_control_plane_async(plane_topology.cloud_control.sqlalchemy_async_url())
+    await upgrade_tenant_plane_async(plane_topology.cloud_tenant.sqlalchemy_async_url())
 
     admin = plane_topology.cloud_admin
     cp_dsn = (
@@ -154,6 +162,7 @@ async def test_tp0001_does_not_mutate_control_plane_db(plane_topology) -> None:
     )
     conn = await asyncpg.connect(cp_dsn)
     try:
+        await _assert_postgres_15(conn)
         tables = await _public_tables(conn)
         assert "tenant_registry" not in tables
         assert "alembic_version_tp" not in tables
@@ -168,8 +177,8 @@ async def test_tp0001_does_not_mutate_control_plane_db(plane_topology) -> None:
 
 @pytest.mark.asyncio
 async def test_separate_alembic_version_tables(plane_topology) -> None:
-    upgrade_control_plane(plane_topology.cloud_control.sqlalchemy_async_url())
-    upgrade_tenant_plane(plane_topology.cloud_tenant.sqlalchemy_async_url())
+    await upgrade_control_plane_async(plane_topology.cloud_control.sqlalchemy_async_url())
+    await upgrade_tenant_plane_async(plane_topology.cloud_tenant.sqlalchemy_async_url())
 
     admin = plane_topology.cloud_admin
     for db_name, expected_table, unexpected in (
