@@ -1,8 +1,0 @@
-README.md
-pyproject.toml
-src/clinic_ecosystem/__init__.py
-src/clinic_ecosystem.egg-info/PKG-INFO
-src/clinic_ecosystem.egg-info/SOURCES.txt
-src/clinic_ecosystem.egg-info/dependency_links.txt
-src/clinic_ecosystem.egg-info/requires.txt
-src/clinic_ecosystem.egg-info/top_level.txt
