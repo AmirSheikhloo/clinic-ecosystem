@@ -1,0 +1,2254 @@
+# FINAL_MASTER_SPECIFICATION
+## Clinic Management Ecosystem — Final Integrated Architecture & Implementation Contract
+
+**Version:** 3.0 FINAL ARCHITECTURE BASELINE — Enterprise Multi-Tenant SaaS & Hybrid Offline Architecture  
+**Date:** 2026-11-08  
+**Supersedes:** Version 1.3 FINAL (2026-10-17)  
+**Status:** FINAL ARCHITECTURE BASELINE — CONTENT FROZEN; PRODUCTION AUTHORIZATION PENDING OPEN GATES  
+**Role:** This document is the single authoritative source of truth for implementation, migration, testing and review. Gate A development is authorized only upon explicit written initiation by the Product Owner. Production deployment, live patient data processing and customer-facing activation remain prohibited until the applicable Gates B, C and D are formally approved.
+
+
+---
+
+## Version 3.0 governance: Architecture Change Records (ACR)
+
+The following records document the changes introduced after v1.3. They do not imply that every technical acceptance test has already passed. The implementation baseline remains v1.3 except where this document explicitly amends or supersedes it.
+
+| ACR | Subject | Principal v1.3 clauses affected | Decision and boundary |
+|---|---|---|---|
+| `ACR-v3-001` | Multi-Tenant SaaS and product-plane separation | 11–24, 25–30, 78–88, 422–428, 438–440 | Introduces SaaS Control Plane and Tenant Application Plane; keeps SaaS marketing/storefront separate from each clinic website/patient portal; no multi-branch hierarchy. |
+| `ACR-v3-002` | Dual booking pools and multi-resource appointment allocation | 70, 98–109, 111–125, 185–201, 313, 776–791 | Replaces single `room_id` allocation with resource allocations; Cloud is authoritative for ONLINE bookings, Local Hub for physical MANUAL bookings; manual overlaps remain visible/audited; hold expiry, booking and payment callbacks obey one resource-first lock order. |
+| `ACR-v3-003` | Person identity and cryptographic PII lifecycle | 64–67, 285–291 | Introduces `tenant_persons`, optional official identifiers, encrypted phone/identifier values, HMAC blind indexes, and separate AES/HMAC rotation. |
+| `ACR-v3-004` | Tenant isolation and database defense in depth | 360–362, 438–440, 740–751 | Adds composite tenant foreign keys, explicit root-tenant references, runtime/migrator role separation, a migration-only RLS policy for `db_migrator`, restrictive tenant guards, and negative cross-tenant tests. |
+| `ACR-v3-005` | Demo conversion, no post-activation Reset, deletion and DR | 244, 318–334, 461–467 | Adds one-time Demo conversion choice, forbids Reset after activation, separates Cloud erasure from Local Hub wipe, and adds restore tombstone enforcement. |
+| `ACR-v3-006` | Financial gateway and refund-domain separation | 692–739, especially 706, 707, 712, 715, 792–795 | Preserves Section 50 and adds direct clinic gateway credentials, method-specific payment evidence, payment-claim verification, separate clinic/SaaS refunds, and separate referral domains. |
+| `ACR-v3-007` | SaaS affiliate program | Control Plane additions; clause 715 clarification; 809–813 | Adds a separate `SaasAffiliatePartner` ledger, attribution, commission formula, cumulative partial-refund clawback rounding and anonymized reporting. |
+| `ACR-v3-008` | Offline licensing, SMS, portal, CMS and inventory modules | 17–20, 243–257, 268–276, 292–307, 452–460 | Adds signed offline leases, bounded Cloud entitlement cache, safe SMS delivery/OTP generations, patient portal/CMS, and inventory FEFO. |
+| `ACR-v3-009` | Four-gate engineering, provider, legal and production authorization model | 1–10, 549–557, 611–641, 833–834 | Removes the development/authorization deadlock: Gate A permits development and Testcontainers work when the product owner initiates it; Gates B/C verify external and legal matters; Gate D alone authorizes Production. This document does not itself start coding. |
+
+### Traceability matrix (complete range coverage of v1.3 clauses 1–739)
+
+The table below partitions the complete numeric range 1–739 without gaps or overlaps. It is a **range-based traceability matrix**, not 739 individual rows. Within each range, the v1.3 clauses are preserved verbatim unless the row explicitly says `AMENDED`, `REWRITTEN`, or `SUPERSEDED`; all authoritative replacements are included in this v3.0 document and in Sections 51 onward.
+
+| v1.3 clause range | v1.3 subject | v3.0 status | Integration rule |
+|---:|---|---|---|
+| 1–10 | Purpose and authority | AMENDED | Preserve all principles; freeze the v3.0 document baseline while keeping implementation, provider, legal and Production gates explicit. |
+| 11–24 | Mission and scope | AMENDED | Add SaaS Control Plane, tenant plane and selectable modules. |
+| 25–30 | Public website scope | SUPERSEDED | Replaced by the two-website model in clauses 753–754 and Section 34 amendment. |
+| 31–35 | Nobat.ir future ACL | UNCHANGED | Preserve verbatim. |
+| 36–54 | Architecture principles | UNCHANGED | Preserve verbatim. |
+| 55–63 | Clean Architecture | UNCHANGED | Preserve verbatim. |
+| 64–77 | Domain boundaries | AMENDED | Add Person identity, optional identifiers and multiple resource allocations. |
+| 78–88 | Actors and permissions | AMENDED | Add tenant roles, Super Admin boundary and server-side permission requirements. |
+| 89–97 | Local/Cloud base topology | UNCHANGED | Preserve verbatim. |
+| 98–109 | Authority and cross-hub capacity | AMENDED | Clarify Cloud ONLINE and Local MANUAL ownership; collisions are visible and never silently LWW-resolved. |
+| 110–125 | Appointment model and concurrency | REWRITTEN IN PART | Replace single `room_id` rule and clarify MANUAL overbooking, multi-resource allocation and hold handling. |
+| 126–145 | Optimistic concurrency and identity ordering | UNCHANGED | Preserve verbatim. |
+| 146–160 | Money and financial integrity | UNCHANGED | Preserve verbatim; arithmetic overflow rules also apply to new affiliate calculations. |
+| 161–184 | UoW and idempotency | UNCHANGED | Preserve verbatim. |
+| 185–201 | ScheduleAppointmentHandler | AMENDED | Use an allocation set, service requirements and hold lifecycle while preserving UoW/idempotency invariants. |
+| 202–242 | Events, Outbox, Inbox and Sync API | UNCHANGED | Preserve verbatim. |
+| 243–257 | Node keys and cryptography | AMENDED | Preserve Sync security; add signed LicenseLeaseToken and local decommission controls. |
+| 258–284 | API errors, Bale and Audit | AMENDED | Preserve base requirements; add two clinic-bot modes and independent SaaS affiliate bot boundary. |
+| 285–291 | Patient identity and merge | AMENDED | Preserve merge/alias history; add Person/Identifier/Phone model. |
+| 292–312 | Catalog, states and conflicts | AMENDED | Preserve base rules; add resource requirements and allocation state synchronization. |
+| 313 | Appointment capacity conflicts | AMENDED | Distinguish ONLINE exclusion from intentional MANUAL overbooking; expose collisions after sync. |
+| 314–317 | Financial/RBAC/catalog conflicts | UNCHANGED | Preserve verbatim. |
+| 318–334 | Backup, DR, RPO and RTO | AMENDED | Preserve Local Hub RPO/RTO; add Cloud DR tiers, Super Admin backup and deletion tombstones. |
+| 335–421 | Reliability, testing, migration and Nobat.ir | UNCHANGED | Preserve verbatim; new tests are additive. |
+| 422–428 | Website separation | AMENDED | Separate SaaS storefront from tenant clinic websites/portal. |
+| 429–437 | Security secrets and keys | UNCHANGED | Preserve verbatim, subject to added key lifecycle clauses. |
+| 438–440 | DB permissions | AMENDED | Add strict role separation and RLS/FK protections. |
+| 441–460 | Observability and deployment | AMENDED | Add SaaS supervision, module/version/entitlement and impersonation controls. |
+| 461–467 | Retention and history | AMENDED | Add explicit retention register, no hidden retention and dual-axis deletion. |
+| 468–691 | Anti-patterns, implementation gate and appendices | AMENDED IN GOVERNANCE ONLY | Preserve technical content; align final authorization language with the frozen v3.0 baseline and four open authorization gates. |
+| 692–739 | Section 50 accounting/revenue sharing | UNCHANGED + FOUR SUBCLAUSES | Preserve all 48 clauses verbatim and insert 706.1, 707.1, 712.1 and 715.1. |
+
+---
+
+## 00. Purpose and authority of this document
+
+1. This document is the integrated, content-frozen v3.0 architecture and implementation specification for the Clinic Management Ecosystem. Its explicit Open Items and four authorization gates are deployment, implementation-evidence, provider and legal/commercial controls; they do not mean that required document chapters or the architecture baseline are still being drafted. Production remains blocked until Gate D is approved.
+2. It combines the v1.3 baseline with the documented v3.0 Architecture Change Records, amendments, new clauses and explicit Open Items.
+3. It is not a brainstorming document and must not be treated as a suggestion list.
+4. Implementers must follow the accepted v1.3 baseline. Gate A authorizes only isolated development, schema/migration work, local tests and Testcontainers verification for v3.0 extensions when the product owner explicitly starts that work. It does not authorize production deployment, live patient data, live payment processing or customer-facing activation. Those require the relevant Gates B, C and D.
+5. A proposed architectural change requires an explicit Architecture Change Record and must not be silently introduced through code.
+6. The legacy system is a migration source and reference; it is not the architectural authority.
+7. The new architecture takes precedence over legacy database structure, legacy endpoints, legacy UI structure and legacy implementation shortcuts.
+8. The v1.3 Integration Test Foundation is CLOSED and must not be reopened merely for theoretical perfectionism; v3.0 features add tests without weakening the foundation.
+9. The v1.3 ScheduleAppointmentHandler baseline is accepted; the v3.0 multi-resource/dual-pool extension requires the new concurrency and failure tests stated in Section 53.
+10. When the product owner chooses to begin engineering, the next technical phase is Gate A: repository/module structure, database boundaries, additive schema migrations and acceptance tests in development/Testcontainers. This clause grants no instruction to begin coding now. Production authorization follows only after the applicable Gates A–D are closed.
+
+---
+
+# 01. System mission and scope
+
+11. The system is a distributed clinic-management ecosystem designed for reliable day-to-day clinic operation.
+12. The core system must support a clinic operating through a Local Hub and a connected Cloud Hub.
+13. The system must continue to protect local operational data and business integrity even when external connectivity is unavailable.
+14. The system must support controlled synchronization between local and cloud nodes.
+15. The system must support a Tauri desktop client.
+16. The system must support Bale Bot integration.
+17. The system must support PostgreSQL-based Local Hub persistence.
+18. The system must support PostgreSQL-based Cloud Hub persistence.
+19. The system must expose a Business API separately from the Sync API.
+20. The system must preserve auditability of important business mutations.
+21. The system must provide deterministic idempotency for retried commands.
+22. The system must enforce critical invariants in PostgreSQL, not only in application code.
+23. The system must provide a measurable backup/recovery strategy.
+24. The system must support migration from the legacy clinic project without importing its architectural weaknesses.
+
+### v3.0 scope extension to clauses 11–24
+
+The commercial product is a Multi-Tenant SaaS platform with a SaaS Control Plane and Tenant Application Plane. The selectable clinic capabilities include the Tauri/Windows Hybrid application with Local Hub, Clinic Public Website and Patient Portal, clinic Bale/Telegram bot integration, operational accounting and revenue-sharing, and optional inventory. The SaaS Marketing & Storefront and SaaS affiliate program are Control Plane capabilities, not tenant clinic modules. Module names and entitlements are centrally versioned; no module may create an alternate source of business truth. Multi-Branch / Parent Organization hierarchy, payroll, full EMR/prescription, pharmacy dispensing and general-ledger ERP are out of scope unless separately approved by ACR.
+
+### 01.1 Explicitly out of scope
+
+25. The public SaaS Marketing & Storefront website is OUT OF SCOPE for the Tenant Application Plane and must remain a separate project/repository and deployment surface.
+26. The SaaS Marketing & Storefront may consume only approved SaaS Control Plane onboarding, pricing, subscription, coupon and billing APIs; it must not access Tenant Application Plane databases directly.
+27. Each clinic may separately enable a Clinic Public Website and Patient Portal as a selectable tenant module; these are not the SaaS Marketing & Storefront.
+28. A Clinic Public Website and Patient Portal must consume approved, tenant-scoped Cloud Hub APIs and must never connect directly to a Local Hub PostgreSQL database.
+29. Clinic website booking and the clinic's messaging bot must use the same Cloud ONLINE booking authority and capacity pool.
+30. Neither website may bypass Business API authorization, booking idempotency, tenant isolation, audit, or the Local/Cloud authority rules.
+31. Nobat.ir is not part of the initial core implementation.
+32. Nobat.ir is a FUTURE INTEGRATION.
+33. When implemented, Nobat.ir must be isolated behind an Anti-Corruption Layer.
+34. Nobat.ir concepts, fields, statuses and database semantics must not leak into the core domain.
+35. A future Nobat.ir worker will translate external data into the system's own Business API and use the normal idempotency rules.
+
+---
+
+# 02. Architecture principles
+
+36. PostgreSQL is the operational persistence technology for both Local Hub and Cloud Hub.
+37. SQLite is NOT the backend operational source of truth.
+38. Tauri may use SQLite only as a client-side queue/cache/transport mechanism.
+39. Client-side SQLite must never become the authoritative clinic database.
+40. Client-side SQLite must not independently implement business truth that contradicts Local Hub.
+41. Critical business invariants belong in the domain/application layer and, where possible, in PostgreSQL constraints.
+42. Application-level locks are not a substitute for PostgreSQL transactional guarantees.
+43. Timestamp ordering is not the authoritative distributed ordering mechanism.
+44. Sequence-based ordering is required for synchronization streams.
+45. UUIDv7 is the application-level identifier strategy.
+46. UUIDs must not be generated by the database as a substitute for the application-level UUIDv7 policy.
+47. HLC is rejected as unnecessary complexity for the current system.
+48. Last-Write-Wins is rejected as a general conflict-resolution strategy.
+49. Blind automatic retries are rejected for optimistic-concurrency conflicts.
+50. Sync is not backup.
+51. Replication is not backup.
+52. A successful HTTP response is not by itself proof that durable business state exists.
+53. Every business mutation must have a clearly defined transaction boundary.
+54. Domain Events, Integration Events and Sync Messages are distinct concepts and must not be conflated.
+
+---
+
+# 03. Clean Architecture
+
+55. The dependency direction is:
+   Domain → Application → Infrastructure → Presentation.
+56. Domain must not depend on FastAPI, SQLAlchemy, PostgreSQL, Tauri, Bale or HTTP.
+57. Application coordinates use cases and transaction boundaries.
+58. Infrastructure implements persistence, external integrations, messaging and cryptographic/transport concerns.
+59. Presentation exposes HTTP, bot and client-facing interfaces.
+60. Business logic must not be embedded in HTTP route handlers.
+61. Business logic must not be duplicated between the web API and Bale Bot.
+62. Bale commands must enter the same application command/UoW/idempotency path as equivalent Business API operations.
+63. Sync handlers must use integration-specific application flows and must not bypass domain invariants.
+
+---
+
+# 04. Domain boundaries
+
+64. Patient is a core domain entity/aggregate with stable identity.
+65. Patient identity must remain independent from appointment identity.
+66. Patient information is not an EMR/prescription subsystem unless a later explicit scope decision adds one.
+67. Patient notes/tags/context are operational information, not a medical-record replacement.
+68. Appointment is a core domain aggregate.
+69. Service is a core catalog concept.
+70. Resource represents a bookable/occupiable clinic resource where applicable.
+71. Staff/User/Role/Permission are access-control concepts.
+72. Payment and Refund are financial concepts independent from Appointment lifecycle.
+73. Audit information is an accountability concern and must not be used as a substitute for domain state.
+74. Notification/Bot interaction is an integration concern around domain commands.
+75. Clinic/node identity is part of distributed-system context.
+76. Historical data must remain accessible according to the retention policy.
+77. Aggregate boundaries must be explicit before repository implementations are written.
+
+---
+
+# 05. Actors and permissions
+
+78. Actors are typed as USER, BOT or SYSTEM.
+79. Human users may have roles such as manager, receptionist and future clinical roles.
+80. The permission system must be enforced server-side.
+81. Hiding a UI button is not an authorization mechanism.
+82. Manager-only operations must be protected at the Business API/application layer.
+83. Receptionists must not gain manager privileges merely because they can call an endpoint directly.
+84. Bot-originated actions must be authorized independently and auditable.
+85. SYSTEM operations must have a controlled identity.
+86. RBAC is authoritative in the Cloud Hub according to the final authority policy, while Local Hub holds the required synchronized/validated authorization state needed for local operation.
+87. Offline local operation must not silently invent permission changes.
+88. Permission/catalog changes created under the authoritative Cloud policy must propagate through the approved sync mechanism.
+
+### v3.0 RBAC scope extension to clauses 78–88
+
+Tenant roles include `CLINIC_OWNER`, `CLINIC_MANAGER`, `DEPUTY_ADMIN`, `RECEPTIONIST`, and explicitly granted operational roles. `SUPER_ADMIN` belongs to the SaaS Control Plane and is not a tenant role. `CLINIC_OWNER` and `CLINIC_MANAGER` permissions are distinct and must be represented in server-side permission assignments, not inferred from UI labels. Doctors and specialists may exist as `staff_profiles` without a software login; in the initial product scope, clinical providers do not receive panel access by default. Any later provider login requires an explicit user account and permissions. A receptionist may enter appointments, patient operational notes and authorized financial facts, but may not perform manager-only configuration, exports, or privileged financial approval unless the corresponding permission is explicitly granted. `DEPUTY_ADMIN` permissions must be individually scoped and audited.
+
+---
+
+# 06. Local Hub and Cloud Hub
+
+89. Local Hub is a FastAPI + PostgreSQL system.
+90. Cloud Hub is a FastAPI + PostgreSQL system.
+91. They may have different schemas where appropriate.
+92. Local and Cloud schemas do not have to be identical.
+93. Synchronization is an integration protocol, not database replication.
+94. Local Hub is the primary operational source of truth for physical clinic activity.
+95. This includes physical reception operations, in-clinic presence and payments performed at the clinic.
+96. Cloud Hub is authoritative for the service/catalog policy.
+97. Cloud Hub is authoritative for RBAC policy.
+98. Cloud Hub is authoritative for online reservation commands originating from cloud-connected external channels.
+99. The authority split is per business capability/context, not a license to write the same business record independently on both sides without a conflict protocol.
+100. Every cross-hub entity must have an explicit ownership/authority rule.
+101. An implementation must not assume that a record is simultaneously authoritative in both databases.
+102. Local physical operations must be represented in synchronization events that Cloud Hub can consume where cloud visibility is required.
+103. Cloud-originated online reservations must be represented locally through Integration Events.
+104. Cross-hub appointment collisions must never be silently resolved by LWW.
+105. A cloud booking must not be presented as durably accepted if the required capacity/ownership validation cannot establish a safe reservation.
+106. Where an online reservation competes with local physical capacity, the implementation must use an explicit capacity/ownership protocol rather than optimistic blind acceptance.
+107. The PostgreSQL EXCLUDE constraint remains the final local invariant for appointments stored in a given hub.
+108. If a future implementation needs cross-hub distributed reservation locking, it must use an explicitly defined lease/reservation protocol and must not invent one inside a feature PR.
+109. The authority map must be encoded in the application layer and tested.
+
+### v3.0 authority and dual-pool amendment to clauses 98–109
+
+Cloud Hub is authoritative for `ONLINE` appointments originating from the clinic website and clinic bot. Those channels share one online capacity pool. Local Hub is authoritative for in-clinic physical reception operations and `MANUAL` appointments entered by authorized staff. A Local Hub MANUAL appointment remains MANUAL after synchronization and must never be reclassified as ONLINE. MANUAL appointments may intentionally overlap with ONLINE and other MANUAL appointments; such conflicts are not auto-resolved, deleted, or used to cancel an ONLINE booking. Cloud read models must preserve the collision signal and expose it to authorized clinic staff. This policy deliberately accepts that an offline local MANUAL entry cannot acquire a distributed lock over Cloud ONLINE capacity. The system must disclose and surface this conflict rather than claiming globally collision-free scheduling. Cloud ONLINE creation must still be serialized by its authoritative PostgreSQL constraints. The website and bot may not independently maintain appointment capacity pools.
+
+---
+
+# 07. Appointment model and concurrency
+
+110. Appointment overlap is a database-enforced invariant.
+111. PostgreSQL must use an EXCLUDE USING gist constraint for the relevant resource/time-slot rule.
+112. The v3.0 canonical overlap rule is based on `appointment_resource_allocations`: `tenant_id WITH =`, `resource_id WITH =`, and `time_slot WITH &&`, restricted to the ONLINE pool and capacity-occupying allocation states. The historical single `room_id` design is superseded. `btree_gist` remains mandatory. The SQL contract appears in Section 53.
+113. `time_slot` uses `tstzrange`.
+114. The `btree_gist` extension is required.
+115. Application checks may provide early feedback but are not the final concurrency guarantee.
+116. The database constraint is authoritative for same-database overlap.
+117. ScheduleAppointment must flush before interpreting the resulting IntegrityError.
+118. A violation of `no_overlapping_appointments` is translated to the domain/application CapacityConflictException.
+119. The conflicting transaction must not corrupt the successful appointment.
+120. The transaction must recover correctly after the IntegrityError.
+121. Appointment mutations must use the UoW transaction.
+122. Appointment state transitions must be explicitly validated.
+123. An appointment cannot be changed through an endpoint that bypasses authorization, versioning, idempotency and audit requirements.
+124. Authorized MANUAL staff booking is an explicit business capability: receptionists/managers may create overlapping MANUAL appointments without consuming or blocking ONLINE capacity. Such overbooking must be visible, acknowledged and audited as defined in Section 53; it is not an override of the ONLINE exclusion constraint.
+125. MANUAL overbooking must never disable, bypass or weaken the PostgreSQL constraint protecting concurrent ONLINE allocations. All MANUAL overlap acknowledgements require the dedicated permission and server-side audit record defined in Section 53.
+
+---
+
+# 08. Optimistic concurrency
+
+126. Mutable aggregates use `aggregate_version`.
+127. A successful aggregate mutation increments the version according to the aggregate contract.
+128. Clients use `If-Match`/expected-version semantics for protected mutations.
+129. A version mismatch must roll back the attempted mutation.
+130. The API returns RFC7807-compatible `412 Precondition Failed`.
+131. The server must not silently merge incompatible changes.
+132. Blind automatic retries are forbidden for optimistic-concurrency failures.
+133. Create operations do not require a previous version.
+134. Sync processing must not confuse aggregate version with global message sequence.
+135. Aggregate version answers "which version of this aggregate?".
+136. Sequence answers "where is this message in the sync stream?".
+137. These two ordering dimensions must remain separate.
+
+---
+
+# 09. Identity and ordering
+
+138. Application-generated IDs use UUIDv7.
+139. IDs are immutable once created.
+140. UUIDv7 provides useful temporal locality but is not the distributed event-ordering authority.
+141. Synchronization ordering uses monotonically increasing sequence values.
+142. Timestamp alone must never decide which distributed event wins.
+143. Sequence values must be generated from an authoritative stream/context.
+144. Sync consumers persist their progress and must be able to resume from a known sequence.
+145. Duplicate delivery is expected and must be harmless through Inbox/Idempotency mechanisms.
+
+---
+
+# 10. Money and financial integrity
+
+146. Base currency is Iranian Rial (IRR).
+147. The stored money unit is one Iranian Rial.
+148. Monetary amounts are signed 64-bit integers representing whole Rials.
+149. Floating-point money is forbidden.
+150. Decimal money storage is forbidden under the frozen IRR policy.
+151. Monetary arithmetic must not overflow 64-bit bounds.
+152. Currency conversion is outside the initial scope.
+153. PaymentReceipt is immutable after successful creation except through explicit correction/refund mechanisms.
+154. Refund/Void is represented independently and must not mutate historical payment facts.
+155. Positive/negative adjustments follow the approved financial model.
+156. Invoice/price snapshots preserve the price actually agreed at the relevant business event.
+157. Financial and appointment lifecycles are decoupled.
+158. Cancelling an appointment does not automatically rewrite immutable payment history.
+159. Financial mutation permissions are server-side and auditable.
+160. Database triggers/constraints protect immutability where specified by the persistence contract.
+
+---
+
+# 11. Transaction and Unit of Work
+
+161. A business mutation uses one explicit UoW transaction.
+162. The UoW contains the business mutation.
+163. Domain events produced by that mutation are persisted within the same transaction.
+164. Outbox records are staged within the same transaction.
+165. If any required part fails, the transaction rolls back.
+166. No external network call is required to commit a local business transaction.
+167. External delivery is asynchronous through Outbox processing.
+168. Commit is the durable boundary for the local transaction.
+169. The implementation must not publish a sync message externally before the local transaction has durably committed.
+170. The accepted ScheduleAppointmentHandler follows this pattern.
+
+---
+
+# 12. Idempotency
+
+171. Idempotency identity is:
+   `principal_id + operation_scope + idempotency_key`.
+172. Request fingerprinting is mandatory where the endpoint contract requires it.
+173. RFC8785 JSON Canonicalization Scheme is used for canonical JSON representation.
+174. The fingerprint prevents the same key from being reused for a different request.
+175. A repeated request with the same identity and same fingerprint may replay the cached successful response.
+176. A repeated request with the same key but a different fingerprint must fail with an idempotency conflict.
+177. Concurrent requests using the same idempotency identity must never execute business logic twice.
+178. One request may own the IN_PROGRESS state.
+179. A concurrent request encountering an active owner receives `425 Too Early` according to the frozen contract.
+180. A completed request returns the cached result.
+181. A failed transaction must not leave a false COMPLETED record.
+182. Idempotency state changes must be transactional with the business operation.
+183. Bot commands use the same idempotency model.
+184. Future integrations such as Nobat.ir use the same model.
+
+---
+
+# 13. ScheduleAppointmentHandler contract
+
+185. Command fields include correlation_id, idempotency_key, request_fingerprint, principal_id, actor, patient_id, service_id, booking_channel, capacity_pool, requested resource-allocation set, start_time and end_time. A singular `resource_id` is insufficient for multi-resource services.
+186. The handler opens the UoW.
+187. It claims idempotency before performing the business mutation.
+188. COMPLETED returns the cached appointment identifier.
+189. An active competing idempotency owner produces the defined `425 Too Early` behavior.
+190. A fingerprint mismatch produces the defined conflict.
+191. Appointment.schedule validates domain rules.
+192. The appointment is added through the repository.
+193. The transaction flushes before handling the PostgreSQL overlap error.
+194. `no_overlapping_appointments` is translated into CapacityConflictException.
+195. The handler publishes domain events to the Outbox staging area.
+196. The idempotency record is marked COMPLETED with the response.
+197. The transaction commits.
+198. The handler returns the appointment identifier/result.
+199. Integration tests verify exactly one appointment, exactly one relevant Outbox message and a COMPLETED idempotency record.
+200. Replay tests verify the same result without duplicate business state.
+201. Real concurrency tests are part of the implementation/testing phase.
+
+### v3.0 ScheduleAppointmentHandler amendment to clauses 185–201
+
+Before persistence, the handler resolves all mandatory `service_resource_requirements`, validates the requested resource set and applies a consistent lock order. For ONLINE requests it first expires only overlapping expired holds that could conflict with the requested resources/time range, then inserts the appointment and all required allocation rows in one UoW. The database EXCLUDE constraint remains the final authority. For MANUAL requests, the handler queries overlapping ONLINE and MANUAL appointments, returns the exact conflicts for display, and requires explicit `acknowledge_overlap = true` plus `ALLOW_MANUAL_OVERBOOKING` permission before committing the intentional overlap. The manual confirmation audit snapshot is committed in the same UoW. A manual booking must never be reclassified as online during synchronization.
+
+---
+
+# 14. Domain Events, Integration Events and Sync Messages
+
+202. A Domain Event describes a meaningful change inside the domain.
+203. An Integration Event is a deliberately designed external contract derived from approved domain facts.
+204. A Sync Message is the transport envelope carrying an Integration Event between hubs.
+205. A Domain Event is not automatically a public Sync Message.
+206. PII must not leak simply because an internal event contains it.
+207. Only approved Integration Event schemas may cross hub boundaries.
+208. PII fields must be explicitly minimized/filtered.
+209. Integration events must be versionable.
+210. Consumers must tolerate duplicate delivery.
+211. Consumers must not infer business truth from arbitrary database CRUD replication.
+212. CRUD replication is rejected as the synchronization architecture.
+
+---
+
+# 15. Outbox
+
+213. Every eligible integration event is staged through Outbox.
+214. Outbox rows are durable before delivery begins.
+215. Delivery uses a lease-based two-phase mechanism.
+216. TX1 claims messages and sets `locked_until` and `lease_id`, then commits.
+217. TX2 performs network delivery.
+218. ACK uses a conditional update such as:
+   `WHERE message_id = X AND lease_id = Y`.
+219. A stale worker must not ACK a message after its lease has been replaced.
+220. Expired leases can be reclaimed.
+221. Duplicate delivery is expected.
+222. Delivery workers must be safe under process crash/restart.
+223. Shutdown must allow in-flight work to finish until the configured graceful-shutdown deadline, after which leases become recoverable.
+224. Outbox is not a substitute for a backup.
+
+---
+
+# 16. Inbox
+
+225. Incoming Sync Messages are processed through Inbox semantics.
+226. Inbox records provide duplicate-delivery protection.
+227. Integration handling and Inbox COMPLETED state are committed in the same DB transaction.
+228. If the handler rolls back, Inbox must not falsely indicate successful processing.
+229. Replayed messages must not execute business logic twice.
+230. Consumer progress/sequence handling must be durable.
+231. Poison messages must have an explicit operational state/handling path rather than silent loss.
+
+---
+
+# 17. Sync API
+
+232. Business API and Sync API are separate surfaces.
+233. Push endpoint:
+   `POST /sync/v1/messages/push`.
+234. Push body is a JSON array of Sync Messages.
+235. Push authentication uses Ed25519 signatures.
+236. Push signing input is:
+   `timestamp UTC Z + node_id + RAW_HTTP_BODY_BYTES`.
+237. The signature is computed over the exact raw HTTP body bytes.
+238. Pull endpoint:
+   `GET /sync/v1/messages/pull?after_sequence={N}`.
+239. Pull signing input includes timestamp, node_id, HTTP method, canonical path and canonical RFC3986 query.
+240. Query canonicalization must be deterministic.
+241. Base64URL is used without padding.
+242. Replay protection uses a five-minute timestamp window according to the frozen contract.
+243. Node identity is cryptographically bound to the relevant key.
+244. Revoked nodes/keys must be rejected.
+245. Sync authentication is independent from human JWT authentication.
+
+---
+
+# 18. Cryptography and authentication
+
+246. JWT signing uses RS256 or ES256 according to the deployed key policy.
+247. JWT validation checks `exp`, `nbf`, `aud`, `iss` and `jti`.
+248. Access tokens are short-lived according to the security configuration.
+249. Refresh-token reuse detection is atomic.
+250. Refresh-token family revocation uses `SELECT FOR UPDATE`.
+251. Detected refresh-token reuse causes the relevant family to be revoked.
+252. The caller receives 401 after reuse detection according to the API contract.
+253. Passwords/secrets must never appear in audit logs.
+254. Password fields must not be exposed through settings APIs.
+255. Secret material must not be serialized into normal business events.
+256. Key lifecycle includes generation, activation, rotation and revocation procedures.
+257. Production deployment must not hard-code private keys in source control.
+
+### v3.0 node licensing extension to clauses 243–257
+
+Cloud-signed `LicenseLeaseToken` is a separate entitlement artifact from the Sync authentication signature. It is signed with Ed25519 and bound to `tenant_id`, `node_id`, a unique `lease_id`, monotonic `lease_sequence`, `issued_at_utc`, `not_before_utc`, `expires_at_utc`, `grace_period_ends_at_utc`, `allowed_modules`, `feature_entitlements`, `max_lan_client_seats`, `minimum_supported_app_version` and `signing_key_id`. Local monotonic counters deter ordinary clock rollback and casual replay but cannot prevent restoration of a full disk image. Node re-binding requires explicit Cloud revocation of the previous node, a signed pairing/transfer authorization and successful verification of the replacement node. The decommission flow is defined in Section 56.
+
+---
+
+# 19. RFC7807 and API behavior
+
+258. Errors use RFC7807-compatible problem details.
+259. Validation errors must identify the relevant problem without exposing secrets.
+260. Authorization failures must not disclose unnecessary internal information.
+261. Concurrency conflicts use 412.
+262. Idempotency in-progress uses 425 according to the contract.
+263. Authentication failures use 401.
+264. Authorization failures use 403 where appropriate.
+265. Business conflicts have stable application/domain error identifiers.
+266. Error responses must be deterministic enough for client handling and logging.
+267. Internal stack traces must not be exposed to end users.
+
+---
+
+# 20. Bale Bot
+
+268. Bale Bot is an integration boundary, not a separate business system.
+269. Bale webhook/authentication verification uses HMAC-SHA256 according to the approved Bale integration contract.
+270. Bot commands are mapped to application commands.
+271. Bot mutations use the same UoW/idempotency rules as Business API mutations.
+272. Bot-originated actors are typed as BOT.
+273. Bot actions are auditable.
+274. Bot must not bypass server-side authorization.
+275. Bot-specific UX must not dictate core domain structures.
+276. The bot may be evolved independently as long as the Business/Application contracts remain stable.
+
+---
+
+# 21. Audit and accountability
+
+277. Security-sensitive and business-critical actions must be auditable.
+278. Audit entries must identify actor type and actor identity where available.
+279. Audit records must describe the operation and relevant target.
+280. Audit data must not contain passwords or secret credentials.
+281. Audit identity/name behavior must preserve accountability when a receptionist/user identity changes according to the approved policy.
+282. Audit logs are append-oriented and must not be casually rewritten.
+283. Audit retention must be defined operationally before production.
+284. Audit logs are evidence, not the source of domain truth.
+
+---
+
+# 22. Patient identity and merge
+
+285. Patient identity must have an immutable primary identifier.
+286. Patient merge must distinguish canonical patient from aliases/merged identities.
+287. Merge must be auditable.
+288. Historical references must remain explainable after a merge.
+289. A merge must not silently duplicate or destroy historical appointments/payments.
+290. External identifiers must not replace the internal patient identity.
+291. Bot permissions for editing patient details must follow the approved actor/permission model.
+
+### v3.0 Person identity amendment to clauses 64–67 and 285–291
+
+The authoritative person model is `tenant_persons` with separate optional `person_identifiers` and `person_phones`. Patient identity is not inferred from phone number or official ID; family members may share a phone. National ID and foreign identifiers are optional and are never fabricated. Patient merge retains immutable aliases, historical references, and audit history. `patient_profiles` remain operational dossiers with staff-only notes/tags/alerts and are not EMR or prescription records. See Section 52 for the complete schema and cryptographic lifecycle. SaaS customer identities are held independently in the Control Plane and have no cross-database foreign keys to tenant person records.
+
+---
+
+# 23. Service/resource/catalog rules
+
+292. Services are catalog entities under the authoritative catalog policy.
+293. Service identity is immutable.
+294. Price information used in historical transactions must be snapshotted where required.
+295. Resource identity is immutable.
+296. Resource availability rules must be explicit.
+297. Appointment scheduling references a resource/service rather than copying mutable catalog truth into arbitrary fields.
+298. Catalog changes must not rewrite historical financial facts.
+
+---
+
+# 24. State machines
+
+299. Appointment statuses form an explicit state machine.
+300. Every allowed transition is defined.
+301. Every forbidden transition is rejected.
+302. Cancellation is a business state transition, not deletion.
+303. Historical business facts must not be destroyed to make the UI look clean.
+304. Payment state is independent from appointment state.
+305. Refund/Void state is independent from appointment cancellation.
+306. Sync state is independent from business state.
+307. Idempotency state is infrastructure state and must not be confused with business status.
+
+---
+
+# 25. Distributed conflict policy
+
+308. Conflict resolution is defined by business semantics.
+309. There is no universal LWW fallback.
+310. Immutable events are preserved even when a business conflict occurs.
+311. Aggregate-version conflicts are explicit.
+312. Patient identity conflicts use the approved canonical/alias/merge policy.
+313. Appointment capacity conflicts use the Cloud ONLINE PostgreSQL exclusion constraint and the explicit Local MANUAL overbooking/visibility protocol in ACR-v3-002; sync preserves source channel and never silently cancels or rewrites either appointment.
+314. Financial conflicts never silently overwrite immutable receipts/refunds.
+315. Authorization conflicts follow the authoritative RBAC policy.
+316. Catalog conflicts follow the authoritative service/catalog policy.
+317. If a new aggregate is introduced, its authority and conflict policy must be specified before implementation.
+
+---
+
+# 26. Backup, disaster recovery, RPO and RTO
+
+318. Sync is not a backup mechanism.
+319. The Local Hub must have an independent disaster-recovery strategy.
+320. The approved baseline is:
+   Base Backup + continuous WAL archiving + an isolated/off-site or otherwise failure-independent copy + restore verification.
+321. A NAS on the same physical failure domain must not be treated as the only disaster-recovery copy.
+322. Streaming replication is a future HA option, not a replacement for backup.
+323. RPO target is a maximum of five minutes for the defined Local Hub disaster scenario.
+324. The RPO is a measurable operational target, not a marketing claim.
+325. WAL/archive lag must be monitored.
+326. Backup freshness must be monitored.
+327. Restore tests must measure actual recovery point achieved.
+328. RTO target is a maximum of one hour for restoration of the defined complete system onto a replacement server.
+329. RTO is measured from declared disaster/recovery start to usable restored service, according to the operational definition.
+330. Backup files must be protected from accidental deletion/corruption.
+331. At least one recovery copy must be isolated from the primary failure domain.
+332. Restore verification must be performed periodically.
+333. A backup that has never been successfully restored is not considered proven.
+334. Backup/restore procedures must be documented and executable by the responsible operator.
+
+### v3.0 Cloud/SaaS DR extension to clauses 318–334
+
+The v1.3 `RPO <= 5 minutes` and `RTO <= 1 hour` targets remain scoped to the defined Local Hub disaster scenario only. They must not be generalized to Cloud Hub, SaaS Control Plane, Object Storage or KMS without separate measurable objectives and load-tested restore evidence. A separate full-platform DR plan must cover Control Plane, tenant databases, Object Storage, configuration/recovery metadata, and key recovery. Super Admin may initiate encrypted scheduled or manual platform backups under MFA and audit, but backup capability does not grant ordinary permission to browse patient content. All restore paths must enforce the independent tenant-erasure tombstone registry before reopening traffic. See Section 56.
+
+---
+
+# 27. Reliability and operational behavior
+
+335. Liveness answers whether the process itself is alive.
+336. Readiness answers whether required dependencies are available for the advertised operation.
+337. Liveness must not fail merely because PostgreSQL is temporarily unavailable.
+338. Readiness may report dependency failure.
+339. Graceful shutdown is deadline-based.
+340. Workers stop accepting new work before termination.
+341. In-flight work receives the configured grace period.
+342. Expired Outbox leases are recoverable.
+343. Crashed workers must not permanently own messages.
+344. Startup must not assume that previous process state was clean.
+345. Recovery paths must be idempotent.
+
+---
+
+# 28. Integration Test Foundation — CLOSED
+
+346. The Integration Test Foundation is accepted and frozen.
+347. Database mocks are not used for PostgreSQL behavioral guarantees.
+348. PostgreSQL Testcontainers is used.
+349. PostgreSQL 15 is the baseline test database.
+350. Alembic runs to head.
+351. Required PostgreSQL extensions are verified.
+352. `btree_gist` is verified.
+353. The appointment EXCLUDE constraint is verified.
+354. Test UoW uses a root transaction with `join_transaction_mode="create_savepoint"`.
+355. Tests unconditionally roll back in `finally`.
+356. Deterministic TimeProvider is used where required.
+357. Deterministic UUIDv7 test ID generation is used where required.
+358. NodeIdentity is available in integration tests.
+359. The UoW is available to integration handlers.
+360. Smoke tests verify extension setup, commit, rollback isolation and appointment overlap enforcement.
+361. HTTP simulation tests use a fresh AsyncSession/UoW per simulated request.
+362. This prevents SQLAlchemy identity-map/state caching from falsely simulating cross-request behavior.
+363. The foundation is considered production-like for the tested PostgreSQL/transaction/constraint/UoW semantics.
+364. It must not be described as literal proof of 100% production parity.
+
+---
+
+# 29. Testing strategy after Foundation
+
+365. Domain unit tests validate pure business invariants.
+366. Application integration tests validate UoW/idempotency/event behavior.
+367. PostgreSQL integration tests validate constraints and transactional semantics.
+368. Concurrency tests use real concurrent database transactions.
+369. Sync tests validate duplicate delivery and sequence recovery.
+370. Security tests validate authentication, authorization and key behavior.
+371. Failure-injection tests validate rollback and recovery paths.
+372. API contract tests validate RFC7807 and status semantics.
+373. Migration tests validate legacy-to-new mapping.
+374. End-to-end tests validate critical user journeys.
+375. Backup/restore tests validate operational recovery.
+376. No test may weaken a production invariant simply to make the test easier.
+
+---
+
+# 30. HTTP simulation and concurrency
+
+377. Each simulated request receives a fresh AsyncSession/UoW.
+378. Shared sessions across logically independent requests are prohibited in concurrency tests.
+379. Real concurrent appointment scheduling must be tested against PostgreSQL.
+380. The test must prove that the database constraint permits only the valid winner(s).
+381. A losing transaction must recover correctly.
+382. Idempotency concurrency tests must prove business logic executes once.
+383. Refresh-token reuse tests must prove atomic family revocation.
+384. Outbox lease tests must prove stale workers cannot ACK another worker's lease.
+385. Inbox tests must prove duplicate delivery does not duplicate business effects.
+
+---
+
+# 31. Migration from legacy project
+
+386. Legacy code is the starting material, not the design authority.
+387. Legacy code must be inventoried before rewriting each module.
+388. Legacy database tables must be mapped to new domain concepts.
+389. Legacy fields must be classified as:
+   preserve, transform, derive, obsolete, or manual-review.
+390. Legacy business rules must be classified as:
+   accepted, rejected, or requiring explicit decision.
+391. Legacy security behavior must be revalidated rather than blindly copied.
+392. Legacy endpoints must not automatically become new endpoints.
+393. Legacy UI must not dictate the new domain model.
+394. Legacy data migration must preserve historical meaning.
+395. IDs must be mapped to new immutable IDs without destroying legacy traceability.
+396. Migration scripts must be repeatable or safely checkpointed.
+397. Data-quality anomalies must be surfaced rather than silently discarded.
+398. The old system must remain available as a reference during migration until verification is complete.
+399. No legacy shortcut may bypass the new UoW/idempotency/audit/security architecture.
+
+---
+
+# 32. Legacy project known context
+
+400. The older project contains a clinic management panel and Bale bot.
+401. The older panel used Next.js/React.
+402. The older project included multiple doctors/therapists/receptionists with different access levels.
+403. Receptionists performed data entry.
+404. Manager operations included supervision, accounting/reporting and protected administrative functions.
+405. Patient profiles were operational and were not intended as full EMR/prescription records.
+406. Payment tracking, patient counts, therapist/service statistics and logs existed in the old project.
+407. Some old security fixes are useful migration references but must be reimplemented against the new architecture.
+408. JWT/local-storage behavior from the old project must not automatically be treated as the new security design.
+409. Old CORS test shortcuts must not automatically become production configuration.
+410. The old Nobat.ir exploration is reference material only until the future ACL integration is implemented.
+
+---
+
+# 33. Nobat.ir future integration
+
+411. Nobat.ir is a future integration.
+412. It must use an Anti-Corruption Layer.
+413. Nobat.ir's external schema must not become the internal domain schema.
+414. A dedicated worker/integration component may retrieve eligible appointments.
+415. External appointments must be translated into internal commands/events.
+416. Translation must use idempotency.
+417. Duplicate imports must be harmless.
+418. External cancellation/status semantics must be mapped explicitly.
+419. Payment/deposit fields from Nobat.ir must not be copied into internal financial truth without an explicit mapping rule.
+420. Nobat.ir integration must not bypass the Business API/application layer.
+421. Nobat.ir implementation begins only after the core architecture is stable.
+
+---
+
+# 34. Public website future separation
+
+422. The SaaS Marketing & Storefront is a separate product/project for platform marketing, pricing, Demo onboarding and subscription purchase.
+423. It may be built with Next.js, a CMS or another appropriate technology and consumes only approved SaaS Control Plane APIs.
+424. Each clinic may separately enable its own Clinic Public Website and Patient Portal as an entitled module.
+425. A Clinic Public Website and Patient Portal consume approved tenant-scoped Cloud Hub APIs and never connect directly to Local Hub PostgreSQL.
+426. The SaaS Marketing & Storefront must not share direct database access with Tenant Application Plane tables.
+427. Neither website becomes a synchronization node or bypasses Business API contracts.
+428. Clinic Website and Clinic Bot online booking use the same Cloud ONLINE pool and capacity contract.
+
+---
+
+# 35. Security boundaries
+
+429. Secrets belong in secret management/environment configuration, not source code.
+430. Private signing keys must be protected.
+431. Node identity keys require rotation/revocation procedures.
+432. Sync requests must reject stale timestamps outside the replay window.
+433. Signature verification must operate on canonical/raw material exactly as specified.
+434. JWT and Sync authentication are separate trust domains.
+435. Authorization is evaluated at the application boundary.
+436. Sensitive data is minimized in logs/events.
+437. PII is minimized in cross-node integration payloads.
+438. Database permissions must follow least privilege.
+439. Production database users must not automatically have superuser privileges.
+440. Migration/administrative credentials must be separated where practical.
+
+### v3.0 tenant isolation extension to clauses 438–440
+
+`db_migrator` owns the application schemas/tables and runs migrations. `db_app_runtime` is a non-owner, non-superuser, `NOBYPASSRLS` role with only the necessary DML/sequence privileges and no `TRUNCATE`, DDL, ownership or policy-management permissions. On every shared multi-tenant database, all tenant-owned tables enable and force RLS. Every Tenant Application Plane table has non-null `tenant_id`; parent tables expose `UNIQUE (tenant_id, id)` and cross-tenant foreign keys are composite. The paired permissive-base/restrictive-tenant-guard pattern is defined in Section 51. RLS is defense in depth and does not replace parameterized SQL, least privilege or application authorization.
+
+---
+
+# 36. Observability
+
+441. Correlation IDs are propagated through application operations.
+442. Sync messages retain message identity and sequence context.
+443. Idempotency keys are observable without exposing secrets.
+444. Outbox lease ownership and age are observable.
+445. Inbox processing state is observable.
+446. Database connection health is observable.
+447. WAL/archive lag is observable for RPO monitoring.
+448. Backup freshness is observable.
+449. Restore-test results are recorded.
+450. Authentication/security failures are logged with sufficient context and without secrets.
+451. Operational dashboards must distinguish application failure from dependency failure.
+
+---
+
+# 37. Deployment topology
+
+452. Local Hub and Cloud Hub are independently deployable services.
+453. Tauri is a client of the Local Hub.
+454. Bale Bot reaches the approved Business API/integration surface.
+455. Sync traffic reaches only the Sync API.
+456. The public website, when later built, reaches approved Cloud APIs only.
+457. PostgreSQL is not exposed unnecessarily to public networks.
+458. TLS is required for network traffic in production.
+459. Development shortcuts must be explicitly separated from production configuration.
+460. Environment-specific configuration must not alter the core business semantics.
+
+### v3.0 SaaS observability and deployment extension to clauses 441–460
+
+Super Admin monitoring includes tenant lifecycle/subscription state, module entitlements, SMS wallet balance, node heartbeat, deployed client/sync schema versions, Outbox/Inbox lag and backup/restore health. It must not expose patient or staff PII by default. Support Impersonation requires a support-ticket reference, short TTL, explicit authorization, immutable audit and defaults to read-only. The platform supports a dedicated clinic bot token per tenant and a shared platform bot mode using a tenant-bound Deep Link; neither mode changes domain authorization. The separate SaaS affiliate bot has access only to affiliate ledger and privacy-preserving aggregate statistics, never clinic names, patient records or tenant operational APIs.
+
+---
+
+# 38. Data retention and historical truth
+
+461. Historical business facts must remain explainable.
+462. Financial history is immutable except through explicit correction/refund mechanisms.
+463. Appointment history is preserved through state transitions rather than destructive deletion.
+464. Audit retention must meet the operational/legal requirement chosen for deployment.
+465. Sync messages may have transport-retention rules independent of business history.
+466. Backup retention is independent of application-record retention.
+467. Deletion of PII, if legally required in a future policy, must be designed without destroying required financial/audit integrity.
+
+### v3.0 retention and deletion amendment to clauses 461–467
+
+No data may be retained after tenant deletion under vague or undisclosed exceptions. Every retained category must appear in the Data Retention Register with its purpose, legal/contractual basis, owner, retention duration, access roles, deletion mechanism and backup/WAL expiry behavior. Any statutory retention exception must be explicitly identified to the customer before acceptance and approved by qualified Iranian counsel/tax adviser. The system must distinguish active-data deletion, key destruction, backup aging, Cloud completion and Local Hub wipe acknowledgement. TenantDEK destruction applies only to data actually encrypted with that key; it does not erase plaintext relational data from WAL/DR backups.
+
+---
+
+# 39. Rejected architectures and anti-patterns
+
+468. SQLite as backend operational source of truth is rejected.
+469. CRUD database replication as sync architecture is rejected.
+470. Timestamp-only event ordering is rejected.
+471. HLC is rejected for the current scope.
+472. Universal LWW is rejected.
+473. Application-only appointment overlap checks are rejected as the final guarantee.
+474. App-level mutexes as a replacement for PostgreSQL constraints are rejected.
+475. Blind automatic retry after 412 is rejected.
+476. Shared AsyncSession across independent HTTP requests is rejected.
+477. External network calls inside the core DB transaction are rejected where Outbox is applicable.
+478. Publishing integration messages before durable local commit is rejected.
+479. Storing passwords in audit logs is rejected.
+480. Sync payloads containing unrestricted internal PII are rejected.
+481. Treating Sync as Backup is rejected.
+482. Treating replication as Backup is rejected.
+483. Copying the legacy schema unchanged into the new system is rejected.
+484. Adding architecture solely because it sounds "enterprise" is rejected unless a real requirement justifies it.
+
+---
+
+# 40. Required API/data-contract discipline
+
+485. Every write endpoint must define actor, authorization, idempotency, concurrency and transaction semantics.
+486. Every cross-node contract must define sender, receiver, message identity, sequence, schema version and replay behavior.
+487. Every aggregate mutation must define its version semantics.
+488. Every financial mutation must define immutability/correction semantics.
+489. Every new external integration must define its Anti-Corruption boundary.
+490. Every new background worker must define lease, retry, idempotency and shutdown behavior.
+491. Every new database invariant must be backed by a migration and integration test.
+492. Every new security-sensitive capability must have an authorization test.
+493. Every new synchronization capability must have duplicate/failure/recovery tests.
+
+---
+
+# 41. Implementation order
+
+494. Freeze this master specification.
+495. Inventory legacy code.
+496. Inventory legacy database/data.
+497. Establish the new repository/module structure.
+498. Establish configuration and secrets boundaries.
+499. Establish domain primitives and identifiers.
+500. Establish PostgreSQL migrations.
+501. Establish core aggregates and repositories.
+502. Establish UoW and transaction behavior.
+503. Establish idempotency infrastructure.
+504. Establish domain/integration event contracts.
+505. Establish Outbox/Inbox.
+506. Establish Business API.
+507. Establish authorization/RBAC enforcement.
+508. Establish appointment scheduling and database constraints.
+509. Complete ScheduleAppointmentHandler integration/concurrency tests.
+510. Establish Local/Cloud sync contracts and workers.
+511. Establish authentication/key lifecycle.
+512. Establish Bale integration.
+513. Establish Tauri client.
+514. Migrate legacy data.
+515. Perform security and failure testing.
+516. Perform backup/restore testing.
+517. Perform end-to-end testing.
+518. Deploy controlled pilot.
+519. Observe and verify.
+520. Move to production operation only after the defined acceptance gates pass.
+
+---
+
+# 42. Definition of Done for a feature
+
+521. Domain rules are explicit.
+522. Authorization is enforced server-side.
+523. Transaction boundary is explicit.
+524. Idempotency is defined where needed.
+525. Optimistic concurrency is defined where needed.
+526. PostgreSQL invariants are enforced where needed.
+527. Events are defined if cross-component behavior depends on them.
+528. Outbox/Inbox is used where cross-node delivery is required.
+529. Audit behavior is defined for important actions.
+530. Tests cover success and failure.
+531. Concurrency is tested where concurrent writes are possible.
+532. Error responses follow RFC7807.
+533. No secret/PII leakage occurs.
+534. Migration impact is understood.
+535. Observability is sufficient to diagnose failure.
+536. Documentation/contracts are updated.
+537. Feature is not considered complete merely because the happy-path UI works.
+
+---
+
+# 43. Definition of Done for migration
+
+538. Every migrated entity has a mapping.
+539. Every transformed field has a documented rule.
+540. Every discarded field has a reason.
+541. Historical relationships remain explainable.
+542. Duplicate patients/records are detected.
+543. Financial history is reconciled.
+544. Appointment history is reconciled.
+545. Legacy identifiers remain traceable where required.
+546. Migration is tested on representative data.
+547. Migration can be audited.
+548. Post-migration counts and financial totals are verified.
+
+---
+
+# 44. Current implementation status
+
+549. The v1.3 core baseline and v3.0 architecture content are frozen as the single specification baseline. Gate A permits development and Testcontainers implementation of v3.0 extensions only when expressly initiated by the product owner. Open Items may be resolved through that work. No Production or live-data authorization is implied.
+550. Integration Test Foundation is CLOSED.
+551. ScheduleAppointmentHandler baseline implementation is ACCEPTED.
+552. Real concurrency tests are the next testing step for that handler.
+553. Domain unit tests remain part of the implementation stream.
+554. Development implementation of unresolved v3.0 extensions is permitted only within Gate A in isolated development/Testcontainers environments after explicit product-owner initiation. Legacy migration against real customer/patient data, external live payment activation and Production rollout remain prohibited until Gates B, C and D close as applicable.
+555. New features must follow this master instead of reopening architecture.
+556. Any genuine contradiction discovered during implementation must be reported as an Architecture Change Record, not silently patched.
+557. A concrete implementation bug may be fixed without reopening the whole architecture.
+
+---
+
+# 45. Final resolutions of previous OPEN items
+
+558. SaaS Marketing & Storefront: separate Control Plane project; each clinic website and patient portal is an optional tenant module consuming approved Cloud Hub APIs.
+559. Nobat.ir: FUTURE INTEGRATION behind an ACL.
+560. Currency: IRR.
+561. Money storage: signed 64-bit integer whole Rials; no Float/Decimal money.
+562. Local authority: physical clinic operations and in-clinic payments.
+563. Cloud authority: services/catalog, RBAC policy and cloud-originated online reservations.
+564. RPO target: five minutes for the defined Local Hub disaster scenario.
+565. RTO target: one hour for restoration on replacement infrastructure.
+566. RPO/RTO are measurable operational targets, not assumptions.
+567. Backup architecture must include an independent recovery copy and restore verification.
+568. A same-site NAS alone is not sufficient to claim disaster resilience.
+
+---
+
+# 46. Final cross-check against Gemini Master
+
+569. Gemini's frozen core principles are retained.
+570. PostgreSQL Local Hub is retained.
+571. Tauri SQLite remains client-only.
+572. Cloud Hub PostgreSQL is retained.
+573. Clean Architecture is retained.
+574. UUIDv7 is retained.
+575. Aggregate version/If-Match/412 is retained.
+576. EXCLUDE/tstzrange/btree_gist is retained.
+577. BigInt IRR money is retained.
+578. UoW + Domain Event + Outbox atomicity is retained.
+579. Idempotency semantics are retained.
+580. Outbox lease semantics are retained.
+581. Inbox atomicity is retained.
+582. Ed25519 Sync API is retained.
+583. JWT security contract is retained.
+584. Bale HMAC integration is retained.
+585. RFC8785 fingerprinting is retained.
+586. RFC7807 errors are retained.
+587. Testcontainers foundation is retained.
+588. HTTP simulation fresh-session rule is retained.
+589. Public website resolution is incorporated.
+590. Nobat.ir ACL resolution is incorporated.
+591. Currency resolution is incorporated.
+592. Authority resolution is incorporated with an explicit cross-hub conflict safeguard.
+593. RPO/RTO resolution is incorporated and strengthened with measurable DR requirements.
+594. The final document therefore supersedes the shorter Gemini Master as the implementation source of truth.
+
+---
+
+# 47. Rules for Gemini / implementation agents
+
+595. Do not redesign the architecture because a different pattern looks attractive.
+596. Do not replace PostgreSQL guarantees with Python locks.
+597. Do not introduce SQLite as operational backend storage.
+598. Do not introduce LWW as a generic conflict policy.
+599. Do not remove idempotency because the client "usually sends once".
+600. Do not remove Outbox because direct HTTP is simpler.
+601. Do not remove Inbox because duplicates "should not happen".
+602. Do not move business logic into route handlers.
+603. Do not trust UI permission checks.
+604. Do not copy legacy models without mapping them to the new domain.
+605. Do not expose internal database structures as public API contracts.
+606. Do not send unrestricted PII through Sync.
+607. Do not claim RPO/RTO without measurement.
+608. Do not mark a feature complete without its failure modes.
+609. Do not reopen closed architecture for stylistic reasons.
+610. Do raise a blocker when an implementation genuinely contradicts this contract.
+
+---
+
+# 48. Final implementation gate
+
+611. The v1.3 core and this integrated v3.0 document form the frozen architecture baseline. Its four authorization gates are independent and release-scoped; open implementation/provider/legal evidence does not authorize Production by itself.
+612. Gate A — Engineering / Development / Schema / Testcontainers: permits repository structure, module boundaries, development database provisioning, additive migrations, test code and isolated integration/security/concurrency tests when the product owner expressly initiates the work. It does not permit Production deployment, real patient data, live customer migrations or live payment activation.
+613. Gate B — External Provider Verification: requires documented capability checks and/or integration tests for selected payment gateways, SMS providers, Object Storage, KMS/key management, backup services and other production dependencies. Provider uncertainty does not block isolated Gate A development with mocks/sandboxes, but live activation remains blocked.
+614. Gate C — Legal / Tax / Commercial: requires approved retention rules, privacy notice, SaaS agreement, payment/refund disclosures, affiliate tax treatment, commercial proration/coupon/attribution rules and any required counsel/tax-adviser sign-offs. Gate C is not replaced by technical tests.
+615. Gate D — Production Rollout / Live Data: remains blocked until the applicable Gate A, B and C criteria are evidenced; backup/restore, RPO/RTO, secrets, access controls, observability, incident runbooks, security review and controlled-pilot criteria pass; and the product owner issues explicit written Production approval.
+616. Each migrated module must be reviewed against the master specification and Traceability Matrix.
+617. ChatGPT/Gemini cross-review is a quality-control mechanism, not a second architecture-design loop.
+618. If reviewers disagree, resolve the issue against explicit product requirements and a recorded ACR; model output alone is not binding.
+619. The system is not production-ready merely because coding is finished.
+620. Production readiness requires all applicable security, concurrency, migration, backup/restore, legal and operational acceptance gates to pass.
+
+---
+
+# 49. Final architectural seal
+
+621. **V1.3 CORE STATUS: FROZEN BASELINE; V3.0 STATUS: FINAL ARCHITECTURE BASELINE — PRODUCTION GATES OPEN**
+622. **GATE A: DEVELOPMENT / SCHEMA / TESTCONTAINERS WORK PERMITTED WHEN EXPLICITLY INITIATED; GATES B/C PENDING; GATE D PRODUCTION AUTHORIZATION BLOCKED**
+623. **INTEGRATION TEST FOUNDATION: CLOSED; NEW TESTS ARE ADDITIVE**
+624. **SCHEDULE APPOINTMENT HANDLER V1.3 BASELINE: ACCEPTED; V3.0 MULTI-RESOURCE EXTENSION REQUIRES ACCEPTANCE TESTS**
+625. **SAAS MARKETING & STOREFRONT: SEPARATE CONTROL-PLANE PROJECT; CLINIC WEBSITE/PORTAL: OPTIONAL TENANT MODULE**
+626. **NOBAT.IR: FUTURE ACL INTEGRATION**
+627. **BACKEND SOURCE OF TRUTH: POSTGRESQL**
+628. **LOCAL PHYSICAL OPERATIONS: LOCAL HUB; ONLINE BOOKING: CLOUD HUB**
+629. **CLOUD POLICY/ENTITLEMENT/ONLINE AUTHORITY: CLOUD HUB**
+630. **SYNC MODEL: BUSINESS/INTEGRATION EVENTS, NOT CRUD REPLICATION**
+631. **ORDERING: AUTHORITATIVE SEQUENCES**
+632. **IDENTIFIERS: UUIDv7**
+633. **ONLINE APPOINTMENT OVERLAP: POSTGRESQL EXCLUDE; MANUAL OVERLAP: VISIBLE, ACKNOWLEDGED AND AUDITED**
+634. **MONEY: IRR / SIGNED 64-BIT WHOLE RIALS; SAFE WIDER INTERMEDIATE ARITHMETIC**
+635. **IDEMPOTENCY: REQUIRED**
+636. **OUTBOX/INBOX: REQUIRED**
+637. **SYNC SECURITY: ED25519; OFFLINE LICENSE LEASE: ED25519**
+638. **API ERRORS: RFC7807**
+639. **REQUEST FINGERPRINTING: RFC8785 JCS**
+640. **LOCAL HUB RECOVERY TARGET: RPO ≤ 5 MINUTES, RTO ≤ 1 HOUR FOR THE DEFINED SCENARIO; CLOUD TARGETS SEPARATE**
+641. **NEXT AUTHORIZED ENGINEERING GATE: GATE A (WHEN EXPLICITLY INITIATED); PRODUCTION REQUIRES GATES A–D AND WRITTEN PRODUCT-OWNER APPROVAL**
+
+---
+
+## Appendix A — Mandatory terminology
+
+642. **Local Hub:** authoritative local operational service and PostgreSQL database.
+643. **Cloud Hub:** cloud service and PostgreSQL database with defined cloud-authoritative capabilities.
+644. **Business API:** API for business commands/queries.
+645. **Sync API:** API exclusively for controlled node-to-node synchronization.
+646. **Domain Event:** internal domain fact.
+647. **Integration Event:** externalized contract derived from a domain fact.
+648. **Sync Message:** transport envelope for an Integration Event.
+649. **Outbox:** durable outgoing delivery staging.
+650. **Inbox:** durable incoming duplicate/progress handling.
+651. **Aggregate Version:** version of one aggregate.
+652. **Sequence:** position in a synchronization stream.
+653. **Idempotency Key:** client/integration operation identity for retry safety.
+654. **RPO:** maximum acceptable data-loss interval for a defined disaster scenario.
+655. **RTO:** maximum acceptable restoration interval for a defined disaster scenario.
+656. **ACL:** Anti-Corruption Layer protecting the internal domain from an external system's model.
+
+---
+
+## Appendix B — Mandatory review questions for every new module
+
+657. What business capability does it implement?
+658. Which aggregate owns the invariant?
+659. Which hub is authoritative?
+660. Is the operation local-only, cloud-only or cross-hub?
+661. What is the transaction boundary?
+662. Is idempotency required?
+663. Is optimistic concurrency required?
+664. Which PostgreSQL constraint protects the invariant?
+665. Does it emit a Domain Event?
+666. Does that event become an Integration Event?
+667. Does it enter Outbox?
+668. What happens on duplicate delivery?
+669. What happens if the process crashes after commit?
+670. What happens if the network fails?
+671. What happens if PostgreSQL rejects the mutation?
+672. What happens if two users perform the operation concurrently?
+673. What PII crosses a node boundary?
+674. What is audited?
+675. What permissions are required?
+676. How is the feature tested?
+677. How is it migrated from the legacy system?
+678. How is it backed up/recovered if it is operationally critical?
+
+---
+
+## Appendix C — Non-negotiable implementation truths
+
+679. Database constraints are part of the business integrity boundary.
+680. Transactions are part of the business integrity boundary.
+681. Idempotency is part of the API correctness boundary.
+682. Outbox/Inbox are part of the distributed consistency boundary.
+683. Authorization is part of the business correctness boundary.
+684. Auditability is part of operational accountability.
+685. Backup/restore is part of production correctness.
+686. Testcontainers tests are not optional for PostgreSQL-specific invariants.
+687. Concurrency tests are not optional for concurrency-sensitive use cases.
+688. A green happy-path test is insufficient proof of distributed correctness.
+689. A working UI is insufficient proof of backend security.
+690. A successful sync call is insufficient proof of durable business delivery.
+691. A completed backup job is insufficient proof of recoverability until restore is verified.
+
+---
+
+
+---
+
+# 50. Operational Clinic Accounting, Revenue Sharing & Reporting Contract
+
+692. The financial subsystem is an **Operational Clinic Billing, Cashier, Insurance-Tracking and Revenue-Sharing Ledger** sized for clinic operations. It must be capable, auditable and reportable without becoming a general-purpose ERP.
+693. The initial scope does **not** include general-ledger double-entry bookkeeping, chart of accounts, journal vouchers, trial balance, payroll, salary calculation, tax filing or a claim of statutory e-invoicing compliance. A later requirement for any of these needs a separate explicit scope decision.
+694. Financial facts must be represented as distinct concepts: service delivery, invoice and invoice line, actual money receipt, prepayment/credit, allocation of money to an invoice, refund, financial adjustment, insurer-expected amount/settlement, and revenue-share allocation. These concepts must not be collapsed into one mutable `balance` field.
+695. `ServiceRecord` means that a service was performed or otherwise operationally recorded; `InvoiceItem` means a charge line. They are related but not interchangeable. The model must explicitly represent the relationship, including an approved charge that has no performed-service record where a genuine business rule requires one.
+696. An invoice/charge may be editable only while in a non-posted draft state. Once posted, its financial facts and pricing snapshots must not be silently edited or deleted; corrections must use explicit adjustment, credit-note, cancellation or refund records appropriate to the case.
+697. At posting, each invoice line must snapshot the service identity/code/name, quantity, unit tariff, pricing-rule version, relevant payer/allocation policy version and the final amounts used. Later catalog or tariff changes must not rewrite historical invoices or reports.
+698. Use distinct integer-IRR fields for `gross_service_amount`, `discount_amount`, `subsidy_amount`, `rounding_reduction_amount`, `rounding_surcharge_amount`, `basic_insurance_expected_share`, `supplementary_insurance_expected_share` and `patient_payable_amount`. Amounts that represent reductions must be non-negative; an upward rounding charge must be represented separately rather than hidden as a negative discount.
+699. The displayed aggregate «رایگان/تخفیف» is derived, never stored as a replacement for its underlying fields. For this contract, its report formula is `discount_amount + subsidy_amount + rounding_reduction_amount`. `rounding_reduction_amount` means only the reduction from rounding down; an upward rounding charge is kept in `rounding_surcharge_amount` and is not counted as free/discount. A fully free service may be represented as a full discount with an explicit reason code. Components must never be counted twice.
+700. A versioned pricing/allocation policy must define the order in which tariff, discounts, subsidy, rounding and insurer/patient responsibility are calculated. Unless an explicitly named and auditable adjustment applies, `net_chargeable_amount = gross_service_amount - discount_amount - subsidy_amount - rounding_reduction_amount + rounding_surcharge_amount`, and `net_chargeable_amount = basic_insurance_expected_share + supplementary_insurance_expected_share + patient_payable_amount`. Both identities must be tested; an unexplained imbalance is forbidden.
+701. Manual discounts, subsidies, free services and rounding reductions must capture the acting user, timestamp, reason/code and any required approver. Authorization/approval thresholds must be enforced server-side; hiding a UI action is not sufficient.
+702. Expected insurance shares represent an amount attributed to an insurer, **not cash received**. Actual insurer remittance/settlement must be represented separately and reconciled with the relevant expected amount; an expected insurance share must never be counted in a cashier collection report as if payment had already arrived.
+703. Patient responsibility, insurer responsibility, actual receipts, refunds, outstanding patient debt and unapplied patient credit must remain separately queryable. A patient's debt report must not mistakenly count an amount expected from an insurer as patient debt.
+704. Invoice numbers and payment-receipt numbers are distinct human-readable identifiers; neither replaces the immutable UUIDv7 primary key. Refunds may have their own human-readable number where useful for print/search.
+705. Human-readable numbers must be assigned server-side with a concurrency-safe mechanism and unique scope (at minimum clinic plus document type/number). They must be immutable once issued. Gaps may occur; the system must not promise gapless numbering unless a separately verified legal/business requirement requires it. Internal numbering must not be represented as proof of statutory tax-invoice compliance.
+706. `PaymentReceipt` records an actual, confirmed inflow of money. A failed/pending payment attempt is not a posted receipt. Each receipt must preserve amount, currency, receipt timestamp, payer/source, operator, payment instrument and applicable allocations.
+
+**706.1 — PaymentAttempt, UnverifiedPaymentClaim and PaymentReceipt are separate facts.** Starting a gateway redirect or creating a payment link creates a `PaymentAttempt`, not a receipt. A card-to-card claim, screenshot or unverified external payment reference creates an `UnverifiedPaymentClaim` and is excluded from collection reports. A `PaymentReceipt` may be posted only after the following method-specific requirements are satisfied:
+
+- **`CASH`:** record amount/currency, receipt timestamp, `operator_user_id`, actor/audit context and `shift_id`/cashier session. Record a managed cash-drawer/register reference when the clinic uses one. The operator must hold `RECORD_VERIFIED_FINANCIAL_RECEIPT`. A bank destination account or bank transfer reference is not required solely for a CASH receipt.
+- **`POS`:** record managed `pos_terminal_id`, terminal/provider reference or batch/trace identifier when supplied, amount/currency, timestamp, operator and cashier shift. The POS terminal must belong to the tenant and be active/managed. Record the terminal's actual authorization/settlement state; do not label a merely authorized transaction as settled unless the provider/terminal state supports that claim.
+- **`CARD_TO_CARD`:** record the bank trace/reference identifier, destination account/card reference belonging to the clinic, amount/currency, timestamp and operator. Verification requires a trustworthy bank/account statement or approved bank-reconciliation evidence that confirms the inflow. An uploaded screenshot alone remains an `UnverifiedPaymentClaim`.
+- **`ONLINE`:** require server-to-server gateway verification matching expected merchant ID, order/PaymentAttempt ID, amount, currency, successful settlement status and unique provider transaction/reference. Verify webhook signature where applicable, enforce callback idempotency and reconcile ambiguous timeouts before posting a receipt.
+
+All methods require the explicit relevant permission and immutable audit attribution. A receptionist cannot promote an unverified claim by a simple status toggle.
+707. The initial payment-method vocabulary is `CASH`, `POS`, `CARD_TO_CARD` and `ONLINE`, with any additional method introduced only through an explicit typed extension. `pos_terminal_id` is required for `POS` and must refer to a managed terminal record; it is not free-form text. A POS terminal can be associated with its relevant clinic/location and settlement account/reference where operationally needed.
+
+**707.1 — Direct clinic gateway (BYO Merchant).** Each tenant configures its own supported payment gateway credentials, encrypted at rest with the tenant's key hierarchy. Online clinic payments settle directly to that clinic's merchant/bank account and do not pass through the SaaS platform's bank account. Gateway credentials are never exposed to the browser, bot, affiliate or other tenants. Deposit policy supports `NO_DEPOSIT`, a clinic-wide fixed/percentage default, and a per-service override. The calculated deposit is snapshotted on the PaymentAttempt in whole IRR. Provider-specific gateway adapters must define initiation, server-side verification, idempotency, refunds, timeout ambiguity, webhook signature verification and reconciliation.
+708. `DEPOSIT_DEDUCTION` is **not** a payment method: using an existing patient credit to pay an invoice is an internal allocation, not new money received. It must be represented by a credit/prepayment allocation and must not inflate cash, POS or bank collection totals.
+709. Receipts and their allocations must support partial payments, multiple payments for one invoice, and one payment allocated across multiple invoice items/invoices where the business workflow permits it. Allocation history must be auditable and corrected through an explicit reversal/reallocation mechanism, not silent destructive edits.
+710. Prepayments/deposits must represent actual money received in advance. They create an available patient-credit balance that can be allocated to later charges or refunded under policy. Applying a deposit reduces available credit and the relevant invoice balance but does not create a second receipt.
+711. Patient credit and invoice debt are derived from the posted charge, receipt, allocation, refund and adjustment facts. A cached balance may be used for performance only if it is transactionally maintained and verifiably rebuildable from those facts; it is not an independent source of truth.
+712. A refund must be a separate immutable financial record linked to the original receipt and, when applicable, to the original invoice line/service/appointment. Partial refunds are supported. The cumulative amount refunded against a receipt/allocation must not exceed the refundable amount after prior refunds and reversals.
+
+**712.1 — Clinic and SaaS refunds are separate bounded contexts.** `ClinicPaymentRefund` belongs to the Tenant Application Plane and is governed by clauses 712–714; it may trigger auditable revenue-share reversals under clause 720. `SaasSubscriptionRefund` belongs to the SaaS Control Plane and reverses SaaS subscription/affiliate amounts only. The two refund types must not share ledgers or database tables.
+713. A refund records the actual refund method, timestamp, operator, reason, shift/context and destination/instrument reference when applicable. The refund method need not be identical to the original payment method, but that difference must be explicit and reportable.
+714. Cancelling an appointment does not itself prove that money was refunded. A refund records money returned; a no-payment cancellation or a reduction of an unpaid charge must use the appropriate cancellation/financial-adjustment path instead. Original receipts and invoices must remain historically explainable.
+715. Revenue sharing must support the operational categories `CLINIC`, `DOCTOR`, `SPECIALIST` (therapist/کارشناس as defined by clinic terminology) and `REFERRER`. The data model must not assume that an invoice line can have only one provider or one beneficiary if the business rules permit multiple beneficiaries.
+
+**715.1 — `REFERRER` means only `ClinicServiceReferrer`.** The Section 50 `REFERRER` beneficiary is a person or partner who referred a patient/service to this clinic and whose revenue share is recorded inside that tenant. It is not a SaaS affiliate. `SaasAffiliatePartner` refers clinics to purchase the SaaS subscription and is a separate Control Plane domain with separate tables, permissions and ledger. No clinic names, patient records or staff data may be exposed to SaaS affiliates.
+716. Revenue-share allocations should be represented as child allocation records linked to the relevant invoice/service line, with beneficiary type/ID, calculation basis, rule/rate or fixed-amount snapshot, amount in integer IRR, and applicable rule version. Reports may expose convenient totals such as clinic share, doctor share, specialist share and referrer share without storing contradictory duplicate totals as independent truth.
+717. The revenue-share policy must define the distributable base, percentage/fixed rules, rounding method, precedence and eligibility rules. The sum of shares must satisfy that policy's explicit upper bound; the application must not assume without evidence that every share is calculated from gross tariff or that all share categories are always additive in the same way.
+718. Revenue-share rules and calculated amounts are snapshotted for historical reporting. Later changes to rates, staff assignments, referrer rules or catalog prices must not recalculate past work.
+719. Revenue-share reporting is in scope; payroll and actual payment of salaries/commissions to staff are not in scope unless separately approved. A reported earned share must not automatically be represented as having been paid to its beneficiary.
+720. When a posted service/invoice line is refunded, cancelled after posting or financially reduced, the original revenue-share snapshot remains intact. Any necessary reversal/reduction of reported shares must be represented as a linked, auditable share-adjustment/reversal so gross and net performance remain distinguishable.
+721. Every receipt, refund, deposit receipt, financial adjustment and share adjustment must record `occurred_at`, `operator_user_id`, actor type/identity, correlation/audit context and applicable `department_id`. `shift_id` is recorded whenever the transaction occurs within a defined cashier shift/session; historical operator identity must not be overwritten when a user changes name or is deactivated.
+722. A minimal `CashierShift`/cashier-session concept must support the shift filters required by clinic operations. Where the clinic performs shift closing, it should record opening/closing users and times, opening cash float, system-calculated expected cash, counted cash and variance. POS totals must be reconciled by terminal separately from physical cash. If formal shift closing is not enabled, the transaction still records its user and configured shift label/context.
+723. Cashier reports must be based on actual receipt/refund transaction time and instrument, not merely on invoice date or service-performance date. Reports must separately label billed/performed amounts, expected insurance amounts, actual cash collected, refunds, net collections, patient debt and unapplied patient credit.
+724. The required manager/reporting surface must include, at minimum:
+   - Doctor and specialist performance by service, including service count, gross performance, discounts/subsidy/rounding, basic and supplementary insurance shares, patient responsibility, clinic share and beneficiary shares.
+   - Referrer performance/revenue-share report.
+   - Free/insured/self-paying patient and service-volume statistics, including daily and monthly summaries/charts.
+   - Collections and cash flow by operator, patient, date/time, shift, payment method and POS terminal, including refunds and net collections.
+   - Daily prepayments/deposits, available patient credit and patient-debtor reports.
+   - Visit returns, cancellations with financial effect, refunds and related original invoice/receipt references.
+   - Insurance list preview/print/export, with the insurance fields and totals required by the verified clinic workflow.
+   - The manager-facing ad-hoc appointment scheduling report («گزارش وقت‌دهی موردی») observed in the legacy report menu. This is an Appointment-domain/read-report requirement, not a financial ledger operation; inventory its actual columns, filters and date semantics from the legacy UI/data before implementing it.
+725. Reports must support, where meaningful, filters by admission/registration date and time, service date and time, invoice/posting date and time, receipt/refund date and time, invoice number, receipt number, patient dossier/file number, patient, operator, shift, doctor, specialist, referrer, specialty, department, service, basic insurer, supplementary insurer, patient occupation, payment method and POS terminal. Admission/registration time is a distinct business timestamp and must not be inferred from the appointment start, service-performance timestamp, invoice-posting timestamp or receipt/refund timestamp. Every date/time filter must state which business timestamp it uses.
+726. Patient, visit/admission and financial metadata needed for reporting must be linked through stable IDs. Where the clinic records admission/registration/check-in, persist its actual timestamp on the relevant visit/admission record and link that record to the relevant appointment, service record and financial documents as appropriate; do not fabricate it when the legacy source did not capture it. Mutable attributes such as patient occupation, provider assignment and insurance policy must be snapshotted on the relevant posted charge/service when historical reports require the value as it was at that time; do not duplicate every mutable patient field on every financial row without a reporting need.
+727. Insurance preview/export is an operational reporting capability, not an assumption that the system integrates with every insurer or submits claims automatically. Any future insurer API/claim workflow must be a separate integration with its own mapping, status lifecycle and idempotency contract.
+728. Read/report queries may use well-indexed SQL views or dedicated read models where measurements justify them. A separate CQRS/event-sourced reporting architecture is not mandatory solely to generate these reports. Reports must not mutate financial source records.
+729. Exports and printouts containing patient, insurance or financial details must be permission-protected, audited when appropriate, limited to necessary data and generated only for authorized roles. Excel export is a manager capability unless an explicit permission grants it to another role.
+730. Required indexes and query plans must be chosen from actual reporting filters and expected clinic volume. Do not create an index for every field automatically; prove that critical manager/cashier reports remain responsive on representative data.
+731. Legacy migration must map the old software's labels and formulas—including «عملکرد مرکز»، «سهم کارشناس»، «سهم معرف»، «آزاد/بیمه»، «رایگان»، «رند شده»، cash/POS collection and refund reports—to explicit new fields and derived reports. If a legacy label has ambiguous semantics, inventory and verify it against actual old records before migration; do not silently guess or discard it.
+732. Financial migration validation must reconcile representative historical totals by date, service, provider, operator, payment instrument and insurance category; verify receipt/refund references; and report any legacy inconsistencies for review rather than silently adjusting them.
+733. Automated tests must cover at least: full and partial payment; multiple payments per invoice; unapplied prepayment and later allocation; debt calculation; refund limits and partial refunds; discount/subsidy/rounding arithmetic; insurer expected share versus actual settlement; multiple POS terminals; shift/operator filtering; admission/registration date-time filtering independently from service, invoice-posting and receipt/refund timestamps; share calculations and rule snapshots; share reversals after refunds; human-number uniqueness under concurrency; permissions for discounts and exports; and accuracy of the required reports against known fixture totals.
+734. The Definition of Done for any financial feature includes a tested reconciliation identity, immutable posted history, correct audit/operator attribution, authorized access, idempotent behavior for retryable writes, and reports that distinguish billed amount from money actually received.
+735. No report or user-interface label may imply tax/legal compliance, actual insurer payment, actual staff payout or cash receipt unless the underlying state supports that claim.
+736. This section clarifies and expands the financial domain without reopening the frozen core architecture. Implementation must follow it; any genuinely incompatible legacy behavior must be recorded as a migration decision or narrowly scoped Architecture Change Record rather than silently changing the financial model.
+737. Based on the legacy report examples described during review, the label «عملکرد مرکز» appears to correspond to `net_chargeable_amount`, while `gross_service_amount` may be reconstructible as «عملکرد مرکز + رایگان/تخفیف» for those examples. Treat this as a provisional legacy-mapping hypothesis, not a universal formula, until it reconciles against representative source rows, invoice/service details and insurance/payment breakdowns. Do not hard-code the mapping solely from a label or two sample rows.
+738. The legacy column label «نقدی» must not automatically be mapped to actual cash received or `payment_method = CASH`. First establish whether it denotes patient responsibility/self-pay (as opposed to insurer responsibility) or the actual payment instrument. Keep `patient_payable_amount` / patient responsibility distinct from actual `PaymentReceipt` records and payment methods. Actual cash collection reports must be derived from posted receipts whose payment method is `CASH`, net of relevant refunds, not from a billing/report category named «نقدی».
+739. The ad-hoc appointment report in clause 724 must be implemented from the Appointment-domain reporting/read model using the columns, filters, status meanings and date basis verified from the legacy application. It must not be fabricated from financial rows or mutate appointments while reporting. Add representative fixture-based tests once the legacy report semantics are inventoried.
+
+
+
+---
+
+# 51. Multi-Tenancy, Tenant Referential Integrity and Row-Level Security
+
+740. The ecosystem consists of two strictly bounded planes deployed across three logical PostgreSQL database boundaries: (a) the SaaS Control Plane database, which manages SaaS customer accounts, tenant lifecycle, subscriptions, SaaS billing/refunds, coupons, affiliate accounts/ledger, entitlement/license issuance, contract acceptance, deletion tombstones and platform operations; (b) the shared Cloud Tenant Application database, which manages Cloud tenant clinic operations and online reservations, with every row scoped to one immutable UUIDv7 `tenant_id`; and (c) each clinic's Local Hub PostgreSQL database on its Mini PC, which is authoritative for physical reception and other explicitly local operational activity while disconnected. The Control Plane database and Cloud Tenant Application database have separate credentials, migration lineages and API trust boundaries. A Local Hub uses the tenant-domain schema/migration baseline with explicitly documented local-only metadata. These are logical database boundaries even if Cloud databases share a physical managed PostgreSQL cluster. No cross-database foreign keys are permitted; cross-boundary references use immutable IDs and versioned APIs/integration events.
+
+741. Every tenant-owned table other than the root `tenant_registry` must have `tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id)`. This direct root foreign key is required on every tenant-owned root/aggregate table (including `tenant_persons`, `services`, `bookable_resources`, `appointments`, `patient_profiles` and inventory roots), and may also be present on child tables for explicit tenant existence integrity. No tenant-owned row may be created for a nonexistent tenant, with a null tenant_id or with a client-forged tenant context. The `tenant_registry.tenant_id` itself is the root primary key and is not a self-referencing foreign key.
+
+742. Every tenant-owned parent table referenced by a composite foreign key must expose `UNIQUE (tenant_id, id)` in addition to its primary key. This applies to appointments, resources, persons, services, invoices, receipts, inventory entities and other tenant-owned aggregates where referenced.
+
+743. Every foreign key between tenant-owned tables must include `tenant_id`, referencing `(tenant_id, id)` on the target table. For mandatory relationships, both referencing columns must be `NOT NULL`; `MATCH FULL` is permitted and recommended where all referencing columns are mandatory. For an optional composite relationship such as `(tenant_id, specific_resource_id)` or `(tenant_id, booker_person_id)`, where `tenant_id` is `NOT NULL` and the target ID is `NULLABLE`, the foreign key must use `MATCH SIMPLE` (or omit the match clause, because PostgreSQL defaults to `MATCH SIMPLE`); it must not use `MATCH FULL`, since `MATCH FULL` rejects a partially NULL composite key. The separate direct `tenant_id REFERENCES tenant_registry(tenant_id)` constraint still verifies tenant existence when the optional target ID is NULL. A plain ID-only foreign key is insufficient for tenant-owned relationships.
+
+744. Database roles are separated: `db_migrator` is a non-login migration/ownership role that owns schemas/tables and executes Alembic migrations; `db_app_runtime` is the non-owner application/worker role and is not a `SUPERUSER`, does not have `BYPASSRLS`, is not granted `TRUNCATE`, DDL, ownership or policy-management privileges, and is never a member of `db_migrator`. A narrowly scoped migration login may assume `db_migrator` only in CI/deployment migration jobs. Migration credentials and secrets must not exist in Local Hub, Cloud Hub, Control Plane or worker runtime containers/images/environment. Backup/restore operators use a separately controlled identity and are not ordinary query users.
+
+745. RLS is mandatory on every tenant-owned table in a shared multi-tenant database. The Cloud Hub shared tenant database must enable and force RLS on every such table. A Local Hub deployment containing only one tenant may use the same policy pattern for consistency; if a Local Hub database ever contains more than one tenant, RLS is mandatory there as well.
+
+746. Each RLS-protected tenant table uses a permissive base policy together with a restrictive tenant guard for runtime access. Because `FORCE ROW LEVEL SECURITY` also subjects the table owner to RLS, a separate migration-only permissive policy must be created for `db_migrator`. The migration policy is not inherited by or available to runtime roles. The base runtime policy grants no authority beyond SQL table grants; the restrictive runtime policy remains an AND guard even if feature-specific permissive policies are added later:
+
+```sql
+ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_runtime_base ON appointments
+AS PERMISSIVE
+FOR ALL TO db_app_runtime
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY tenant_isolation_guard ON appointments
+AS RESTRICTIVE
+FOR ALL TO db_app_runtime
+USING (
+  tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+)
+WITH CHECK (
+  tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+);
+
+-- FORCE ROW LEVEL SECURITY applies to the table owner as well.
+-- This permissive policy is for the migration role only.
+CREATE POLICY tenant_migrator_maintenance ON appointments
+AS PERMISSIVE
+FOR ALL TO db_migrator
+USING (true)
+WITH CHECK (true);
+```
+
+The `tenant_migrator_maintenance` policy does not grant SQL privileges by itself; ordinary PostgreSQL grants still apply. The migration role is used only by authorized migration jobs. `db_app_runtime` and every runtime login/worker role must not be a member of `db_migrator`, and runtime containers must not contain migration credentials. Apply the three-policy pattern consistently to each table where the named roles apply; do not create a migrator policy for an unrelated role or expose it through role inheritance.
+
+747. At the start of every Tenant Application Plane UoW, including HTTP requests and background jobs, the tenant context is bound only within that database transaction using `SELECT set_config('app.current_tenant_id', :verified_tenant_id, true)`. The transaction-local setting must not leak through the connection pool.
+
+748. `verified_tenant_id` must derive from server-verified credentials or a signed internal job envelope: verified JWT claim, verified Ed25519 node identity, or authorized internal command context. A tenant identifier supplied only in request JSON/query/path is never the authority for database context.
+
+749. RLS is defense in depth, not a substitute for safe SQL or repository scoping. SQL must use bound parameters; dynamic identifiers/clauses must use allowlists; repositories must explicitly scope reads and writes by tenant. A SQL injection in a session able to call `set_config` may alter a custom GUC, so parameterization and least privilege remain mandatory.
+
+750. Views, partitioned tables, row-level triggers and functions that access tenant data must be included in the Threat Model. On PostgreSQL 15+, tenant-facing views should use `security_invoker = true` where compatible. `SECURITY DEFINER` functions for general tenant queries are prohibited unless an ACR documents why they are necessary and how they enforce tenant scope internally. `TRUNCATE` is not protected by RLS and is not granted to runtime roles.
+
+751. Testcontainers security tests run with the actual `db_app_runtime` role and cover cross-tenant `SELECT`, `INSERT`, `UPDATE`, `DELETE`, foreign-key attachment, views and worker execution. Tests must also prove that missing tenant context fails closed and that RLS is not bypassed through owner/superuser credentials.
+
+752. Multi-Branch / Parent Organization hierarchy is out of scope. Each clinic tenant is an independent SaaS tenant; cross-tenant consolidated reporting is not exposed to clinic tenants.
+
+753. The SaaS Marketing & Storefront is a separate project/surface and interacts with the Control Plane only through approved onboarding, pricing, coupon, checkout and subscription APIs. It has no direct access to Tenant Application Plane tables.
+
+754. Each clinic's Public Website and Patient Portal (`MOD_WEB_PANEL` or the separately entitled clinic website module) consume approved Cloud Hub APIs scoped to that clinic tenant. They never connect directly to Local Hub PostgreSQL and cannot bypass Business API policies.
+
+# 52. Person Identity, Optional Official Identifiers and Cryptographic Data Lifecycle
+
+755. Providing a National ID or foreign official identifier is optional across the platform. No patient, staff member, clinic owner/manager, receptionist, doctor, specialist or SaaS customer may be blocked from account/profile creation solely because an official identifier is absent, except where a separately verified legal requirement for a particular transaction is documented and counsel-approved.
+
+756. `SaasCustomerAccount` is a Control Plane identity authenticated by a verified mobile number/OTP. Its identity is independent of `tenant_persons`; there are no cross-plane foreign keys. If a formal SaaS invoice requires buyer legal identifiers, they belong in an isolated Control Plane billing-profile table and are collected only when necessary.
+
+757. The Tenant Application Plane uses `tenant_persons` as the canonical human identity record. Its core columns include UUIDv7 `id`, `tenant_id`, name fields, optional birth date/gender where required, aggregate version and timestamps. Personal identity must not be inferred from an appointment, phone number or mutable display name.
+
+758. `person_identifiers` stores zero or more optional official identifiers for a person. Absence of an official identifier means zero rows, not a dummy value or a NULL placeholder row. Identifier uniqueness is tenant-scoped and type/issuing-authority-scoped.
+
+759. `person_phones` stores zero or more contact phone records for a person. Multiple persons in one tenant may share the same phone number (for example family members); phone number is not a unique person key and `is_shared_phone` is informational only.
+
+760. `patient_profiles` has a zero-or-one relationship to `tenant_persons` per tenant and contains the operational dossier, staff-only tags, internal notes and pinned reception alerts. It is not a full EMR, prescription or clinical decision-support record.
+
+761. `staff_profiles` has a zero-or-one relationship to `tenant_persons` per tenant and stores staff/provider metadata. `medical_council_code` is a separate optional professional identifier and is not a National ID.
+
+762. `user_accounts` has a zero-or-one relationship to `tenant_persons` per tenant and stores access credentials and account state. Doctors/specialists do not receive a login by default in the initial scope; a user account exists only when the person is expressly authorized to use the panel. The staff-management form must expose a permission-protected opt-in control labelled `Create login account` for every staff/provider type, including doctors and specialists. It is OFF by default. When explicitly enabled by an authorized manager, the workflow creates the person's `user_accounts` row, provisions an account-specific tenant-unique login identifier and securely establishes credentials. Staff kind or provider status must never grant permissions automatically; RBAC assignments are separate and explicit. Disabling/removing login access must not delete the staff profile or historical audit identity. Shared family phone numbers must not be silently reused as a unique login identifier.
+
+763. `tenant_governance_assignments` links roles such as `CLINIC_OWNER`, `LEGAL_REPRESENTATIVE` and `CLINIC_MANAGER` to `tenant_persons` through composite `(tenant_id, person_id)` foreign keys. Governance, patient and staff records must not duplicate a person's National ID in multiple tables.
+
+764. Tenant-level legal entity fields (for example legal entity type, company registration/national identifier, permit number and medical-center code) are separate from a natural person's National ID. They are nullable/optional unless a verified legal requirement for a specific service or invoice is documented. A company's legal identifier must never be confused with an individual's 10-digit National ID.
+
+765. Identifier normalization is type-specific and applies only to identifier fields, never free text. Persian and Arabic digits are mapped to ASCII digits; approved visual separators/whitespace are normalized; leading zeros are preserved. Each identifier type has its own allowed character set, length and validation rule. Iranian National ID Modulo-11 validation establishes only syntactic validity, not identity ownership. Foreign FIDA-code rules must be confirmed against the applicable authoritative requirements; passport validation must be issuer/country-aware rather than assuming one universal format. Manual document review is not labelled official verification.
+
+766. `person_identifiers` stores encrypted value, 96-bit GCM nonce, 128-bit authentication tag, encryption key version, AAD version, masked display, identifier type, issuing authority and verification status. A separate blind index supports exact lookup without storing the raw identifier in plaintext.
+
+767. The domain-separated HMAC blind-index input is:
+
+```text
+canonical_id_input =
+    LOWER(TRIM(tenant_id_uuid_string))
+    + "|" + UPPER(TRIM(id_type))
+    + "|" + UPPER(TRIM(issuing_country_or_authority))
+    + "|" + NORMALIZED_IDENTIFIER_VALUE
+
+lookup_hmac = HMAC_SHA256(
+    key = secret_hmac_key(hmac_key_version),
+    message = UTF8_ENCODE(canonical_id_input)
+)
+```
+
+The active blind-index uniqueness scope is `(tenant_id, id_type, issuing_country_or_authority, lookup_hmac_active)`. HMAC keys are stored in managed secret/key infrastructure, never in the database or source control.
+
+768. Phone numbers are PII and must not be stored only as plaintext. `person_phones` stores an AES-256-GCM ciphertext of the normalized E.164 value, nonce/tag/key version/AAD version, masked value, `phone_lookup_hmac`, `is_primary`, `is_shared_phone` and `phone_verified_at_utc`. The lookup index `(tenant_id, phone_lookup_hmac)` is non-unique to support shared family phones. Phone verification is distinct from phone entry.
+
+769. AES key rotation and HMAC key rotation are independent lifecycles. AES rotation decrypts and re-encrypts source values using a new encryption key and new unique nonce; HMAC rotation recomputes the blind index from decrypted/canonicalized source values. Neither operation substitutes for the other.
+
+770. AES-256-GCM encryption must use a cryptographically random unique 96-bit nonce per key, a 128-bit authentication tag and a versioned AAD contract. AAD v1 binds at least tenant, person, record, data-field/identifier type and issuing authority. Example:
+
+```text
+aad_bytes_v1 = UTF8_BYTES(
+  "v1|" + LOWER(tenant_id)
+  + "|" + LOWER(person_id)
+  + "|" + LOWER(record_id)
+  + "|" + UPPER(id_type_or_field_type)
+  + "|" + UPPER(issuing_country_or_authority)
+)
+```
+
+Nonce reuse with the same AES-GCM key is prohibited. AAD version and encryption key version must be stored alongside ciphertext. AAD prevents ciphertext transplant across tenants/persons/records when the decryptor reconstructs and verifies the same context.
+
+771. HMAC rotation follows a controlled expand/backfill/cutover/contract procedure: (1) add the next-version blind-index storage and metadata; (2) deploy code that dual-writes old and new indexes while the old unique index remains authoritative; (3) verify every old application/worker instance has been drained; (4) run an idempotent batched backfill; (5) verify no missing new hashes and no duplicate collisions; (6) build the new unique index with `CREATE UNIQUE INDEX CONCURRENTLY` in a dedicated Alembic non-transactional/autocommit migration; (7) inspect `pg_index.indisvalid`, drop and retry an invalid index after resolving its cause; (8) validate non-null/check constraints and switch active read/uniqueness key metadata while retaining a defined rollback window; (9) after rollback assurance, remove old index/column and retire the old key. No `Zero-Race-Window` claim is made without successful multi-version concurrency testing.
+
+772. During HMAC dual-write, old and new indexes must be calculated from the same canonical source value in the same write transaction. Existing old application versions that write only the old index must be fully drained before new-index completeness is asserted. New writes must never bypass the current active uniqueness rule. Partial/failed concurrent index creation must be detected and remediated before cutover.
+
+773. Patient merge continues to use the v1.3 canonical/alias model. Merge must be authorized, idempotent where retried, append-audited, and preserve appointments, invoices, receipts, refunds and historical identity references. A blind-index collision or duplicate identifier must not trigger automatic patient merge.
+
+774. Verification state is explicit: `SYNTACTICALLY_VALID_UNVERIFIED` means only format/check-digit validation passed; `OFFICIALLY_VERIFIED` requires a trusted official verification source and timestamp. Any document reviewed manually must use a separate accurately named state.
+
+775. Identifier and phone lookup APIs must not expose raw blind indexes, ciphertext, nonce, authentication tags or key-version secrets. Masked displays are least-privilege outputs; access to decryptable values is separately permissioned and audited.
+
+# 53. Dual-Pool Scheduling, Multi-Resource Allocation and Hold Lifecycle
+
+776. Each row in `bookable_resources` represents one atomic capacity unit (`capacity = 1`) for online exclusion. Clinics with multiple beds/rooms/devices or parallel default online streams create one resource row per independently bookable unit. A generic default stream is not a single global unit unless the clinic intentionally wants only one concurrent online appointment.
+
+777. Each service defines resource requirements in `service_resource_requirements`, with tenant-scoped composite foreign keys to `services` and any `specific_resource_id`. Each requirement has a `requirement_group`, required resource type, optional specific resource, and positive `quantity_required`. All mandatory groups must be satisfied. Alternative resource types/identities within a group must have explicit OR semantics; separate groups are conjunctive. The handler must validate that every required atomic unit is allocated. A migration must prevent a requirement from pointing to another tenant's service/resource.
+
+778. `booking_channel` is immutable event/business context: `ONLINE_WEB`, `ONLINE_BOT` or `MANUAL_STAFF`. `capacity_pool` is deterministically derived: both online channels map to `ONLINE`; `MANUAL_STAFF` maps to `MANUAL`. The database CHECK constraint rejects invalid mappings.
+
+779. Authorized manual bookings may overlap ONLINE and other MANUAL allocations by explicit business decision. Before commit, the API/UI must return the exact conflicting appointments (IDs, display-safe patient names, channels and time intervals); the staff member must set `acknowledge_overlap = true` and hold `ALLOW_MANUAL_OVERBOOKING`. The transaction writes an immutable audit entry containing operator, timestamp, new appointment ID and the conflict IDs/snapshot. If the conflict list changes before commit, the handler must re-check within the transaction and require confirmation of the current list. This rule is not a capacity override for ONLINE bookings.
+
+780. `appointment_resource_allocations` stores one allocation per required atomic resource with `tenant_id`, `appointment_id`, `resource_id`, `booking_channel`, `capacity_pool`, `allocation_status` and bounded `time_slot TSTZRANGE`. Parent tables must expose composite unique `(tenant_id, id)` keys. The following invariant template applies (names may be adapted in migration, but semantics may not):
+
+780.1. `appointments` includes an optional `patient_booking_note TEXT NULL` for a short note supplied by the beneficiary/booker during booking, or transcribed by an authorized receptionist on the person's request. This is not an internal staff note, diagnosis, EMR entry or clinical decision record. It must be length-limited at the API/database boundary, visible only to the associated beneficiary/booker under the applicable portal/consent rules and authorized clinic staff, and excluded from public website content, unrelated patient views and general bot payloads. Internal staff annotations remain in their separately permission-protected staff-only note domain and must never be placed in `patient_booking_note`. The actor who supplied or transcribed the note is auditable.
+
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+ALTER TABLE appointments
+  ADD CONSTRAINT uq_appointments_tenant_id UNIQUE (tenant_id, id);
+
+ALTER TABLE bookable_resources
+  ADD CONSTRAINT uq_bookable_resources_tenant_id UNIQUE (tenant_id, id);
+
+CREATE TABLE appointment_resource_allocations (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL,
+  appointment_id UUID NOT NULL,
+  resource_id UUID NOT NULL,
+  booking_channel VARCHAR(32) NOT NULL,
+  capacity_pool VARCHAR(16) NOT NULL,
+  allocation_status VARCHAR(32) NOT NULL,
+  time_slot TSTZRANGE NOT NULL,
+  CONSTRAINT fk_alloc_appointment_tenant
+    FOREIGN KEY (tenant_id, appointment_id)
+    REFERENCES appointments (tenant_id, id),
+  CONSTRAINT fk_alloc_resource_tenant
+    FOREIGN KEY (tenant_id, resource_id)
+    REFERENCES bookable_resources (tenant_id, id),
+  CONSTRAINT ck_alloc_valid_bounded_time_slot CHECK (
+    NOT isempty(time_slot)
+    AND NOT lower_inf(time_slot)
+    AND NOT upper_inf(time_slot)
+    AND lower_inc(time_slot)
+    AND NOT upper_inc(time_slot)
+    AND lower(time_slot) < upper(time_slot)
+  ),
+  CONSTRAINT ck_alloc_channel_pool_match CHECK (
+    (booking_channel IN ('ONLINE_WEB', 'ONLINE_BOT') AND capacity_pool = 'ONLINE')
+    OR (booking_channel = 'MANUAL_STAFF' AND capacity_pool = 'MANUAL')
+  ),
+  CONSTRAINT uq_appointment_resource_allocation
+    UNIQUE (tenant_id, appointment_id, resource_id),
+  CONSTRAINT no_overlapping_online_resource_allocations
+    EXCLUDE USING gist (
+      tenant_id WITH =,
+      resource_id WITH =,
+      time_slot WITH &&
+    ) WHERE (
+      capacity_pool = 'ONLINE'
+      AND allocation_status IN ('PENDING_PAYMENT_HOLD', 'CONFIRMED', 'CHECKED_IN')
+    )
+);
+```
+
+The migration must verify `btree_gist` support in the target PostgreSQL deployment. The SQL above is a contract template and must be adapted to the final table definitions, indexes and migration ordering without weakening the invariants.
+
+781. The appointment and allocation states are changed in the same UoW/DB transaction. Canonical mapping is: `PENDING_PAYMENT_HOLD`→`PENDING_PAYMENT_HOLD`; `CONFIRMED`→`CONFIRMED`; `CHECKED_IN`→`CHECKED_IN`; `COMPLETED`→`COMPLETED`; `CANCELLED`→`CANCELLED`; `EXPIRED_HOLD`→`EXPIRED_HOLD`; `NO_SHOW`→`NO_SHOW`. The EXCLUDE predicate includes only `PENDING_PAYMENT_HOLD`, `CONFIRMED` and `CHECKED_IN`. `COMPLETED`, `CANCELLED`, `EXPIRED_HOLD` and `NO_SHOW` do not occupy active online capacity. `NO_SHOW` releases remaining capacity only when its transition is valid under the scheduled-time/state policy; it must not be applied prematurely.
+
+782. Hold expiry uses both a background `HoldExpirationWorker` and inline lazy eviction. The worker must not claim due work by locking an Appointment row with `FOR UPDATE SKIP LOCKED`, because that would violate the global Resource → Appointment → Allocation lock order in clause 783. Instead, it claims a due `hold_expiry_work_items` row (or performs an unlocked candidate-ID scan) in a short, separate claim transaction, records a lease/claim token, and commits. In a new scheduling UoW it resolves the complete resource set, then follows the exact global lock order in clause 783. Before mutation it revalidates the claim token, current `hold_expires_at_utc <= database_utc_now`, `appointments.status = 'PENDING_PAYMENT_HOLD'`, and the current resource/allocation set. It then changes the Appointment and all Allocation statuses atomically or marks the work item no-op/retryable. Inline lazy eviction uses the same UoW, same resource-first lock order and same revalidation rules before a conflicting ONLINE allocation is inserted; it only expires holds whose expiry is due and whose current resource/time ranges actually conflict. Queue claiming is not the business-state lock and never substitutes for the final EXCLUDE constraint.
+
+783. All operations that inspect or mutate allocation business state (HoldExpirationWorker, ScheduleAppointmentHandler, VerifyPaymentHandler, cancellation/reschedule handlers and manual-overlap acknowledgement) use one global lock order: first lock all involved `BookableResource` rows ordered by `resource.id ASC`; next lock all involved parent Appointment rows ordered by `appointment.id ASC`; finally lock Allocation rows ordered by `(appointment_id ASC, resource_id ASC, allocation_id ASC)`. The worker's separate `hold_expiry_work_items` lease/claim row is claimed before the business UoW and is not an Appointment/Resource/Allocation lock; no Appointment row may be locked during the claim phase. A handler that does not yet have an appointment ID must resolve the resource IDs without taking parent/child business locks first. If the resource set changes between discovery and lock acquisition, the handler must safely restart/re-resolve before mutating. All booking writers, including ONLINE and MANUAL, follow this order. After acquiring locks, the handler rechecks the current state, expiry, resource set and allocation set. Locking resource rows serializes the conflict snapshot for MANUAL acknowledgement; MANUAL remains allowed to overbook. `SKIP LOCKED` is used only for the work-queue claim selection; the final `EXCLUDE` violation (`23P01`) remains the authoritative concurrent ONLINE conflict. Deadlock-freedom is not claimed solely from sorted UUIDs; it must be verified with concurrency tests and database deadlock monitoring.
+
+784. Payment verification records `provider_paid_at_utc` only when returned by a trusted provider Verify API and separately records `callback_received_at_utc`. Client-submitted timestamps are never authoritative. If the provider does not supply a trustworthy payment timestamp, the system does not infer that payment occurred before the hold expired.
+
+785. For a verified payment callback after `EXPIRED_HOLD`: if trusted `provider_paid_at_utc` is at or before the original hold expiry and the required slot is still free, the handler may atomically reacquire all allocations and confirm, subject to the EXCLUDE constraint. If any competing ONLINE booking owns any required resource, it is never cancelled or overwritten; the verified receipt becomes an unapplied prepayment or an explicitly unreconciled verified receipt if payer mapping is ambiguous, and the patient is offered an alternative slot or refund. If payment actually occurred after expiry, or its actual time cannot be verified, the appointment is not auto-confirmed; the verified money is reconciled separately and may become credit/refund under policy.
+
+786. A failed/ambiguous payment verification must not create a `PaymentReceipt` or `UnappliedPrepayment`. Provider amount, merchant ID, order/payment attempt ID, currency, settlement status and unique reference must match the immutable PaymentAttempt. Duplicate provider callbacks are idempotent.
+
+787. MANUAL allocations do not enter the ONLINE EXCLUDE predicate and therefore may overlap. This is intentional. After sync, the Cloud read model records both the MANUAL appointment and any collision indicator. Sync must not modify `booking_channel`, `capacity_pool` or source authority.
+
+788. All appointment time values are stored as UTC instants and ranges are half-open `[start_utc, end_utc)`. Presentation uses the clinic's configured time zone/Jalali calendar. Time-slot creation rejects empty, unbounded or non-positive ranges. Two appointments whose adjacent ranges share an endpoint do not overlap.
+
+789. The online booking API returns a safe capacity conflict when the final PostgreSQL exclusion constraint rejects a competing allocation. MANUAL collision acknowledgement is a separate workflow and must never be converted into an online capacity-conflict bypass.
+
+790. Required scheduling tests include same-resource concurrent ONLINE reservations from website and bot; multi-resource atomic failure; missing service requirement; adjacent ranges; expired hold worker vs. inline booking; payment callback vs. hold expiry; late verified payment with free/taken slot; concurrent manual overbooking acknowledgement; tenant cross-link attempts; sync of MANUAL channel; and status/allocation synchronization.
+
+791. `ACR-v3-002` is the accepted product/architecture decision for the dual pool, subject to closing the tests and open items. No implementation may reintroduce a single `room_id` as the sole allocation model.
+
+# 54. Section 50 Financial Preservation and Explicit Financial Boundaries
+
+792. All clauses 692–739 of Section 50 are included in this v3.0 document and remain mandatory. Clauses 706.1, 707.1, 712.1 and 715.1 immediately following their parent clauses are additive subclauses; they do not delete or summarize any original Section 50 clause.
+
+793. `PaymentAttempt`, `UnverifiedPaymentClaim`, `PaymentReceipt`, `ClinicPaymentRefund` and `SaasSubscriptionRefund` are distinct records with distinct state machines and ledgers. Only verified actual inflows enter collection totals. Unverified claims never count as received money. The evidence contract in clause 706.1 is mandatory and method-specific: CASH requires cashier/shift/operator attribution but no bank destination solely due to its method; POS requires managed `pos_terminal_id` and terminal reference/state; CARD_TO_CARD requires destination account plus independently verified bank reference/settlement; ONLINE requires server-to-server gateway verification of merchant, order, amount, currency, settlement status and unique provider reference.
+
+794. A clinic's BYO gateway credentials and transaction flow are tenant-scoped and must not be pooled with SaaS subscription payments. Provider adapters must support immutable attempt identity, signature verification, server-side verification, idempotent callbacks, amount/order/merchant matching and a reconciliation path for ambiguous outcomes.
+
+795. `ClinicServiceReferrer` and `SaasAffiliatePartner` have separate bounded contexts. The former belongs to the clinic's Section 50 service revenue-sharing model; the latter belongs to SaaS subscription acquisition/commission in the Control Plane. They have no shared ledger or permissions.
+
+# 55. SaaS Onboarding, Demo Conversion and Contract Acceptance
+
+796. A new customer may purchase directly or start a 14-day trial (`TRIAL_ACTIVE`). Trial expiry enters a clearly defined 7-day retention/conversion window (`TRIAL_EXPIRED_RETENTION`). At paid conversion, the buyer makes one explicit, one-time and irreversible choice: (a) convert and keep Demo data/configuration; or (b) convert and start with a clean operational environment. The paid subscription becomes `ACTIVE` only after the required payment is verified and conversion operations complete successfully.
+
+797. Under clean conversion, all Demo operational records, files, settings and caches within the tenant operational scope are purged without a hidden Safety Snapshot; any registered Demo Local Hub node is revoked and its local database must be reinitialized before pairing with the clean tenant. Only explicitly identified Control Plane commercial records needed to evidence the purchased subscription remain. The buyer must see exactly what will be removed before confirming. The choice cannot be repeated after activation.
+
+798. If no purchase is completed within seven days after trial expiration, the tenant enters the deletion pipeline. Cloud deletion and Local Hub wipe are tracked separately; an offline node must not be reported as wiped. There is no `Factory Reset`, `Tenant Reset`, `Platform Reset`, equivalent button, endpoint, command or hidden workflow after paid activation in the Clinic Owner panel, Manager panel or Super Admin Portal. The only clean-start choice is the one-time Demo-to-paid conversion choice.
+
+799. Before trial activation/checkout, the SaaS customer reviews the versioned agreement, checks an explicit acceptance box and verifies a purpose-bound OTP such as `CONTRACT_ACCEPTANCE_OTP`. An immutable `ContractAcceptanceRecord` stores contract version and SHA-256 content hash, accepted timestamp UTC, SaaS account ID, tenant ID where applicable, verified-phone reference/hash, OTP challenge ID, acceptance session ID and actor; IP may be stored only if legally justified. The accepted contract version must be retrievable. This is an evidentiary electronic acceptance record, not a claim of statutory PKI/certified secure electronic signature or blanket waiver of liabilities. Raw OTP is never stored in logs.
+
+# 56. Honest Data Deletion, Tombstone Restore Guard and Full-Platform Backup
+
+800. Each tenant has a dedicated `TenantDEK` (wrapped by the platform key-management hierarchy) for application-level sensitive fields specifically designated for encryption, including official identifiers, phone values, clinic gateway secrets and tenant-encrypted objects. Relational columns needed for business constraints/indexing (for example UUIDs, timestamps and whole-Rial amounts) may remain plaintext unless separately designed otherwise. Destroying the TenantDEK makes only the fields actually encrypted under it undecryptable; it does not erase plaintext relational values from WAL or DR backups.
+
+801. Active Cloud deletion must purge tenant rows across all tenant-owned tables, Outbox/Inbox, read models, cache/session entries, search indexes, active Object Storage items and every historical object version/delete marker/incomplete multipart upload where the provider supports such deletion. The system records provider-level completion evidence. If a provider cannot purge a particular copy immediately, the remaining copy is disclosed with its retention deadline rather than represented as erased.
+
+802. `TenantErasureTombstoneRegistry` is append-only and stored/replicated independently from the primary Cloud database and from the backups whose restore it guards. Each tombstone contains minimum metadata (`tenant_id`, approved deletion time, scope, version and integrity/signature material), not patient records. Its purpose and retention period are disclosed. It remains available until all pre-deletion backups/WAL/object versions capable of resurrecting the tenant have expired or been destroyed, unless counsel approves a documented longer period.
+
+803. During any full/partial restore of a Cloud database or Object Storage, traffic remains blocked in maintenance mode until a Post-Restore Tombstone Enforcement process has loaded the latest independent tombstone registry, re-purged all deleted tenant data/keys/objects from the restored state, validated the result, and recorded a signed/audited completion report. A restore must never reopen users before this guard passes.
+
+804. Cloud deletion state and per-node Local Hub deletion state are independent. Cloud lifecycle includes `REQUESTED`, `ACTIVE_CLOUD_DATA_PURGED`, `WAITING_FOR_BACKUP_RETENTION_EXPIRY`, and `CLOUD_ERASURE_COMPLETED`. Local node lifecycle includes `NOT_APPLICABLE_CLOUD_ONLY`, `QUARANTINED_WIPE_COMMAND_ISSUED`, `LOCAL_PURGE_ACKNOWLEDGED`, and `OFFLINE_UNCONFIRMED_LOCAL_WIPE`. The Cloud immediately revokes ordinary Sync credentials/entitlements and sends a signed `DECOMMISSION_AND_PURGE_LOCAL_DB` command when reachable. A signed `LOCAL_PURGE_ACK` is required before stating that a node has been wiped. An offline machine remains unconfirmed and may retain data on its physical disk until it reconnects or the clinic performs a documented local wipe.
+
+805. `CLOUD_ERASURE_COMPLETED` means only that active Cloud deletion is complete and all relevant Cloud backup/WAL retention windows have expired; it does not imply an offline Local Hub was wiped. The user-facing status must separately state Cloud completion and each Local node status. No global “all data everywhere erased” claim is allowed unless each applicable node and provider confirms it.
+
+806. Backup retention periods for base backups, WAL archives, replicas and Object Storage recovery copies must be fixed before Production and disclosed before customer acceptance. Active-record deletion does not promise immediate physical erasure from immutable backups. Backups must age out by a documented rotation policy. KMS recovery material and wrapped key metadata must be recoverable under separate custody; raw master keys must not be stored unencrypted alongside backup archives.
+
+807. Super Admin may trigger manual/scheduled encrypted full-platform DR backups covering Control Plane database, tenant Cloud database(s), Object Storage and essential recovery metadata/configuration. Trigger and restore require MFA, role authorization, immutable audit, integrity checks and restore verification. Backup capability does not grant routine patient-record browsing. Break-glass recovery is dual-controlled, time-limited and audited; support impersonation is separate and defaults to read-only.
+
+808. Local Hub targets from v1.3 clauses 323 and 328 remain `RPO <= 5 minutes` and `RTO <= 1 hour` only for the defined Local Hub disaster scenario. Cloud Hub, Control Plane, Object Storage and KMS have separate RPO/RTO objectives to be capacity-tested and approved before Production. A same-site NAS alone is not a failure-independent recovery copy.
+
+# 57. SaaS Affiliate Partner Ledger, Commission Arithmetic and Anti-Abuse
+
+809. All SaaS affiliate money is whole-Rial signed 64-bit integer money. Multiplication/intermediate arithmetic must use arbitrary-precision integer arithmetic or a sufficiently wide exact numeric type (for example `NUMERIC(38,0)`), then apply an explicitly defined rounding rule and validate the final result against `int64` bounds. Floating-point money is prohibited.
+
+810. For a subscription invoice, `commissionable_base_irr = MAX(0, gross_plan_price_irr - campaign_coupon_discount_irr)`. The referral first-purchase discount reduces the customer's net payment but does not reduce the affiliate's commissionable base under this product policy; it is recorded separately as a platform marketing subsidy. VAT/statutory tax and SMS wallet top-ups are excluded. Campaign and referral discounts may be combined only when coupon stackability and eligibility permit; all prices/discounts/policy versions are snapshotted.
+
+```text
+customer_net_subscription_paid_irr =
+    gross_plan_price_irr
+    - campaign_coupon_discount_irr
+    - referral_first_purchase_discount_irr
+
+commissionable_base_irr =
+    MAX(0, gross_plan_price_irr - campaign_coupon_discount_irr)
+
+raw_commission_product =
+    commissionable_base_irr * commission_rate_bps
+
+earned_commission_irr =
+    ROUND_HALF_UP(raw_commission_product / 10000)
+```
+
+For non-negative integer numerator, implementation must use exact integer arithmetic or `NUMERIC`, not binary floating point. Percentage rates are bounded by the approved platform policy. Fixed-per-month and one-time bounty policies must also be snapshotted and versioned.
+
+811. Partial/full refund and chargeback clawback MUST use a cumulative rounding rule. Independently rounding each partial refund and summing the results is prohibited because multiple refunds can accumulate one-or-more Rial of rounding drift. For each original subscription invoice/commission source, persist (or maintain as a transactionally rebuildable projection) `original_commissionable_base_irr`, `original_commission_irr`, `cumulative_refunded_commissionable_base_irr` and `cumulative_commission_clawback_irr`. The cumulative refunded base is the net amount of verified, non-reversed refunds/chargebacks mapped to the original commissionable base and must remain within `0 <= cumulative_refunded_commissionable_base_irr <= original_commissionable_base_irr`:
+
+```text
+new_cumulative_refunded_commissionable_base_irr =
+    previous_cumulative_refunded_commissionable_base_irr
+    + newly_refunded_commissionable_base_irr
+
+IF original_commissionable_base_irr == 0:
+    cumulative_target_clawback_irr = 0
+ELSE IF new_cumulative_refunded_commissionable_base_irr == original_commissionable_base_irr:
+    cumulative_target_clawback_irr = original_commission_irr
+ELSE:
+    cumulative_target_clawback_irr = ROUND_HALF_UP(
+        original_commission_irr
+        * new_cumulative_refunded_commissionable_base_irr
+        / original_commissionable_base_irr
+    )
+
+new_clawback_delta_irr =
+    cumulative_target_clawback_irr
+    - previous_cumulative_commission_clawback_irr
+```
+
+Post only `new_clawback_delta_irr` as the new linked ledger reversal (negative when clawing back additional commission). All calculations use exact integer/arbitrary-precision or sufficiently wide exact NUMERIC arithmetic, never floating point. The transaction locks the original affiliate commission source/account, validates idempotency, rejects a cumulative refunded base above the original base, records the refund identity and updates the rebuildable cumulative projection atomically. A reversal/correction of a previously verified refund must create a linked compensating ledger entry and recalculate the cumulative target from the net refunded base; it must never rewrite prior ledger facts. When cumulative refund reaches the original commissionable base, cumulative clawback MUST equal `original_commission_irr` exactly, regardless of the number or ordering of partial refunds. Example: original commission `+60,000,000 IRR`, prior payout `-20,000,000 IRR`, then full cumulative clawback `-60,000,000 IRR`; final wallet balance is `-20,000,000 IRR`. The clawback entry itself is the full cumulative delta needed to reach `-60,000,000 IRR`, not merely the previously withdrawn amount.
+
+812. Affiliate ledger entries are append-only. Earnings, clawbacks and payouts are separate entries; wallet balance is derived from ledger entries (a transactionally rebuildable cache may be used). The commission lifecycle includes `PENDING_CLEARANCE` and `AVAILABLE_FOR_PAYOUT`; the payout aggregate uses `PAYOUT_REQUESTED`, `PAYOUT_PROCESSING` and `PAID`; reversal status is represented by linked `PARTIALLY_REVERSED` or `FULLY_REVERSED` entries/states without rewriting the original earning. Commissions remain in clearance until the configured refund/chargeback window expires. Concurrent payouts use idempotency and account-level locking to prevent double settlement. Any positive eligible balance may be requested without a minimum payout threshold, subject to identity/tax/bank checks approved by counsel.
+
+813. Anti-abuse rules prohibit self-referral under the defined normalized account/phone/bank identity checks, bind at most one referrer to a tenant within a documented attribution window, and define whether renewals are commissionable. Those terms must be disclosed and snapshotted. Affiliate portals/bots show only aggregate counts/totals and anonymized referral tokens. They never show clinic names, domains/slugs, patients, staff or identifiable low-volume breakdowns that enable re-identification. Clinic service referral shares remain exclusively in Section 50.
+
+# 58. Offline Licensing, Entitlement Propagation and Scoped Read-Only Mode
+
+814. `LicenseLeaseToken` is signed by the SaaS Control Plane Ed25519 key and contains at least `tenant_id`, `node_id`, `lease_id`, monotonic per-node `lease_sequence`, `issued_at_utc`, `not_before_utc`, `expires_at_utc`, `grace_period_ends_at_utc`, `allowed_modules`, `feature_entitlements`, `max_lan_client_seats`, `minimum_supported_app_version` and `signing_key_id`. Emergency offline codes are bound to tenant, node, next lease sequence, challenge nonce and their own expiry and are server-signed.
+
+815. Ed25519 prevents token forgery/tampering but does not prevent a customer with physical control from restoring an old full-disk snapshot, which can also roll back the local database, `max_observed_utc`, `license_sequence` and `challenge_nonce`. Such controls deter ordinary clock rollback and casual replay only. The absolute expiry embedded in the signed token remains authoritative. Node transfer/re-bind requires revoking the prior node and explicit signed pairing for the replacement node.
+
+816. Cloud Hub and Bot Gateway entitlement caches have a maximum TTL of 60 seconds, with event-driven invalidation on suspension, expiration or upgrade. The design does not promise zero-millisecond global revocation. Provider/network outages must respect the bounded cache and separately defined lease/grace rules. The 60-second Cloud TTL does not shorten an already-issued offline Local Hub lease.
+
+817. After subscription and grace-period expiry, write operations across Web, Bot and Local Hub return the defined `402 Payment Required`/license-expired business error. Read-only mode continues to enforce the full tenant RBAC policy. Export/Takeout access is restricted to `CLINIC_OWNER` or roles explicitly granted the relevant export permission, with additional authentication and audit as configured. Read-only does not imply unrestricted access to patient or financial data.
+
+# 59. SMS Outbox, OTP, Patient Portal, CMS, Waitlist and Feedback
+
+818. SMS sending is Outbox-backed. Each send request has an idempotent provider/client reference. A definite pre-transmission failure may fail over; a `ReadTimeout` or post-send `5xx` enters `UNKNOWN_PENDING_DELIVERY_CHECK` with a bounded reconciliation TTL. Provider 2 is used automatically only when Provider 1's status API confirms non-acceptance/non-delivery in a way documented by that provider. Otherwise the operation remains ambiguous until reconciliation or an explicitly requested fallback flow after a cooldown. The manual fallback must issue a new OTP generation atomically; it must not reuse or revalidate the prior code.
+
+819. Each OTP challenge binds to normalized phone blind index, purpose, session ID, expiry and generation number. Only an HMAC of the OTP (using a dedicated secret key and challenge/generation context) is stored. Rate limits apply by phone, IP and purpose; failed attempts are bounded; consumption is atomic and one-time. Creating a new generation atomically supersedes the previous one. A delayed old SMS can never authenticate after a newer generation has been created.
+
+820. Proxy booking separates `booker_person_id` from `beneficiary_patient_id`. Booking for a family member does not automatically grant access to that member's historical dossier; access requires the defined relationship/consent/authorization rule. Portal/Bot payloads never include `INTERNAL_STAFF_ONLY` notes, tags or reception alerts. Portal access to appointments, package progress, receipts and patient credits is restricted to the verified patient/authorized guardian context.
+
+821. Clinic CMS supports Draft → Preview → Scheduled/Published, revision history, author audit and managed media storage. Server-side HTML sanitization uses a strict allowlist and removes scripts, inline event handlers, unsafe URLs and disallowed embeds. Sanitization is required on the backend, not only in the editor.
+
+822. Waitlist promotion is an atomic first-claim workflow with idempotency, bounded swap/promotion count (initial maximum one automatic swap unless separately configured), expiry and clear status. Messaging-platform message deletion/revocation is attempted only where the provider actually supports it; otherwise a corrective notification is sent. Waiting-room display masks patient identity according to a privacy rule. Optional 80mm thermal print templates are presentation outputs and do not replace immutable financial records.
+
+823. Post-visit CSAT captures private itemized service/provider ratings for manager analytics. If a clinic enables a public review/social link, the link is shown to all eligible respondents regardless of rating; Review Gating is prohibited. Survey participation/ratings do not control patient eligibility for service or support.
+
+# 60. Clinic Inventory and FEFO Service Consumables (`MOD_INVENTORY`)
+
+824. Inventory is a clinic operational stock ledger, not pharmacy/prescription ERP. Stock changes are recorded as immutable `StockMovement` entries (purchase receipt, service consumption, direct sale if enabled, return, write-off and approved adjustment) linked to `InventoryItem` and, when lot/expiry tracking applies, `InventoryLot`. Manual balance editing is prohibited; corrections use compensating movements.
+
+825. For expiring/lot-tracked items, consumption follows FEFO (First-Expired, First-Out): eligible lots are ordered by earliest valid expiry, then deterministic receipt sequence/ID. Expired, quarantined or recalled lots are excluded from normal consumption. Lot traceability is preserved from purchase receipt through consumption/return/write-off.
+
+826. Optional service consumable templates/BOM define expected item quantities per service. At service completion or the explicitly selected operational trigger, the system creates consumption movements transactionally and snapshots the BOM version and actual deducted lots/quantities. The default behavior on insufficient stock is to block automatic deduction/completion and request manager action; an authorized, audited override or explicit negative-stock policy may be enabled only by a manager. Silent negative stock is prohibited.
+
+827. Inventory movements use integer/scaled quantity rules per item unit, idempotent command handling and concurrency-safe lot balance updates. Returns must identify whether returned stock is reusable, quarantined or written off; they do not automatically re-enter available stock. Inventory reports distinguish on-hand, reserved, consumed, expired, written-off and available quantities. No medicine dispensing, prescription, controlled drug or pharmacy workflow is included.
+
+# 61. Compatibility, Super Admin Operations and Frontend UX
+
+828. Client compatibility metadata is explicit. API requests carry `X-Client-Version`; Sync requests additionally carry `X-Sync-Schema-Version`. Database schema and Outbox event changes follow Expand-and-Contract. Clients below the supported minimum receive a stable upgrade response. Compatibility policy must allow an operationally tested rollout/rollback window and must not break currently supported offline nodes without a migration path.
+
+829. Super Admin operational dashboards show tenant lifecycle, subscription/entitlement status, SMS wallet state, Local Hub heartbeat, Outbox/Inbox lag, client/node versions, backup freshness and restore-test health without default access to patient PII. Support Impersonation requires a support-ticket reference, read-only default, strict TTL, explicit scope and immutable audit of every access/action.
+
+830. Clinic operational panels are desktop-first for reception/management workflows but remain responsive; patient-facing website/portal and SaaS storefront are mobile-first. The presentation boundary uses the Iranian Jalali calendar while persistence and integration timestamps use UTC instants. Displayed dates, numbers and currency use centralized English ASCII digit formatters; input normalization converts Persian/Arabic numerals only in numeric/identifier fields and never rewrites free text. Motion is restrained and respects `prefers-reduced-motion`; loading states use accessible skeletons/spinners and all errors map to the centralized RFC7807-aware notification system.
+
+# 62. Data Retention Register and Explicit Open Items
+
+831. No data may be retained secretly after tenant deletion under vague labels. The Data Retention Register below remains provisional until counsel/tax review is completed. No duration is invented by this specification where the current legal requirement has not been verified.
+
+| Data category | Purpose/ownership boundary | Retention period | Access | Deletion/expiry behavior |
+|---|---|---|---|---|
+| Patient identity and operational data | Clinic operational processing; contractual allocation and applicable health/privacy rules to be legally reviewed | Open Legal Item | Authorized roles in the same tenant | Active hard delete, designated PII key destruction, tombstone, backup aging; Local Hub separately acknowledged |
+| Clinic financial documents | Clinic financial operations and any applicable tax/commercial duties | Open Legal Item | Owner/manager/authorized finance roles | Export opportunity and deletion/retention per written legal determination; no silent platform copy |
+| SaaS subscription, sales, SMS wallet and affiliate financial records | SaaS platform's own commercial/accounting duties | Open Legal Item | Platform finance roles; Super Admin only as scoped | Retain only as legally required in Control Plane, isolated from patient data |
+| Contract acceptance and security audit | Contract evidence/security accountability | Open Legal Item | Authorized legal/security roles with audit | Purge or archive after legally reviewed period; secrets and OTP values are never retained |
+| DR backups/WAL/object recovery copies | Disaster recovery only | Exact rotation duration is an Open Item and must be disclosed before Production | Restricted backup/restore operators | Expire by documented rotation; tombstone enforcement precedes restore traffic |
+| Tenant erasure tombstones | Prevent resurrection of deleted tenant data from older recoverable backups | Until all pre-deletion recoverable media expires, unless a documented legal/security basis justifies longer | Restricted Control Plane/security process | Minimal metadata only; remove when no longer needed under approved retention policy |
+
+832. The legal review must not rely on Article 34 of the repealed 1387 VAT Act as an automatic current ten-year retention rule. Current retention duties for each data category must be assessed separately against laws/regulations in force, including the applicable direct-tax, current VAT, commercial, electronic-commerce and healthcare requirements. Articles 58–60 of the Iranian Electronic Commerce Law are relevant input for personal/sensitive and health data but do not, by themselves, establish one universal retention period for this entire platform. Final interpretation belongs to qualified Iranian counsel and tax advisers.
+
+833. The following 14 Open Items remain explicit. They do not prevent the product owner from later initiating Gate A development/test work; items 1–8 and 10 are primarily closed by implementation and acceptance evidence produced during Gate A. Items 9 and relevant infrastructure-provider checks require Gate B evidence. Items 11–14 require Gate C and/or D evidence. Closing an item requires implementation/test evidence or written provider/legal confirmation, not only a written assertion.
+
+| # | Open Item | Gate | Closure evidence required before final production authorization |
+|---:|---|---|---|
+| 1 | ONLINE/MANUAL authority and cross-hub behavior | A / D | ACR-v3-002 recorded; authority/event contract complete; outage and collision tests pass. |
+| 2 | Multi-unit resource capacity | A | Confirm one row per atomic bookable unit and service requirement group semantics; Testcontainers validation. |
+| 3 | Appointment/allocation state and locking | A | Transactional state mapping, global lock order and real race/deadlock tests pass. |
+| 4 | HMAC key rotation | A | Multi-version dual-write, drain, backfill, unique-index concurrent build, rollback/cutover tests pass. |
+| 5 | Phone encryption and blind index | A | AES-GCM storage, HMAC lookup, shared-phone behavior and key rotation tests pass. |
+| 6 | RLS and composite tenant integrity | A | Negative Tenant A→B tests with runtime role cover DML, FK, views and workers; migrator maintenance policy and role isolation are verified. |
+| 7 | SaaS affiliate ledger | A / C | Exact arithmetic/overflow, cumulative refund clawbacks, attribution, payout locking and negative-balance tests pass; tax treatment is signed off separately. |
+| 8 | Cloud entitlement revocation TTL | A / B | 60-second maximum cache TTL and event invalidation are measured in deployed Cloud/Bot Gateway and provider runtime. |
+| 9 | SMS provider ambiguity/status lookup | B | Selected Iranian providers' API docs and integration tests confirm `client_reference_id`/status behavior or a safe documented fallback policy. |
+| 10 | Deletion after backup restore | A / B / D | Tombstone registry independence, restore gate, object purge and post-restore evidence pass. |
+| 11 | Backup/WAL/object retention duration | B / C / D | Exact day-count and scope approved, disclosed in contract and tested by rotation/expiry. |
+| 12 | Iranian legal retention/privacy duties | C | Written lawyer/tax-adviser determination for all Data Retention Register categories. |
+| 13 | SaaS agreement and commercial policy | C | Approved agreement/privacy notice/acceptance; clarify module upgrades, coupon stacking, attribution window and mid-cycle proration. |
+| 14 | Affiliate tax deductions and settlement | C | Written tax advice for natural-person affiliate commissions, withholding/VAT/banking evidence and negative balances. |
+
+834. The specification uses four separate authorization gates; they must not be collapsed into one circular precondition:
+
+- **Gate A — Engineering / Development / Schema / Testcontainers Authorization:** development is permitted in isolated local/development environments and Testcontainers after the product owner expressly initiates it. It includes repository/module design, database provisioning, additive Alembic migrations, code, unit/integration/security/concurrency tests and non-production test fixtures. Items 1–8 and 10 may be closed by evidence generated here. Gate A does not authorize Production, real patient/clinic data import, live payment processing, customer-facing activation or irreversible deletion of customer data. This document defines permission but does not itself instruct the team to start coding.
+- **Gate B — External Provider Verification:** requires documented capabilities and sandbox/integration evidence for payment gateways, SMS providers, Object Storage, KMS/key storage, managed PostgreSQL/backup services and any other production-critical external provider. Provider-dependent live behavior remains disabled until this gate closes for that scope.
+- **Gate C — Legal / Tax / Commercial Authorization:** requires written legal/tax review and product-owner approval of the Data Retention Register, customer disclosures/privacy notice, SaaS agreement/electronic acceptance, affiliate commission tax/settlement, and commercial terms such as proration, referral attribution and coupon stacking. This gate cannot be satisfied by technical tests or model-generated legal conclusions.
+- **Gate D — Production Rollout / Live Data Authorization:** remains BLOCKED until the relevant Gate A engineering evidence, Gate B provider verification and Gate C legal/commercial approvals are complete; Production security, backup/restore, RPO/RTO, secrets management, observability, incident runbooks, migration rehearsal, controlled pilot and rollback criteria pass; and the responsible product owner issues explicit written Production approval.
+
+The architecture content of this document is frozen as the v3.0 specification baseline. Gate A may be initiated independently while Gates B and C remain open; Gate D remains blocked until all applicable evidence and approvals are recorded. A clause existing in this document, a structural text check or a successful happy-path test is not proof that a feature is fully implemented, secure, legally approved or Production-ready.
+
+
+---
+
+# Appendix D — Modular Monolith, Repository Structure and Three-Database Boundaries
+
+## D.1 Architectural shape and dependency direction
+
+Each deployable runtime is a Modular Monolith by default. Bounded contexts are modules inside a controlled codebase; they are not separate microservices unless a concrete requirement for scale, isolation, independent release cadence or operational fault containment justifies extraction through an Architecture Change Record.
+
+Each module follows the four-layer dependency direction:
+
+```text
+Domain <- Application <- Infrastructure <- Presentation
+```
+
+- **Domain:** pure Python entities, value objects, domain events, policies and domain exceptions. It must not import FastAPI, SQLAlchemy, PostgreSQL drivers, Redis, HTTP, Tauri, message SDKs or provider clients.
+- **Application:** commands, queries, handlers, policies, ports, DTOs and UoW/transaction coordination. It depends on Domain and abstractions, not concrete persistence/provider adapters.
+- **Infrastructure:** Data Mapper mappings, repositories, UoW implementations, PostgreSQL, Outbox/Inbox, cryptography, provider adapters, Redis, filesystem and object-storage adapters.
+- **Presentation:** FastAPI routers, request/response schemas, bot adapters and runtime composition roots. It exposes application contracts and does not own business rules.
+
+A module's Domain/Application layers must not import another module's Infrastructure or Presentation. Cross-module communication uses application ports, explicit contracts or approved Domain/Integration Events. SQLAlchemy declarative models remain in Infrastructure; Domain entities do not inherit ORM bases.
+
+## D.2 Three logical PostgreSQL databases
+
+The ecosystem has two logical planes but three independent logical database boundaries:
+
+| Database boundary | Deployment | Authority and contents | Migration/credential boundary |
+|---|---|---|---|
+| **1. SaaS Control Plane DB** | Cloud-managed PostgreSQL | SaaS customer accounts, tenant lifecycle, plan/module catalog, subscriptions, SaaS billing, SaaS refunds, coupons, affiliate ledger, entitlements, license metadata, contract acceptance, deletion tombstones and platform operations. It must not contain clinic patient dossiers, appointments or treatment records. | Independent CP Alembic lineage; separate database credentials, roles, backup and API boundary. |
+| **2. Cloud Tenant Application DB** | Cloud-managed PostgreSQL, normally shared across tenants | Clinic operational data for all Cloud-connected tenants, including cloud-authoritative catalog/RBAC snapshots and online reservations. Every tenant-owned row is scoped by `tenant_id`; composite tenant FKs and RLS are mandatory. | Independent TP Alembic lineage; `db_app_runtime` and `db_migrator` are separate. No Control Plane cross-database FK. |
+| **3. Local Hub DB** | PostgreSQL on each clinic Mini PC | Local operational data for that clinic; physical reception operations and approved MANUAL bookings remain authoritative locally while disconnected. It uses the tenant-domain model and approved sync contracts, with explicit local-only metadata where needed. | Tenant migration baseline is applied independently at each node; local credentials and keys are not shared across clinics. No Cloud/Control Plane cross-database FK. |
+
+The Control Plane DB and Cloud Tenant Application DB may be provisioned on the same physical managed PostgreSQL cluster only if the hosting provider supports the required database/role/network isolation. They remain separate logical databases, credentials, migration histories and trust boundaries. Each Local Hub is a separate PostgreSQL instance/database boundary. The Cloud Tenant Application schema may be shared between tenants; Local Hub is normally one tenant per node.
+
+There are no cross-database foreign keys. Cross-boundary references use immutable UUIDs, tenant/node identity and versioned API/Integration Event contracts. A successful API call is not a substitute for durable, acknowledged integration delivery.
+
+Public networks must not connect directly to PostgreSQL. The Cloud databases are reachable only through approved application/migration/backup network boundaries. Local Hub accepts only explicitly configured clinic-LAN traffic; TLS is used wherever traffic crosses a trusted local process boundary or network segment.
+
+## D.3 Proposed repository structure
+
+```text
+clinic-ecosystem/
+|
++-- apps/
+|   +-- local_hub/
+|   |   +-- main.py
+|   |   +-- lifespan.py
+|   |   +-- dependencies.py
+|   |   +-- runtime_config.py
+|   |
+|   +-- cloud_hub/
+|   |   +-- main.py
+|   |   +-- lifespan.py
+|   |   +-- dependencies.py
+|   |   +-- runtime_config.py
+|   |
+|   +-- control_plane_api/
+|   |   +-- main.py
+|   |   +-- lifespan.py
+|   |   +-- dependencies.py
+|   |   +-- runtime_config.py
+|   |
+|   +-- workers/
+|       +-- local/
+|       +-- cloud/
+|       +-- control_plane/
+|
++-- src/clinic_ecosystem/
+|   +-- shared_kernel/
+|   |   +-- domain/
+|   |   +-- application/
+|   |   +-- infrastructure/
+|   |
+|   +-- tenant_plane/
+|   |   +-- identity/
+|   |   +-- access_control/
+|   |   +-- patient_registry/
+|   |   +-- catalog/
+|   |   +-- scheduling/
+|   |   +-- finance/
+|   |   +-- audit/
+|   |   +-- notifications/
+|   |   +-- sync/
+|   |   +-- inventory/
+|   |   +-- content/
+|   |   +-- portal/
+|   |
+|   +-- control_plane/
+|       +-- accounts/
+|       +-- tenant_lifecycle/
+|       +-- subscriptions/
+|       +-- saas_billing/
+|       +-- entitlements/
+|       +-- affiliates/
+|       +-- licensing/
+|       +-- contract_acceptance/
+|       +-- erasure/
+|       +-- backup_operations/
+|       +-- support/
+|
++-- clients/
+|   +-- windows_tauri/
+|   +-- clinic_web/
+|   +-- saas_storefront/
+|   +-- clinic_bots/
+|   +-- affiliate_bot/
+|
++-- migrations/
+|   +-- tenant_plane/
+|   |   +-- env.py
+|   |   +-- versions/
+|   +-- control_plane/
+|       +-- env.py
+|       +-- versions/
+|
++-- tests/
+|   +-- unit/
+|   +-- integration/
+|   +-- concurrency/
+|   +-- security/
+|   +-- sync_contracts/
+|   +-- migration/
+|   +-- fixtures/
+|
++-- ops/
+|   +-- db_bootstrap/
+|   +-- backup_restore/
+|   +-- deployment/
+|   +-- runbooks/
+|
++-- pyproject.toml
++-- alembic.ini
++-- README.md
+```
+
+The structure is a proposed implementation organization, not a requirement to create empty folders for every future capability. Create module folders/contracts as modules enter implementation. Each module, where applicable, follows:
+
+```text
+module_name/
+    domain/
+        entities.py
+        value_objects.py
+        events.py
+        policies.py
+        exceptions.py
+    application/
+        commands/
+        queries/
+        handlers/
+        ports.py
+        dto.py
+    infrastructure/
+        persistence/
+            mappings.py
+            repositories.py
+        integrations/
+        cryptography/
+    presentation/
+        http/
+            router.py
+            schemas.py
+```
+
+## D.4 Tenant Plane modules
+
+| Module | Responsibility | Explicit boundary |
+|---|---|---|
+| `identity` | `tenant_persons`, optional identifiers, encrypted phones and patient/person merge | No mandatory National ID; identity is not inferred from phone or appointment. |
+| `access_control` | Accounts, roles, permissions and assignments | Cloud policy is authoritative; Local Hub keeps a last synchronized validated policy snapshot for approved offline work. |
+| `patient_registry` | Patient profiles, dossier number, staff-only notes/tags/alerts | Not an EMR, prescription or clinical decision-support subsystem. |
+| `catalog` | Services, tariffs, resource requirements and catalog snapshots | Cloud-authoritative catalog policy, with explicit sync to Local Hub. |
+| `scheduling` | Bookable resources, appointments, resource allocations, hold expiry and waitlist | ONLINE pool is Cloud-authoritative; physical MANUAL activity is Local-authoritative. |
+| `finance` | Invoices, receipts, patient credits, refunds, insurer tracking and revenue shares | Operational clinic accounting only; Section 50 exclusions remain in force. |
+| `audit` | Append-oriented clinic security/business audit | No secrets or OTP values; immutable actor attribution. |
+| `notifications` | Clinic SMS and notification policies/ports | Provider state, idempotency and ambiguous-delivery handling are explicit. |
+| `sync` | Node identity, Outbox, Inbox, sequence protocol and conflict handling | Integration events, never CRUD replication. |
+| `inventory` | StockMovement, InventoryLot, FEFO and optional BOM | Not pharmacy or prescription ERP. |
+| `content` | Clinic CMS content, revisions and media metadata | Backend allowlist sanitization is mandatory. |
+| `portal` | Patient portal application use cases | Verified patient/guardian scope; internal notes/tags excluded. |
+
+## D.5 Control Plane modules
+
+| Module | Responsibility |
+|---|---|
+| `accounts` | SaaS customer account and OTP identity |
+| `tenant_lifecycle` | Tenant creation, demo, conversion, activation and deletion orchestration |
+| `subscriptions` | Plans, subscriptions, module proration policy and renewal |
+| `saas_billing` | SaaS invoices, payment attempts, receipts and refunds |
+| `entitlements` | Module/feature grants and cache invalidation |
+| `affiliates` | SaaS affiliate attribution and append-only commission ledger |
+| `licensing` | Ed25519 signing keys, leases and node re-bind |
+| `contract_acceptance` | Versioned agreements and evidentiary acceptance records |
+| `erasure` | Tombstone registry and deletion state orchestration |
+| `backup_operations` | Full-platform backup/restore orchestration and audit |
+| `support` | Super Admin support, scoped impersonation and break-glass workflow |
+
+The SaaS affiliate bot uses only Control Plane affiliate APIs and has no access to patient records or clinic names. Clinic bots are Tenant Plane integrations; dedicated-clinic-token and shared-platform-bot/deep-link modes remain distinct. The SaaS storefront is a separate project consuming Control Plane APIs. Each clinic website and patient portal consumes approved Cloud Hub APIs only.
+
+---
+
+# Appendix E — Database Provisioning, Alembic Migration Order and Migration Controls
+
+## E.1 Provisioning before Alembic
+
+1. Provision the three logical database boundaries described in Appendix D: Control Plane DB, Cloud Tenant Application DB and the Local Hub DB(s).
+2. Create non-login group/ownership roles `db_migrator` and `db_app_runtime` in each applicable database. Where Local Hub does not require multi-tenant RLS, the same least-privilege role model may still be used for consistency.
+3. Create separate narrowly scoped login principals for application runtime and migration jobs. Runtime principals inherit only `db_app_runtime`; they must never be members of `db_migrator` or any role that inherits migration privileges.
+4. `db_migrator` is not a runtime login. The migration login may assume it only in a controlled CI/deployment migration job. Migration credentials are not placed in application/worker container images, secrets or environment.
+5. No runtime principal is `SUPERUSER`, has `BYPASSRLS`, owns tenant tables, has `TRUNCATE`, or has schema/DDL/policy-management permissions.
+6. Create least-privilege backup/restore identities separately; they are not ordinary application query roles.
+7. Verify the deployed PostgreSQL version/extension support. `btree_gist` must be installed and verified before appointment exclusion migrations.
+8. Keep tenant and Control Plane migration connection strings, secrets and Alembic version tables separate.
+
+## E.2 Tenant Plane migration lineage (TP0001–TP0007)
+
+This tenant migration lineage is applied independently to the Cloud Tenant Application DB and each Local Hub DB. The initial schemas may share the same baseline to reduce drift; any Local/Cloud divergence must be explicit, versioned and tested. Migration IDs and ordering must remain deterministic across environments.
+
+| Migration | Scope | Required invariants / verification |
+|---|---|---|
+| `TP0001` — Extensions and tenant root | Verify PostgreSQL compatibility; install/verify `btree_gist`; create `tenant_registry` and common constraints. | App-generated UUIDv7 only; no database UUID default that bypasses the application policy. |
+| `TP0002` — Person identity and PII | Create `tenant_persons`, `person_identifiers`, `person_phones`, `patient_profiles`, `staff_profiles`, `user_accounts`. | Direct tenant root FKs; composite tenant FKs; optional identifiers; AES-GCM nonce/tag/key/AAD versions; HMAC active/next; shared-phone support. |
+| `TP0003` — Governance and RBAC | Create `tenant_governance_assignments`, `tenant_roles`, `role_permission_assignments`, `user_role_assignments`, permission catalog snapshot structures. | Separate staff/provider existence from login accounts; doctor/specialist may have staff profile without a login; Cloud policy is authoritative. |
+| `TP0004` — Services and atomic resources | Create `services`, `bookable_resources`, `service_resource_requirements`. | Direct tenant root FKs; composite tenant FKs; `quantity_required > 0`; specific resource must belong to same tenant and match required resource type (domain invariant/trigger plus tests). |
+| `TP0005` — Appointment and multi-resource allocation | Create `appointments`, `appointment_resource_allocations`, and `hold_expiry_work_items`/lease metadata if used. | Beneficiary references `patient_profiles`; optional booker references `tenant_persons`; bounded half-open range; channel/pool CHECK; ONLINE-only partial GiST EXCLUDE; MANUAL remains outside predicate; worker uses queue-claim then global lock order. |
+| `TP0006` — UoW consistency infrastructure | Create `idempotency_records`, `outbox_messages`, `inbox_messages`, `sync_stream_counters`, `audit_entries` and required node/sync metadata. | Unique operation identity/fingerprint; durable sequence; Outbox lease ownership; Inbox duplicate protection; append-only audit grants. |
+| `TP0007` — Tenant RLS and grants | Enable and FORCE RLS for every tenant-owned table in shared Cloud DB; create runtime base/guard and migration-only policy; apply exact SQL grants. | `db_migrator` owner access under its explicit policy; `db_app_runtime` tenant guard; no role inheritance to migrator; no runtime TRUNCATE/DDL; fail-closed missing context. |
+
+`TP0007` must be ordered after the necessary schema/table creation and data migrations so that controlled migration jobs can still access/transform data under the `db_migrator` policy. If RLS is enabled earlier on a table, the migration policy must be created in the same migration before the next data migration requires access. The ordering and role grants are verified in migration integration tests.
+
+## E.3 Control Plane migration lineage (CP0001–CP0008)
+
+Control Plane migrations run in a separate Alembic environment/database and must never create a foreign key to a Tenant Plane database. Cross-plane references use immutable UUIDs and versioned API/event contracts.
+
+| Migration | Scope |
+|---|---|
+| `CP0001` — SaaS account and tenant lifecycle root | `saas_customer_accounts`, Control Plane `tenants`, ownership/administration assignments and tenant lifecycle states |
+| `CP0002` — Plans and entitlements | Subscription plans, plan modules, tenant subscriptions, entitlement snapshots and module proration policy metadata |
+| `CP0003` — Contract acceptance | Versioned agreement references, content hash and `ContractAcceptanceRecord` |
+| `CP0004` — Nodes and licenses | Node registration, public-key metadata, key status, `LicenseLeaseToken`/lease metadata and re-bind operations |
+| `CP0005` — Erasure and deletion orchestration | Independent `tenant_erasure_tombstones`, deletion approvals, Cloud/local deletion states and restore guard metadata |
+| `CP0006` — SaaS billing | SaaS invoices, payment attempts, verified receipts, subscription refunds and commercial adjustments |
+| `CP0007` — Affiliate ledger | Affiliate attribution, append-only commission ledger, cumulative refund/clawback projections and payouts |
+| `CP0008` — SMS wallet and platform notifications | SMS wallet/accounting, platform notification policy and dispatch metadata |
+
+## E.4 Expand-and-contract and migration discipline
+
+- Do not create one giant initial migration. Each migration is additive, reviewable and independently testable.
+- Use Expand-and-Contract for API, schema and Outbox event evolution. Deploy code able to tolerate old/new representations before destructive contract migrations.
+- Run `CREATE INDEX CONCURRENTLY` only in a dedicated Alembic non-transactional/autocommit block. After failure, inspect `pg_index.indisvalid`; drop invalid indexes only after diagnosing the cause, then retry.
+- Backfills are idempotent, batched, observable and resumable. They use deterministic checkpoints and never silently discard conflicting data.
+- A migration's `downgrade` policy must be explicit. Irreversible data transformations require a forward-fix/restore plan rather than a fake destructive downgrade.
+- Test migration from an empty database and from the immediately prior schema version. Test both Cloud Tenant and Local Hub deployment topologies.
+- RLS policies/grants are provisioned as code and verified with actual role identities; never run tenant isolation acceptance tests solely as PostgreSQL superuser/table owner.
+- UUIDv7 IDs are generated by application code/approved ID provider, not by arbitrary database defaults.
+
+---
+
+# Appendix F — SQL Foundation Templates and Phase 1 Acceptance Checklist
+
+## F.1 Scope and non-production status
+
+The SQL below is an implementation contract template, not a complete production schema or a substitute for Alembic migrations. Split it across TP0001–TP0007. Names/columns may be extended where required, but the tenant, integrity, scheduling, RLS and payment semantics may not be weakened. All primary IDs are supplied by the application as UUIDv7. All timestamps represent UTC instants using `TIMESTAMPTZ` unless the business concept is date-only. Money uses `BIGINT` whole IRR.
+
+## F.2 Tenant root and identity tables
+
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+CREATE TABLE tenant_registry (
+    tenant_id UUID PRIMARY KEY,
+    tenant_status VARCHAR(24) NOT NULL
+        CHECK (tenant_status IN ('ACTIVE', 'SUSPENDED', 'DELETING', 'DELETED')),
+    timezone_name TEXT NOT NULL,
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    updated_at_utc TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE tenant_persons (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    birth_date DATE NULL,
+    gender VARCHAR(24) NULL,
+    aggregate_version BIGINT NOT NULL CHECK (aggregate_version > 0),
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    updated_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT uq_person_tenant_id UNIQUE (tenant_id, id)
+);
+
+CREATE TABLE person_identifiers (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    person_id UUID NOT NULL,
+    id_type VARCHAR(32) NOT NULL
+        CHECK (id_type IN ('IR_NATIONAL_ID', 'FOREIGN_FIDA_CODE', 'FOREIGN_PASSPORT')),
+    issuing_country_or_authority VARCHAR(64) NOT NULL,
+    id_ciphertext BYTEA NOT NULL,
+    nonce_96bit BYTEA NOT NULL CHECK (octet_length(nonce_96bit) = 12),
+    auth_tag_128bit BYTEA NOT NULL CHECK (octet_length(auth_tag_128bit) = 16),
+    encryption_key_version SMALLINT NOT NULL,
+    aad_version SMALLINT NOT NULL,
+    masked_display VARCHAR(64) NOT NULL,
+    verification_status VARCHAR(40) NOT NULL
+        CHECK (verification_status IN ('SYNTACTICALLY_VALID_UNVERIFIED', 'OFFICIALLY_VERIFIED')),
+    lookup_hmac_active BYTEA NOT NULL CHECK (octet_length(lookup_hmac_active) = 32),
+    hmac_key_version_active SMALLINT NOT NULL,
+    lookup_hmac_next BYTEA NULL
+        CHECK (lookup_hmac_next IS NULL OR octet_length(lookup_hmac_next) = 32),
+    hmac_key_version_next SMALLINT NULL,
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT fk_identifier_person_tenant
+        FOREIGN KEY (tenant_id, person_id)
+        REFERENCES tenant_persons (tenant_id, id) MATCH FULL,
+    CONSTRAINT uq_identifier_tenant_id UNIQUE (tenant_id, id),
+    CONSTRAINT ck_identifier_next_pair CHECK (
+        (lookup_hmac_next IS NULL AND hmac_key_version_next IS NULL)
+        OR (lookup_hmac_next IS NOT NULL AND hmac_key_version_next IS NOT NULL)
+    )
+);
+
+CREATE UNIQUE INDEX uq_person_identifier_active_lookup
+ON person_identifiers (tenant_id, id_type, issuing_country_or_authority, lookup_hmac_active);
+
+CREATE UNIQUE INDEX uq_person_identifier_next_lookup
+ON person_identifiers (tenant_id, id_type, issuing_country_or_authority, lookup_hmac_next)
+WHERE lookup_hmac_next IS NOT NULL;
+
+CREATE TABLE person_phones (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    person_id UUID NOT NULL,
+    phone_ciphertext BYTEA NOT NULL,
+    nonce_96bit BYTEA NOT NULL CHECK (octet_length(nonce_96bit) = 12),
+    auth_tag_128bit BYTEA NOT NULL CHECK (octet_length(auth_tag_128bit) = 16),
+    encryption_key_version SMALLINT NOT NULL,
+    aad_version SMALLINT NOT NULL,
+    masked_phone VARCHAR(32) NOT NULL,
+    phone_lookup_hmac BYTEA NOT NULL CHECK (octet_length(phone_lookup_hmac) = 32),
+    hmac_key_version SMALLINT NOT NULL,
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    is_shared_phone BOOLEAN NOT NULL DEFAULT FALSE,
+    phone_verified_at_utc TIMESTAMPTZ NULL,
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT fk_person_phone_owner_tenant
+        FOREIGN KEY (tenant_id, person_id)
+        REFERENCES tenant_persons (tenant_id, id) MATCH FULL,
+    CONSTRAINT uq_person_phone_tenant_id UNIQUE (tenant_id, id)
+);
+
+-- Deliberately non-unique: multiple family members may share a phone.
+CREATE INDEX ix_person_phones_lookup
+ON person_phones (tenant_id, hmac_key_version, phone_lookup_hmac);
+
+CREATE TABLE patient_profiles (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    person_id UUID NOT NULL,
+    dossier_number VARCHAR(64) NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT fk_patient_profile_person_tenant
+        FOREIGN KEY (tenant_id, person_id)
+        REFERENCES tenant_persons (tenant_id, id) MATCH FULL,
+    CONSTRAINT uq_patient_profile_person UNIQUE (tenant_id, person_id),
+    CONSTRAINT uq_patient_profile_tenant_id UNIQUE (tenant_id, id)
+);
+
+CREATE TABLE staff_profiles (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    person_id UUID NOT NULL,
+    staff_kind VARCHAR(32) NOT NULL,
+    medical_council_code VARCHAR(64) NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT fk_staff_profile_person_tenant
+        FOREIGN KEY (tenant_id, person_id)
+        REFERENCES tenant_persons (tenant_id, id) MATCH FULL,
+    CONSTRAINT uq_staff_profile_person UNIQUE (tenant_id, person_id),
+    CONSTRAINT uq_staff_profile_tenant_id UNIQUE (tenant_id, id)
+);
+
+-- A login account is optional and independent from the existence of a staff profile.
+-- login_identifier is an account-specific handle; do not auto-copy a shared family phone.
+CREATE TABLE user_accounts (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    person_id UUID NOT NULL,
+    login_identifier VARCHAR(254) NOT NULL,
+    normalized_login_identifier VARCHAR(254) NOT NULL,
+    password_hash_argon2id TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    failed_login_attempts INTEGER NOT NULL DEFAULT 0 CHECK (failed_login_attempts >= 0),
+    locked_until_utc TIMESTAMPTZ NULL,
+    password_changed_at_utc TIMESTAMPTZ NULL,
+    aggregate_version BIGINT NOT NULL CHECK (aggregate_version > 0),
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    updated_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT fk_user_account_person_tenant
+        FOREIGN KEY (tenant_id, person_id)
+        REFERENCES tenant_persons (tenant_id, id) MATCH FULL,
+    CONSTRAINT uq_user_account_person UNIQUE (tenant_id, person_id),
+    CONSTRAINT uq_user_account_login_identifier UNIQUE (tenant_id, normalized_login_identifier),
+    CONSTRAINT uq_user_account_tenant_id UNIQUE (tenant_id, id)
+);
+```
+
+## F.3 Catalog, resources and service requirements
+
+```sql
+CREATE TABLE services (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    service_code VARCHAR(64) NULL,
+    service_name TEXT NOT NULL,
+    default_duration_minutes INTEGER NOT NULL CHECK (default_duration_minutes > 0),
+    default_price_irr BIGINT NOT NULL CHECK (default_price_irr >= 0),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    aggregate_version BIGINT NOT NULL CHECK (aggregate_version > 0),
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    updated_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT uq_service_tenant_id UNIQUE (tenant_id, id)
+);
+
+CREATE TABLE bookable_resources (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    resource_type VARCHAR(40) NOT NULL
+        CHECK (resource_type IN ('PRACTITIONER', 'ROOM', 'DEVICE', 'DEFAULT_ONLINE_SLOT_STREAM')),
+    resource_name TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT uq_bookable_resource_tenant_id UNIQUE (tenant_id, id)
+);
+
+CREATE TABLE service_resource_requirements (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    service_id UUID NOT NULL,
+    requirement_group VARCHAR(64) NOT NULL,
+    required_resource_type VARCHAR(40) NOT NULL,
+    specific_resource_id UUID NULL,
+    quantity_required INTEGER NOT NULL CHECK (quantity_required > 0),
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT fk_requirement_service_tenant
+        FOREIGN KEY (tenant_id, service_id)
+        REFERENCES services (tenant_id, id) MATCH FULL,
+    CONSTRAINT fk_requirement_specific_resource_tenant
+        FOREIGN KEY (tenant_id, specific_resource_id)
+        REFERENCES bookable_resources (tenant_id, id) MATCH SIMPLE,
+    CONSTRAINT uq_service_requirement_tenant_id UNIQUE (tenant_id, id)
+);
+```
+
+`MATCH SIMPLE` on `specific_resource_id` is deliberate: `tenant_id` stays non-NULL and is independently checked against `tenant_registry`, while a NULL `specific_resource_id` means the requirement may be satisfied by any compatible resource in the group. The Application/domain invariant must still verify that a non-NULL specific resource's type matches `required_resource_type`.
+
+## F.4 Appointment and multi-resource allocation schema
+
+```sql
+CREATE TABLE appointments (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    beneficiary_patient_id UUID NOT NULL,
+    booker_person_id UUID NULL,
+    patient_booking_note TEXT NULL,
+    service_id UUID NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    booking_channel VARCHAR(32) NOT NULL
+        CHECK (booking_channel IN ('ONLINE_WEB', 'ONLINE_BOT', 'MANUAL_STAFF')),
+    capacity_pool VARCHAR(16) NOT NULL
+        CHECK (capacity_pool IN ('ONLINE', 'MANUAL')),
+    scheduled_start_at_utc TIMESTAMPTZ NOT NULL,
+    scheduled_end_at_utc TIMESTAMPTZ NOT NULL,
+    hold_expires_at_utc TIMESTAMPTZ NULL,
+    aggregate_version BIGINT NOT NULL CHECK (aggregate_version > 0),
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    updated_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT ck_appointment_valid_time
+        CHECK (scheduled_start_at_utc < scheduled_end_at_utc),
+    CONSTRAINT ck_appointment_patient_booking_note_length
+        CHECK (patient_booking_note IS NULL OR char_length(patient_booking_note) <= 2000),
+    CONSTRAINT ck_appointment_channel_pool CHECK (
+        (booking_channel IN ('ONLINE_WEB', 'ONLINE_BOT') AND capacity_pool = 'ONLINE')
+        OR (booking_channel = 'MANUAL_STAFF' AND capacity_pool = 'MANUAL')
+    ),
+    CONSTRAINT fk_appointment_beneficiary_patient_tenant
+        FOREIGN KEY (tenant_id, beneficiary_patient_id)
+        REFERENCES patient_profiles (tenant_id, id) MATCH FULL,
+    CONSTRAINT fk_appointment_booker_person_tenant
+        FOREIGN KEY (tenant_id, booker_person_id)
+        REFERENCES tenant_persons (tenant_id, id) MATCH SIMPLE,
+    CONSTRAINT fk_appointment_service_tenant
+        FOREIGN KEY (tenant_id, service_id)
+        REFERENCES services (tenant_id, id) MATCH FULL,
+    CONSTRAINT uq_appointment_tenant_id UNIQUE (tenant_id, id)
+);
+
+CREATE TABLE appointment_resource_allocations (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    appointment_id UUID NOT NULL,
+    resource_id UUID NOT NULL,
+    booking_channel VARCHAR(32) NOT NULL,
+    capacity_pool VARCHAR(16) NOT NULL,
+    allocation_status VARCHAR(32) NOT NULL,
+    time_slot TSTZRANGE NOT NULL,
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT fk_allocation_appointment_tenant
+        FOREIGN KEY (tenant_id, appointment_id)
+        REFERENCES appointments (tenant_id, id) MATCH FULL,
+    CONSTRAINT fk_allocation_resource_tenant
+        FOREIGN KEY (tenant_id, resource_id)
+        REFERENCES bookable_resources (tenant_id, id) MATCH FULL,
+    CONSTRAINT ck_allocation_bounded_half_open CHECK (
+        NOT isempty(time_slot)
+        AND NOT lower_inf(time_slot)
+        AND NOT upper_inf(time_slot)
+        AND lower_inc(time_slot)
+        AND NOT upper_inc(time_slot)
+        AND lower(time_slot) < upper(time_slot)
+    ),
+    CONSTRAINT ck_allocation_channel_pool CHECK (
+        (booking_channel IN ('ONLINE_WEB', 'ONLINE_BOT') AND capacity_pool = 'ONLINE')
+        OR (booking_channel = 'MANUAL_STAFF' AND capacity_pool = 'MANUAL')
+    ),
+    CONSTRAINT uq_allocation_one_resource_per_appointment
+        UNIQUE (tenant_id, appointment_id, resource_id),
+    CONSTRAINT uq_allocation_tenant_id UNIQUE (tenant_id, id),
+    CONSTRAINT ex_online_resource_time
+        EXCLUDE USING gist (
+            tenant_id WITH =,
+            resource_id WITH =,
+            time_slot WITH &&
+        ) WHERE (
+            capacity_pool = 'ONLINE'
+            AND allocation_status IN ('PENDING_PAYMENT_HOLD', 'CONFIRMED', 'CHECKED_IN')
+        )
+);
+```
+
+`beneficiary_patient_id` always references an actual `patient_profiles` row; a general `tenant_persons` record is not enough to receive an appointment as a patient. `booker_person_id` is optional and may refer to any person allowed to book on behalf of the beneficiary. It is intentionally `MATCH SIMPLE` because the booker may be absent while `tenant_id` remains non-NULL. The Local/Cloud ownership and sync rules continue to determine which hub may create or confirm each channel.
+
+## F.5 Hold expiry work queue template
+
+The queue is optional as a separate persistence construct, but if used, it must be independent from the parent Appointment lock used by the business UoW. A minimal starting template is:
+
+```sql
+CREATE TABLE hold_expiry_work_items (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+    appointment_id UUID NOT NULL,
+    due_at_utc TIMESTAMPTZ NOT NULL,
+    work_state VARCHAR(24) NOT NULL
+        CHECK (work_state IN ('PENDING', 'CLAIMED', 'DONE', 'RETRYABLE', 'NOOP')),
+    claim_token UUID NULL,
+    claimed_by TEXT NULL,
+    lease_expires_at_utc TIMESTAMPTZ NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    updated_at_utc TIMESTAMPTZ NOT NULL,
+    CONSTRAINT fk_hold_work_appointment_tenant
+        FOREIGN KEY (tenant_id, appointment_id)
+        REFERENCES appointments (tenant_id, id) MATCH FULL,
+    CONSTRAINT uq_hold_work_appointment UNIQUE (tenant_id, appointment_id)
+);
+
+CREATE INDEX ix_hold_expiry_due_work
+ON hold_expiry_work_items (due_at_utc, id)
+WHERE work_state IN ('PENDING', 'RETRYABLE');
+```
+
+A worker may `SELECT ... FOR UPDATE SKIP LOCKED` only on `hold_expiry_work_items` to claim a work item and lease. It commits that claim, starts a new scheduling UoW, then locks Resource → Appointment → Allocation and revalidates. A claim token/lease prevents stale workers from completing a replaced claim. Do not use `SKIP LOCKED` on Appointment during the claim phase.
+
+## F.6 RLS and role policy template including migration maintenance
+
+```sql
+ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_runtime_base ON appointments
+AS PERMISSIVE FOR ALL TO db_app_runtime
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tenant_runtime_guard ON appointments
+AS RESTRICTIVE FOR ALL TO db_app_runtime
+USING (
+    tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+)
+WITH CHECK (
+    tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+);
+
+-- Applies because FORCE ROW LEVEL SECURITY also subjects the table owner.
+CREATE POLICY tenant_migrator_maintenance ON appointments
+AS PERMISSIVE FOR ALL TO db_migrator
+USING (true) WITH CHECK (true);
+```
+
+At the start of every Tenant Application Plane UoW, after verifying the caller's JWT, Sync node identity or signed internal job envelope, bind the context inside the local transaction:
+
+```sql
+SELECT set_config('app.current_tenant_id', :verified_tenant_id, true);
+```
+
+The migration policy does not replace SQL grants; it only supplies an applicable RLS policy to the migration role. Runtime accounts must not inherit `db_migrator`. Runtime tests use the actual `db_app_runtime` login/role, and migration tests use the separate migration principal. The pattern applies to every tenant-owned table where these roles apply, not just `appointments`.
+
+## F.7 Phase 1 acceptance checklist
+
+### Database and tenant isolation
+
+- [ ] Runtime role is not table owner, `SUPERUSER` or `BYPASSRLS`.
+- [ ] Runtime principal is not a member of `db_migrator`; migration credentials are absent from runtime containers/images.
+- [ ] `db_app_runtime` has no `TRUNCATE`, DDL, ownership or policy-management privileges.
+- [ ] `db_migrator` can run authorized migrations under the migration-only RLS policy while `FORCE ROW LEVEL SECURITY` is active.
+- [ ] Missing tenant GUC sees/writes zero tenant rows (fail closed).
+- [ ] Tenant A cannot `SELECT`, `INSERT`, `UPDATE`, `DELETE` or attach FKs to Tenant B rows.
+- [ ] Root tables reject unknown tenant IDs through `tenant_registry` foreign keys.
+- [ ] Mandatory composite FKs use non-NULL references; nullable composite relationships explicitly use `MATCH SIMPLE`.
+- [ ] Tests run under `db_app_runtime`, not superuser or migration role.
+
+### Identity and cryptography
+
+- [ ] Creating a patient without National ID succeeds.
+- [ ] Creating staff without National ID succeeds.
+- [ ] A doctor/specialist may have a staff profile without a `user_accounts` login.
+- [ ] The staff form exposes the permission-protected `Create login account` opt-in for all staff/provider types; it is off by default and does not auto-grant RBAC permissions.
+- [ ] `user_accounts` DDL, tenant/person composite FK, one-account-per-person constraint and tenant-unique login identifier are present and migration-tested.
+- [ ] Two family members may share one phone blind index.
+- [ ] Raw ID/phone values are not present in database plaintext columns or logs.
+- [ ] AES-GCM AAD mismatch/ciphertext transplant fails authentication.
+- [ ] HMAC dual-write/backfill/cutover and rollback behavior is tested with concurrent writes.
+
+### Catalog and scheduling
+
+- [ ] Service and resources for an unknown `tenant_id` are rejected.
+- [ ] A requirement's specific resource must belong to the same tenant and match the expected resource type.
+- [ ] `beneficiary_patient_id` cannot reference a general person without a patient profile.
+- [ ] Optional `booker_person_id` may be NULL and, when present, must be same-tenant.
+- [ ] `patient_booking_note` is nullable, length-limited, audit-attributed and not confused with internal staff/clinical notes.
+- [ ] Portal/API tests prevent one patient from reading another patient's booking note.
+- [ ] Adjacent ranges `[09:00,09:30)` and `[09:30,10:00)` both succeed.
+- [ ] Overlapping ONLINE allocations for the same resource fail with exclusion violation `23P01`.
+- [ ] Online website and bot contend on the same ONLINE pool.
+- [ ] MANUAL may overlap ONLINE and MANUAL only with permission, acknowledgement, current conflict snapshot and immutable audit.
+- [ ] Manual sync retains MANUAL channel/pool and does not cancel Cloud ONLINE reservations.
+- [ ] Required resource groups cannot be omitted.
+- [ ] Expired holds do not remain stuck; worker claims work items separately then locks Resource → Appointment → Allocation.
+- [ ] Hold worker, inline booking and payment callback races are exercised with concurrent PostgreSQL transactions.
+- [ ] Late callbacks never cancel a competing confirmed ONLINE appointment.
+
+### Payment and affiliate
+
+- [ ] CASH receipts require operator/shift/permission and do not require a bank destination account by default.
+- [ ] POS receipts require a managed `pos_terminal_id` and terminal reference/state.
+- [ ] CARD_TO_CARD receipts require destination account and verified bank reference/settlement evidence.
+- [ ] ONLINE receipts require server-to-server verification and merchant/order/amount/currency/provider-reference matching.
+- [ ] Screenshot-only claims remain `UnverifiedPaymentClaim` and do not enter collection reports.
+- [ ] Affiliate partial refunds use cumulative rounding; full cumulative refund claws back exactly the original commission with no Rial drift.
+
+### Infrastructure and restore
+
+- [ ] Each HTTP request/concurrent task gets a fresh `AsyncSession`/UoW.
+- [ ] Same idempotency identity/fingerprint replays; different fingerprint conflicts; concurrent requests do not execute twice.
+- [ ] Outbox event commits atomically with business state.
+- [ ] Duplicate Inbox delivery is harmless; sequence progress is durable/resumable.
+- [ ] Tenant erasure tombstones are independently recoverable and applied before traffic after restore.
+- [ ] Production restore tests validate the full Cloud/Control Plane/Object Storage recovery sequence before Gate D.
+
+A checklist item is not complete merely because it appears here. Attach the migration ID, test name/result, environment/version and evidence reference to the corresponding Open Item/release record.
+
+## F.8 Technical references
+
+PostgreSQL 15 — range types, exclusion constraints, `btree_gist` and row security:
+
+- https://www.postgresql.org/docs/15/rangetypes.html
+- https://www.postgresql.org/docs/15/btree-gist.html
+- https://www.postgresql.org/docs/15/ddl-rowsecurity.html
+
+SQLAlchemy async session/concurrency guidance:
+
+- https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html
+- https://docs.sqlalchemy.org/en/21/orm/session_basics.html
+
+These references support PostgreSQL/SQLAlchemy mechanics only. They do not replace project-specific Testcontainers, provider, security or production acceptance evidence.
+
+---
+
+# V3.0 FINAL DECLARATION — SINGLE DOCUMENT, PRODUCTION GATES OPEN
+
+This document is the single integrated **FINAL_MASTER_SPECIFICATION_v3.0** for the Clinic Management Ecosystem. It preserves the v1.3 baseline and all original clauses 1–739, including the complete Section 50 clauses 692–739, subject to the amendments, subclauses and ACRs explicitly documented in this document. It includes the v3.0 clauses 740–834 and Appendices A–F, including the database boundaries, module structure, migration order, SQL templates and acceptance checklist.
+
+**Current status: `FINAL ARCHITECTURE BASELINE — PRODUCTION NOT AUTHORIZED`.** The v3.0 specification content is frozen and is the single design reference. It authorizes no Production rollout or live-data use. Gate A is limited to isolated development/schema/Testcontainers work and may be used only after the product owner expressly initiates that work; this document itself does not start coding. Gates B and C remain provider/legal-commercial verification requirements. Gate D Production authorization remains blocked until all applicable preceding gates and production-readiness evidence pass and written product-owner approval is recorded.
+
+This specification is not proof of implementation, successful tests, legal approval, provider capability or security perfection. Open Items remain open until evidence is attached and reviewed. The final document-integrity pass explicitly includes the optional staff login-account creation control and its `user_accounts` SQL table, plus the separate nullable `patient_booking_note` field and privacy/test requirements. Any genuine contradiction, security flaw, data-integrity issue, impossible requirement or external dependency change must be handled through a narrowly scoped Architecture Change Record; ordinary coding decisions must not silently change the contract.
+
+**END OF FINAL_MASTER_SPECIFICATION_v3.0 — FINAL ARCHITECTURE BASELINE; PRODUCTION GATES OPEN**
