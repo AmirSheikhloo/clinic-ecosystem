@@ -22,7 +22,7 @@
 |---|---|---|
 | `tests/integration/test_plane_isolation.py` | **NOT RUN** | Skipped: Docker unavailable |
 | `tests/integration/test_tp0001_migration.py` | **NOT RUN** | Skipped: Docker unavailable |
-| `tests/unit/test_tp0001_verbatim_sql.py` | Runnable without Docker | Static verbatim F.2 check only; does not accept M0-B/C |
+| `tests/unit/test_tp0001_verbatim_sql.py` | **PASS** (2) | Static verbatim F.2 check only; does not accept M0-B/C |
 
 ## Milestone acceptance implication
 

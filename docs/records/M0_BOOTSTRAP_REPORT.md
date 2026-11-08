@@ -3,7 +3,8 @@
 **Authoritative specification:** `docs/FINAL_MASTER_SPECIFICATION_v3.0.1_FINAL.txt`  
 **Feature branch:** `cursor/gate-a-m0-bootstrap-95a4`  
 **PO scope name:** `gate-a/m0-bootstrap`  
-**PR target:** `main` (do not merge)
+**Commit:** `e740f0d6d660b37904ec13395d4f4b19f16edb90`  
+**Pull Request:** https://github.com/AmirSheikhloo/clinic-ecosystem/pull/1 (target `main`; do not merge)
 
 ## Milestone results
 
