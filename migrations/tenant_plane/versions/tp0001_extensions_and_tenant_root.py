@@ -18,23 +18,24 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-# Verbatim Appendix F.2 tenant root (v3.0.1) — do not paraphrase.
-_F2_TENANT_ROOT_SQL = """
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+# Verbatim Appendix F.2 statements (v3.0.1) — do not paraphrase.
+# Executed as separate statements because asyncpg rejects multi-command
+# prepared statements; SQL text remains identical to F.2.
+_F2_BTREE_GIST = "CREATE EXTENSION IF NOT EXISTS btree_gist;"
 
-CREATE TABLE tenant_registry (
+_F2_TENANT_REGISTRY = """CREATE TABLE tenant_registry (
     tenant_id UUID PRIMARY KEY,
     tenant_status VARCHAR(24) NOT NULL
         CHECK (tenant_status IN ('ACTIVE', 'SUSPENDED', 'DELETING', 'DELETED')),
     timezone_name TEXT NOT NULL,
     created_at_utc TIMESTAMPTZ NOT NULL,
     updated_at_utc TIMESTAMPTZ NOT NULL
-);
-"""
+);"""
 
 
 def upgrade() -> None:
-    op.execute(_F2_TENANT_ROOT_SQL)
+    op.execute(_F2_BTREE_GIST)
+    op.execute(_F2_TENANT_REGISTRY)
 
 
 def downgrade() -> None:
