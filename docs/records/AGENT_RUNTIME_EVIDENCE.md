@@ -14,28 +14,26 @@
 
 - **Availability:** **NOT AVAILABLE** (`docker: command not found`)
 - Measured in the Agent environment at execution time.
-- PostgreSQL 15 Testcontainers therefore cannot start.
+- PostgreSQL 15 Testcontainers therefore cannot start **in the Agent**.
+
+## CI evidence path (accepting)
+
+- Workflow: `.github/workflows/m0-postgres-integration.yml`
+- Runner: GitHub-hosted `ubuntu-24.04`
+- Accepting push run: https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42536959128
+- Commit: `2f5831c4ff33abca7247088604c230514ecd05f3`
+- CI Python: 3.12.16
+- Result: **12 passed, 0 skipped, 0 failed**
 
 ## Required PostgreSQL integration tests
 
-| Suite | Result | Notes |
+| Suite | Agent | CI (accepting run) |
 |---|---|---|
-| `tests/integration/test_plane_isolation.py` | **NOT RUN** | Skipped: Docker unavailable |
-| `tests/integration/test_tp0001_migration.py` | **NOT RUN** | Skipped: Docker unavailable |
-| `tests/unit/test_tp0001_verbatim_sql.py` | **PASS** (2) | Static verbatim F.2 check only; does not accept M0-B/C |
+| `tests/integration/test_plane_isolation.py` | NOT RUN (no Docker) | **PASS** (6) |
+| `tests/integration/test_tp0001_migration.py` | NOT RUN (no Docker) | **PASS** (4) |
+| `tests/unit/test_tp0001_verbatim_sql.py` | **PASS** (2) | **PASS** (2) |
 
 ## Milestone acceptance implication
 
-- **M0-B:** implementation files present; status **NOT ACCEPTED** until required isolation tests **PASS** in CI (or another Docker-capable runner).
-- **M0-C:** migration files present; status **NOT ACCEPTED** until required migration tests **PASS** in CI (or another Docker-capable runner).
-- Creating the GitHub Actions workflow alone does **not** change M0-B/M0-C acceptance.
-
-## CI path for evidence
-
-- Workflow: `.github/workflows/m0-postgres-integration.yml`
-- Runner: GitHub-hosted `ubuntu-24.04` (Docker available)
-- Required suites must be discovered and executed; skips of required integration/migration tests fail the workflow.
-
-## Exact blocker (Agent environment)
-
-Docker CLI/daemon is not available in the Cursor Cloud Agent execution environment, so real PostgreSQL 15 Testcontainers cannot run **here**. CI is the authorized evidence path.
+- **M0-B:** **ACCEPTED** on CI evidence (plane isolation PASS; 0 skips).
+- **M0-C:** **ACCEPTED** on CI evidence (TP0001 migration PASS; 0 skips).
