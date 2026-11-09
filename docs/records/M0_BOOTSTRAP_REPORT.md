@@ -10,45 +10,44 @@
 | Milestone | Result | Notes |
 |---|---|---|
 | **M0-A** | **COMPLETE** | Legacy inventory **NOT ACCESSIBLE**; authorization recorded. |
-| **M0-B** | **PENDING CI RE-ACCEPTANCE** | Appendix E privilege/membership/CONNECT remediations landed; prior CI green is superseded until new suite passes. |
-| **M0-C** | **PENDING CI RE-ACCEPTANCE** | Migrator-login TP0001 path + E.3/E.4 remediations landed; await green CI. |
+| **M0-B** | **ACCEPTED** | Appendix E isolation/membership/`SET ROLE`/privilege suite **PASS** on CI. |
+| **M0-C** | **ACCEPTED** | TP0001 via actual migrator logins; CP `ensure_version`; E.4 irreversible downgrade; **PASS** on CI. |
 
-> Status above is updated to ACCEPTED only after the post-remediation GitHub Actions suite passes with 0 skips. See AGENT_RUNTIME_EVIDENCE.md for the accepting run once available.
+## CI evidence (accepting run)
 
-## Remediation vs prior suite
+- **Push run:** https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42538483731
+- **PR run:** https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42538488223
+- **Accepting commit:** `59a2f7c698037b30acad07db2076124aaf3b7a45`
+- **Result:** **27 passed**, **0 skipped**, **0 failed**
+- Evidence guard: OK (27 required node ids; 0 required skips)
 
-### Previously passing (retained; still required)
+## Tests previously passing (retained)
 
-- Unit F.2 verbatim checks (2)
-- Plane CONNECT denials for runtime logins (2)
-- Same-plane CONNECT allowed (1)
-- PUBLIC CONNECT/TEMPORARY revoked (1)
-- Local Hub role-name reuse (1)
-- TP0001 applies to Cloud Tenant + Local Hub (1)
-- Invalid status CHECK (1)
-- TP0001 does not mutate CP DB (1)
-- Separate Alembic version tables (1)
+- Unit F.2 verbatim (2)
+- Runtime CONNECT denials / same-plane CONNECT / PUBLIC revoke / Local Hub role names (5)
+- TP0001 Cloud+Local apply, status CHECK, no CP mutation, separate version tables (4)
 
-### Newly added security / ownership / policy tests
+Prior green suite size before Appendix E closure: **12**.
 
-- Migrator cross-plane CONNECT denials + assigned-DB CONNECT matrix + Local Hub login CONNECT
-- `pg_has_role` direct/transitive membership (Cloud + Local Hub)
-- Runtime cannot `SET ROLE` to migrator or other-plane runtime; migrators assume only own migrator; Local Hub SET ROLE boundaries
-- Runtime lacks SUPERUSER/BYPASSRLS; schema USAGE without CREATE; DML without TRUNCATE; no DDL; default privileges exclude PUBLIC/other plane
-- TP0001 / Alembic version-table ownership by `db_migrator`
-- Unit: TP0001 downgrade irreversible (E.4); CP0000 revision file absent (E.3 `ensure_version`)
+## Newly added security / ownership / policy tests
 
-## Agent environment
+- Migrator CONNECT denials + assigned-DB CONNECT matrix + Local Hub login CONNECT (4)
+- `pg_has_role` membership + SET ROLE boundaries Cloud/Local (5)
+- Runtime attribute/schema/table/default-privilege proofs (4)
+- TP0001 ownership by `db_migrator` (1)
+- Unit: irreversible TP0001 downgrade; no CP0000 revision file (2)
 
-- **Python:** 3.12.3
-- **Docker:** NOT AVAILABLE in Cursor Cloud Agent (CI is evidence path)
+## Tests actually executed (accepting run)
 
-## Unresolved decisions
+All **27** required tests executed; **0** skipped.
 
-1. UUIDv7 provider (Python 3.12.3; stdlib uuid7 needs 3.14+)
+## Remaining unresolved issues
+
+1. UUIDv7 provider (Agent/runtime Python 3.12.x; stdlib uuid7 needs 3.14+)
 2. Legacy source access (blocks business module rewrites only)
-3. Backup/restore identities (E.1.7) — out of M0 executable scope; not claimed
+3. Backup/restore identities (E.1.7) — not in M0 executable scope
+4. Cursor Cloud Agent still has no Docker (CI is the evidence path)
 
 ## Exact next step
 
-Wait for GitHub Actions on this remediation commit; accept M0-B/M0-C only on green evidence with 0 required skips. Do not merge PR #1 without separate approval.
+Human review of PR #1. **Do not merge** without separate approval.

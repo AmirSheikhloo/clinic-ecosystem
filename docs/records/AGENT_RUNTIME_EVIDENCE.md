@@ -14,11 +14,12 @@
 ## CI evidence path
 
 - Workflow: `.github/workflows/m0-postgres-integration.yml`
-- Required suites expanded for Appendix E.1.4–E.1.10 / E.3 / E.4 closure
-- Evidence guard: `.github/scripts/assert_m0_pytest_evidence.py` (27 required node ids)
-- Prior accepting run (pre-remediation, 12 tests): https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42536959128 on `2f5831c`
-- Post-remediation accepting run: *pending — fill after green CI*
+- Required node ids: **27** (Appendix E closure)
+- Accepting push run: https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42538483731
+- Accepting commit: `59a2f7c698037b30acad07db2076124aaf3b7a45`
+- Result: **27 passed, 0 skipped, 0 failed**
 
 ## Milestone implication
 
-M0-B and M0-C require a new green CI run covering the expanded required suite before re-acceptance.
+- **M0-B:** **ACCEPTED**
+- **M0-C:** **ACCEPTED**
