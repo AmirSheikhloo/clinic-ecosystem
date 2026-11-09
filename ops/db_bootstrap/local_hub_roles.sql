@@ -25,7 +25,7 @@ END $$;
 GRANT db_app_runtime TO local_app_login;
 GRANT db_migrator TO local_migrator_login;
 
-ALTER ROLE local_migrator_login SET ROLE db_migrator;
+-- Migrator SET ROLE is applied by the Alembic runner (see cloud_roles.sql note).
 
 -- Database name expected by tests: local_hub
 REVOKE CONNECT, TEMPORARY ON DATABASE local_hub FROM PUBLIC;

@@ -121,13 +121,12 @@ async def test_migrator_logins_assume_only_own_migrator_role(plane_topology) -> 
         _cloud_dsn(plane_topology, "tp_migrator_login", "tenant_app")
     )
     try:
-        # Default SET ROLE from ALTER ROLE ... SET ROLE
-        assert await conn.fetchval("SELECT current_user") == "db_migrator"
-        await conn.execute("RESET ROLE")
+        assert await conn.fetchval("SELECT session_user") == "tp_migrator_login"
         assert await conn.fetchval("SELECT current_user") == "tp_migrator_login"
         await conn.execute("SET ROLE db_migrator")
         assert await conn.fetchval("SELECT current_user") == "db_migrator"
         await conn.execute("RESET ROLE")
+        assert await conn.fetchval("SELECT current_user") == "tp_migrator_login"
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             await conn.execute("SET ROLE cp_db_migrator")
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
@@ -141,9 +140,10 @@ async def test_migrator_logins_assume_only_own_migrator_role(plane_topology) -> 
         _cloud_dsn(plane_topology, "cp_migrator_login", "control_plane")
     )
     try:
+        assert await conn.fetchval("SELECT session_user") == "cp_migrator_login"
+        await conn.execute("SET ROLE cp_db_migrator")
         assert await conn.fetchval("SELECT current_user") == "cp_db_migrator"
         await conn.execute("RESET ROLE")
-        await conn.execute("SET ROLE cp_db_migrator")
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             await conn.execute("SET ROLE db_migrator")
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
@@ -166,9 +166,11 @@ async def test_local_hub_set_role_boundaries(plane_topology) -> None:
 
     conn = await asyncpg.connect(_local_dsn(plane_topology, "local_migrator_login"))
     try:
+        assert await conn.fetchval("SELECT session_user") == "local_migrator_login"
+        assert await conn.fetchval("SELECT current_user") == "local_migrator_login"
+        await conn.execute("SET ROLE db_migrator")
         assert await conn.fetchval("SELECT current_user") == "db_migrator"
         await conn.execute("RESET ROLE")
-        await conn.execute("SET ROLE db_migrator")
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             await conn.execute("SET ROLE db_app_runtime")
     finally:

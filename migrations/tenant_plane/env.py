@@ -10,7 +10,7 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -21,6 +21,8 @@ if config.config_file_name is not None:
 
 target_metadata = None
 VERSION_TABLE = "alembic_version_tp"
+# E.1.4: migration login assumes only the Tenant Plane migrator group role.
+DEFAULT_SET_ROLE = "db_migrator"
 
 
 def get_url() -> str:
@@ -68,8 +70,12 @@ async def run_async_migrations() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
+    set_role = os.environ.get("TENANT_PLANE_SET_ROLE", DEFAULT_SET_ROLE)
     async with connectable.connect() as connection:
+        # Quote as identifier; role names are controlled bootstrap constants.
+        await connection.execute(text(f'SET ROLE "{set_role}"'))
         await connection.run_sync(do_run_migrations)
+        await connection.commit()
     await connectable.dispose()
 
 

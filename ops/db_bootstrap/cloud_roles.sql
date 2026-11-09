@@ -50,9 +50,9 @@ GRANT db_migrator TO tp_migrator_login;
 GRANT cp_db_app_runtime TO cp_app_login;
 GRANT cp_db_migrator TO cp_migrator_login;
 
--- Migration jobs assume only their plane migrator group role (E.1.4).
-ALTER ROLE tp_migrator_login SET ROLE db_migrator;
-ALTER ROLE cp_migrator_login SET ROLE cp_db_migrator;
+-- Migration jobs SET ROLE to their plane migrator group explicitly in the
+-- Alembic runner (E.1.4). Do not bake SET ROLE into ALTER ROLE defaults:
+-- that would make RESET ROLE restore the migrator GUC instead of the login.
 
 -- Per-database CONNECT / TEMPORARY (run after both logical DBs exist)
 -- Database names expected by tests: control_plane, tenant_app
