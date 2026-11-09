@@ -3,7 +3,7 @@
 -- NO PASSWORDS OR SECRETS. Tests set ephemeral passwords at runtime via ALTER ROLE.
 
 DO $$ BEGIN
-  CREATE ROLE db_migrator NOLOGIN;
+  CREATE ROLE db_migrator NOLOGIN NOSUPERUSER NOBYPASSRLS;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -25,6 +25,11 @@ END $$;
 GRANT db_app_runtime TO local_app_login;
 GRANT db_migrator TO local_migrator_login;
 
+ALTER ROLE local_migrator_login SET ROLE db_migrator;
+
 -- Database name expected by tests: local_hub
 REVOKE CONNECT, TEMPORARY ON DATABASE local_hub FROM PUBLIC;
 GRANT CONNECT ON DATABASE local_hub TO local_migrator_login, local_app_login;
+
+-- Minimum DB CREATE for trusted extensions (btree_gist) without SUPERUSER.
+GRANT CREATE ON DATABASE local_hub TO db_migrator;

@@ -9,52 +9,46 @@
 
 | Milestone | Result | Notes |
 |---|---|---|
-| **M0-A** | **COMPLETE** | Legacy inventory recorded as **NOT ACCESSIBLE**; authorization file committed. |
-| **M0-B** | **ACCEPTED** | Required plane-isolation tests **PASS** on GitHub Actions (`ubuntu-24.04`) with real PostgreSQL 15 Testcontainers (two containers / three logical DBs). |
-| **M0-C** | **ACCEPTED** | Required TP0001 migration tests **PASS** on the same CI evidence (Cloud Tenant + Local Hub independently; CP baseline separate). |
+| **M0-A** | **COMPLETE** | Legacy inventory **NOT ACCESSIBLE**; authorization recorded. |
+| **M0-B** | **PENDING CI RE-ACCEPTANCE** | Appendix E privilege/membership/CONNECT remediations landed; prior CI green is superseded until new suite passes. |
+| **M0-C** | **PENDING CI RE-ACCEPTANCE** | Migrator-login TP0001 path + E.3/E.4 remediations landed; await green CI. |
+
+> Status above is updated to ACCEPTED only after the post-remediation GitHub Actions suite passes with 0 skips. See AGENT_RUNTIME_EVIDENCE.md for the accepting run once available.
+
+## Remediation vs prior suite
+
+### Previously passing (retained; still required)
+
+- Unit F.2 verbatim checks (2)
+- Plane CONNECT denials for runtime logins (2)
+- Same-plane CONNECT allowed (1)
+- PUBLIC CONNECT/TEMPORARY revoked (1)
+- Local Hub role-name reuse (1)
+- TP0001 applies to Cloud Tenant + Local Hub (1)
+- Invalid status CHECK (1)
+- TP0001 does not mutate CP DB (1)
+- Separate Alembic version tables (1)
+
+### Newly added security / ownership / policy tests
+
+- Migrator cross-plane CONNECT denials + assigned-DB CONNECT matrix + Local Hub login CONNECT
+- `pg_has_role` direct/transitive membership (Cloud + Local Hub)
+- Runtime cannot `SET ROLE` to migrator or other-plane runtime; migrators assume only own migrator; Local Hub SET ROLE boundaries
+- Runtime lacks SUPERUSER/BYPASSRLS; schema USAGE without CREATE; DML without TRUNCATE; no DDL; default privileges exclude PUBLIC/other plane
+- TP0001 / Alembic version-table ownership by `db_migrator`
+- Unit: TP0001 downgrade irreversible (E.4); CP0000 revision file absent (E.3 `ensure_version`)
 
 ## Agent environment
 
-- **Python:** 3.12.3 (`3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]`)
-- **Docker:** **NOT AVAILABLE** in the Cursor Cloud Agent (`docker: command not found`)
-- Evidence path for M0-B/C: GitHub Actions workflow `.github/workflows/m0-postgres-integration.yml`
-
-## CI evidence (accepting run)
-
-- **Workflow run (push):** https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42536959128
-- **PR run:** https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42536963085
-- **Commit:** `2f5831c4ff33abca7247088604c230514ecd05f3`
-- **CI Python:** 3.12.16
-- **Docker:** verified via `docker version` / `docker info` on the runner
-- **Pytest:** **12 passed**, **0 skipped**, **0 failed**
-  - unit: 2 PASS
-  - plane isolation: 6 PASS
-  - TP0001 migration: 4 PASS
-- Skip guard: `assert_m0_pytest_evidence.py` reported OK (12 required tests; 0 required skips)
-
-## Delivered artifacts
-
-- `docs/records/GATE_A_AUTHORIZATION_M0.md`
-- `docs/inventory/M0A_LEGACY_INVENTORY.md`
-- `docs/records/UNRESOLVED_RUNTIME_UUIDV7.md`
-- `docs/records/AGENT_RUNTIME_EVIDENCE.md`
-- `.github/workflows/m0-postgres-integration.yml`
-- `pyproject.toml` (pytest, testcontainers, alembic, asyncpg, httpx, sqlalchemy for Alembic)
-- `ops/db_bootstrap/cloud_roles.sql` / `local_hub_roles.sql` (no secrets)
-- `migrations/tenant_plane/` including **TP0001** verbatim F.2 `tenant_registry` + `btree_gist`
-- `migrations/control_plane/` baseline `cp0000` (no CP0001 business DDL); version table `alembic_version_cp`
-- `tests/integration/` two-container topology + isolation + migration tests
-
-## Deviations
-
-- TP0001 executes the two verbatim F.2 statements via separate `op.execute` calls (asyncpg cannot prepare multi-command statements). SQL text remains identical to Appendix F.2.
+- **Python:** 3.12.3
+- **Docker:** NOT AVAILABLE in Cursor Cloud Agent (CI is evidence path)
 
 ## Unresolved decisions
 
-1. UUIDv7 provider (Agent Python 3.12.3; stdlib uuid7 needs 3.14+)
+1. UUIDv7 provider (Python 3.12.3; stdlib uuid7 needs 3.14+)
 2. Legacy source access (blocks business module rewrites only)
-3. Agent Docker remains unavailable (CI is the evidence path; not a remaining M0-B/C blocker)
+3. Backup/restore identities (E.1.7) — out of M0 executable scope; not claimed
 
 ## Exact next step
 
-Review PR #1. **Do not merge** until Product Owner/reviewer approval. No further M0-B/C test evidence is required for acceptance.
+Wait for GitHub Actions on this remediation commit; accept M0-B/M0-C only on green evidence with 0 required skips. Do not merge PR #1 without separate approval.

@@ -3,6 +3,10 @@
 Cloud container: control_plane + tenant_app logical databases.
 Local Hub container: local_hub logical database.
 Ephemeral credentials are created at runtime and discarded after the session.
+
+Migration endpoints use actual plane migrator logins (tp_migrator_login /
+local_migrator_login / cp_migrator_login). Admin endpoints are limited to
+provisioning and independent inspection (Appendix E.1.10).
 """
 
 from __future__ import annotations
@@ -11,6 +15,7 @@ import asyncio
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote_plus
 
 import asyncpg
 import pytest
@@ -18,11 +23,14 @@ import pytest
 from tests.integration.docker_probe import DOCKER_AVAILABLE, SKIP_REASON
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CLOUD_ROLES_SQL = (REPO_ROOT / "ops" / "db_bootstrap" / "cloud_roles.sql").read_text(
+BOOTSTRAP = REPO_ROOT / "ops" / "db_bootstrap"
+CLOUD_ROLES_SQL = (BOOTSTRAP / "cloud_roles.sql").read_text(encoding="utf-8")
+LOCAL_HUB_ROLES_SQL = (BOOTSTRAP / "local_hub_roles.sql").read_text(encoding="utf-8")
+TENANT_SCHEMA_PRIVS_SQL = (BOOTSTRAP / "tenant_plane_schema_privileges.sql").read_text(
     encoding="utf-8"
 )
-LOCAL_HUB_ROLES_SQL = (
-    REPO_ROOT / "ops" / "db_bootstrap" / "local_hub_roles.sql"
+CONTROL_SCHEMA_PRIVS_SQL = (
+    BOOTSTRAP / "control_plane_schema_privileges.sql"
 ).read_text(encoding="utf-8")
 
 
@@ -43,19 +51,21 @@ class DbEndpoint:
 
     def asyncpg_dsn(self) -> str:
         return (
-            f"postgresql://{self.user}:{self.password}"
+            f"postgresql://{quote_plus(self.user)}:{quote_plus(self.password)}"
             f"@{self.host}:{self.port}/{self.database}"
         )
 
     def sqlalchemy_async_url(self) -> str:
         return (
-            f"postgresql+asyncpg://{self.user}:{self.password}"
+            f"postgresql+asyncpg://{quote_plus(self.user)}:{quote_plus(self.password)}"
             f"@{self.host}:{self.port}/{self.database}"
         )
 
 
 @dataclass(frozen=True)
 class PlaneTopology:
+    """Migration endpoints use plane migrator logins; admins for inspection only."""
+
     cloud_control: DbEndpoint
     cloud_tenant: DbEndpoint
     local_hub: DbEndpoint
@@ -71,7 +81,6 @@ def _split_sql_statements(script: str) -> list[str]:
     in_dollar = False
     for line in script.splitlines():
         if "$$" in line:
-            # Each $$ toggles dollar-quote mode for our bootstrap scripts.
             for _ in range(line.count("$$")):
                 in_dollar = not in_dollar
         buf.append(line)
@@ -122,6 +131,18 @@ async def _assert_server_is_postgres_15(admin_dsn: str) -> None:
         await conn.close()
 
 
+async def _apply_db_script(admin: DbEndpoint, database: str, script: str) -> None:
+    dsn = (
+        f"postgresql://{quote_plus(admin.user)}:{quote_plus(admin.password)}"
+        f"@{admin.host}:{admin.port}/{database}"
+    )
+    conn = await asyncpg.connect(dsn)
+    try:
+        await _exec_script(conn, script)
+    finally:
+        await conn.close()
+
+
 async def _bootstrap_cloud(admin: DbEndpoint, passwords: dict[str, str]) -> None:
     admin_dsn = admin.asyncpg_dsn()
     await _assert_server_is_postgres_15(admin_dsn)
@@ -137,6 +158,9 @@ async def _bootstrap_cloud(admin: DbEndpoint, passwords: dict[str, str]) -> None
     finally:
         await conn.close()
 
+    await _apply_db_script(admin, "tenant_app", TENANT_SCHEMA_PRIVS_SQL)
+    await _apply_db_script(admin, "control_plane", CONTROL_SCHEMA_PRIVS_SQL)
+
 
 async def _bootstrap_local(admin: DbEndpoint, passwords: dict[str, str]) -> None:
     admin_dsn = admin.asyncpg_dsn()
@@ -150,6 +174,8 @@ async def _bootstrap_local(admin: DbEndpoint, passwords: dict[str, str]) -> None
                 await _set_role_password(conn, role, pwd)
     finally:
         await conn.close()
+
+    await _apply_db_script(admin, "local_hub", TENANT_SCHEMA_PRIVS_SQL)
 
 
 @pytest.fixture(scope="session")
@@ -192,29 +218,26 @@ def plane_topology():
         asyncio.run(_bootstrap_cloud(cloud_admin, passwords))
         asyncio.run(_bootstrap_local(local_admin, passwords))
 
-        # Migration endpoints use cluster admin credentials against each logical
-        # DB so TP0001/CP baseline can create objects before TP0007 grants exist.
-        # Plane login CONNECT/membership is covered by isolation tests.
         yield PlaneTopology(
             cloud_control=DbEndpoint(
                 host=cloud_admin.host,
                 port=cloud_admin.port,
-                user=cloud_admin.user,
-                password=cloud_admin.password,
+                user="cp_migrator_login",
+                password=passwords["cp_migrator_login"],
                 database="control_plane",
             ),
             cloud_tenant=DbEndpoint(
                 host=cloud_admin.host,
                 port=cloud_admin.port,
-                user=cloud_admin.user,
-                password=cloud_admin.password,
+                user="tp_migrator_login",
+                password=passwords["tp_migrator_login"],
                 database="tenant_app",
             ),
             local_hub=DbEndpoint(
                 host=local_admin.host,
                 port=local_admin.port,
-                user=local_admin.user,
-                password=local_admin.password,
+                user="local_migrator_login",
+                password=passwords["local_migrator_login"],
                 database="local_hub",
             ),
             cloud_admin=DbEndpoint(

@@ -39,5 +39,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DROP TABLE IF EXISTS tenant_registry;")
-    # Leave btree_gist installed; extension may be shared.
+    # Appendix E.4: irreversible / data-bearing roots require a forward-fix /
+    # restore plan — not a fake destructive DROP after tenant data may exist.
+    raise NotImplementedError(
+        "TP0001 downgrade is intentionally irreversible under Appendix E.4: "
+        "dropping tenant_registry after tenant data may exist requires a "
+        "forward-fix/restore plan, not a destructive downgrade."
+    )
