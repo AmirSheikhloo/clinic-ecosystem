@@ -32,27 +32,38 @@ class HoldExpirationWorker:
         self._scheduling_session_factory = scheduling_session_factory
         self._worker_id = worker_id
 
-    async def claim_due_work(self, *, lease_seconds: int = 30) -> ClaimedHoldWork | None:
-        """TX1: SKIP LOCKED only on hold_expiry_work_items (clause 782/F.5)."""
+    async def claim_due_work(
+        self, *, tenant_id: UUID, lease_seconds: int = 30
+    ) -> ClaimedHoldWork | None:
+        """TX1: SKIP LOCKED only on hold_expiry_work_items (clause 782/F.5).
+
+        Tenant context must be bound before the claim SELECT because FORCE RLS
+        on hold_expiry_work_items fails closed without app.current_tenant_id.
+        """
         claim_token = new_uuid7()
         now = datetime.now(timezone.utc)
         lease_until = now + timedelta(seconds=lease_seconds)
         async with self._claim_session_factory() as session:
             assert isinstance(session, AsyncSession)
+            await session.execute(
+                text("SELECT set_config('app.current_tenant_id', :tid, true)"),
+                {"tid": str(tenant_id)},
+            )
             row = (
                 await session.execute(
                     text(
                         """
                         SELECT id, tenant_id, appointment_id
                         FROM hold_expiry_work_items
-                        WHERE work_state IN ('PENDING', 'RETRYABLE')
+                        WHERE tenant_id = :tenant_id
+                          AND work_state IN ('PENDING', 'RETRYABLE')
                           AND due_at_utc <= :now_utc
                         ORDER BY due_at_utc, id
                         FOR UPDATE SKIP LOCKED
                         LIMIT 1
                         """
                     ),
-                    {"now_utc": now},
+                    {"now_utc": now, "tenant_id": tenant_id},
                 )
             ).first()
             if row is None:

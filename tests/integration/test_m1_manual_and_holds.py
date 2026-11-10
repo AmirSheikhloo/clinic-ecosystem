@@ -147,7 +147,7 @@ async def test_hold_expiry_worker_claim_then_expire(plane_topology) -> None:
         scheduling_session_factory=session_cm,
         worker_id="worker-1",
     )
-    claim = await worker.claim_due_work()
+    claim = await worker.claim_due_work(tenant_id=ids.tenant_id)
     assert claim is not None
     outcome = await worker.process_claim(claim)
     assert outcome == "DONE"

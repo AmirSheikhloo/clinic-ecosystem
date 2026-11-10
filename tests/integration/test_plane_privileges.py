@@ -176,6 +176,12 @@ async def test_runtime_login_cannot_ddl_or_truncate_and_dml_rolls_back(
         tx = conn.transaction()
         await tx.start()
         try:
+            # TP0007 FORCE RLS: DML requires a matching transaction-local tenant GUC.
+            # Privilege proof is still that INSERT is granted and rolls back cleanly.
+            await conn.execute(
+                "SELECT set_config('app.current_tenant_id',"
+                " '01900000-0000-7000-8000-0000000000aa', true)"
+            )
             await conn.execute(
                 """
                 INSERT INTO tenant_registry (
