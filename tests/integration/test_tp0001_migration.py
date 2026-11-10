@@ -70,15 +70,68 @@ async def _assert_postgres_15(conn: asyncpg.Connection) -> None:
     assert str(version).startswith("15."), f"expected PostgreSQL 15.x, got {version!r}"
 
 
+async def _provision_plane_db_stopped_at_tp0001(
+    plane_topology,
+    *,
+    cloud: bool,
+    database: str,
+) -> None:
+    """Empty logical DB + schema privs + upgrade exactly to TP0001 via plane migrator."""
+    from tests.integration.conftest import TENANT_SCHEMA_PRIVS_SQL, _apply_db_script
+
+    admin = plane_topology.cloud_admin if cloud else plane_topology.local_admin
+    if cloud:
+        migrator_user = "tp_migrator_login"
+        app_user = "tp_app_login"
+        migrator_pwd = plane_topology.passwords["tp_migrator_login"]
+    else:
+        migrator_user = "local_migrator_login"
+        app_user = "local_app_login"
+        migrator_pwd = plane_topology.passwords["local_migrator_login"]
+
+    admin_dsn = (
+        f"postgresql://{quote_plus(admin.user)}:{quote_plus(admin.password)}"
+        f"@{admin.host}:{admin.port}/{admin.database}"
+    )
+    conn = await asyncpg.connect(admin_dsn)
+    try:
+        exists = await conn.fetchval(
+            "SELECT 1 FROM pg_database WHERE datname = $1", database
+        )
+        if not exists:
+            await conn.execute(f'CREATE DATABASE "{database}"')
+        await conn.execute(f'REVOKE CONNECT, TEMPORARY ON DATABASE "{database}" FROM PUBLIC')
+        await conn.execute(
+            f'GRANT CONNECT ON DATABASE "{database}" TO {migrator_user}, {app_user}'
+        )
+        await conn.execute(f'GRANT CREATE ON DATABASE "{database}" TO db_migrator')
+    finally:
+        await conn.close()
+
+    await _apply_db_script(admin, database, TENANT_SCHEMA_PRIVS_SQL)
+    migrator_url = (
+        f"postgresql+asyncpg://{quote_plus(migrator_user)}:{quote_plus(migrator_pwd)}"
+        f"@{admin.host}:{admin.port}/{database}"
+    )
+    await upgrade_tenant_plane_async(migrator_url, revision="tp0001")
+
+
 @pytest.mark.asyncio
 async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> None:
     assert plane_topology.cloud_tenant.user == "tp_migrator_login"
     assert plane_topology.local_hub.user == "local_migrator_login"
 
-    await upgrade_tenant_plane_async(plane_topology.cloud_tenant.sqlalchemy_async_url())
-    await upgrade_tenant_plane_async(plane_topology.local_hub.sqlalchemy_async_url())
+    # Isolated DBs: shared tenant_app/local_hub may already be at TP0007 in-session.
+    cloud_db = "tenant_app_m0_tp0001_accept"
+    local_db = "local_hub_m0_tp0001_accept"
+    await _provision_plane_db_stopped_at_tp0001(
+        plane_topology, cloud=True, database=cloud_db
+    )
+    await _provision_plane_db_stopped_at_tp0001(
+        plane_topology, cloud=False, database=local_db
+    )
 
-    for cloud, database in ((True, "tenant_app"), (False, "local_hub")):
+    for cloud, database in ((True, cloud_db), (False, local_db)):
         conn = await asyncpg.connect(
             await _admin_db_dsn(plane_topology, cloud=cloud, database=database)
         )
@@ -116,10 +169,9 @@ async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> N
             assert "DELETING" in check
             assert "DELETED" in check
 
-            # TP0001 root remains; later revisions may add more public tables.
-            # Alembic version table stays in alembic_meta (never public).
+            # Application tables only in public; version table is in alembic_meta
             public_tables = await _public_tables(conn)
-            assert "tenant_registry" in public_tables
+            assert public_tables == {"tenant_registry"}
             assert (
                 await conn.fetchval(
                     """
@@ -133,18 +185,7 @@ async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> N
             version = await conn.fetchval(
                 f'SELECT version_num FROM "{ALEMBIC_META}".alembic_version_tp'
             )
-            assert version is not None
-            assert str(version).startswith("tp000"), version
-            # Lineage must include TP0001; head may be later (M1+).
-            assert version in {
-                "tp0001",
-                "tp0002",
-                "tp0003",
-                "tp0004",
-                "tp0005",
-                "tp0006",
-                "tp0007",
-            }
+            assert version == "tp0001"
         finally:
             await conn.close()
 
