@@ -5,15 +5,16 @@
 ## Agent environment
 
 - Python: 3.12.3
-- Docker: **NOT AVAILABLE**
+- Docker: **NOT AVAILABLE** (`NOT RUN LOCALLY` for Testcontainers)
 
-## CI
+## CI (post final security remediation)
 
 - Workflow: `.github/workflows/m0-postgres-integration.yml`
-- Required node ids: **38** (final security remediation)
-- Prior accepting run (pre-final-remediation): https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42538483731 on `59a2f7c`
-- Post-remediation accepting run: *pending review after green CI*
+- Required node ids: **38**
+- Green push run: https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42882396949
+- Commit: `3598011896017d6ec210282b2ce11eb9087a36f8`
+- Result: **38 passed, 0 skipped, 0 failed**
 
 ## Milestone implication
 
-M0-B and M0-C remain **PENDING CI REVIEW** until the updated suite passes and is reviewed. E.1.7 backup/restore identities remain deferred.
+CI is green for the remediation suite. **M0-B / M0-C are not auto-accepted** — awaiting human review of this evidence. E.1.7 backup/restore identities remain deferred.

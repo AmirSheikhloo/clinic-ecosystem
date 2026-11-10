@@ -9,27 +9,32 @@
 | Milestone | Result | Notes |
 |---|---|---|
 | **M0-A** | **COMPLETE** | Legacy inventory NOT ACCESSIBLE; authorization recorded. |
-| **M0-B** | **PENDING CI REVIEW** | Final security remediation applied; await green expanded suite. |
-| **M0-C** | **PENDING CI REVIEW** | `alembic_meta` isolation + migrator path; await green CI. |
+| **M0-B** | **CI GREEN — AWAITING HUMAN REVIEW** | Final security remediation suite passed; not auto-accepted. |
+| **M0-C** | **CI GREEN — AWAITING HUMAN REVIEW** | `alembic_meta` + migrator path verified; not auto-accepted. |
 
-Do **not** treat M0-B/C as ACCEPTED until the post-remediation GitHub Actions evidence is reviewed.
+## CI evidence (post-remediation)
 
-## Final security remediation (this change set)
+- **Push run:** https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42882396949
+- **PR run:** https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/42882409743
+- **Commit:** `3598011896017d6ec210282b2ce11eb9087a36f8`
+- **Result:** **38 passed**, **0 skipped**, **0 failed**
 
-- Alembic version tables in private schema `alembic_meta` (online + offline `version_table_schema`)
+## Remediation included
+
+- Alembic version tables in private schema `alembic_meta`
 - Fixed plane migrator `SET ROLE` (no env override)
-- Removed Control Plane `CREATE ON DATABASE`; retained Tenant/Local Hub CREATE for `btree_gist`
+- Removed Control Plane `CREATE ON DATABASE`
 - Alembic test runner no longer mutates `os.environ`
-- Expanded role-attribute / privilege / metadata-isolation tests across all three DBs
-- CI collect step uses Bash `pipefail`; evidence guard fails on any JUnit failure/error
+- Expanded privilege / role-attribute / metadata-isolation tests
+- CI collect `pipefail`; evidence guard fails on any JUnit failure/error
 
 ## Unresolved / deferred
 
 1. UUIDv7 provider
 2. Legacy source access
-3. Backup/restore identities (**E.1.7** — explicitly deferred; not implemented)
+3. Backup/restore identities (**E.1.7** — explicitly deferred)
 4. Agent Docker unavailable (CI is evidence path)
 
 ## Exact next step
 
-Review GitHub Actions for this remediation commit. Accept M0-B/C only after green evidence. Do not merge without separate approval.
+Human review of PR #1 and CI evidence. Do not merge without separate approval.
