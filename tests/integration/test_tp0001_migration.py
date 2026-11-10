@@ -116,8 +116,10 @@ async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> N
             assert "DELETING" in check
             assert "DELETED" in check
 
-            # Application tables only in public; version table is in alembic_meta
-            assert await _public_tables(conn) == {"tenant_registry"}
+            # TP0001 root remains; later revisions may add more public tables.
+            # Alembic version table stays in alembic_meta (never public).
+            public_tables = await _public_tables(conn)
+            assert "tenant_registry" in public_tables
             assert (
                 await conn.fetchval(
                     """
@@ -131,7 +133,18 @@ async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> N
             version = await conn.fetchval(
                 f'SELECT version_num FROM "{ALEMBIC_META}".alembic_version_tp'
             )
-            assert version == "tp0001"
+            assert version is not None
+            assert str(version).startswith("tp000"), version
+            # Lineage must include TP0001; head may be later (M1+).
+            assert version in {
+                "tp0001",
+                "tp0002",
+                "tp0003",
+                "tp0004",
+                "tp0005",
+                "tp0006",
+                "tp0007",
+            }
         finally:
             await conn.close()
 

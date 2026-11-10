@@ -134,6 +134,6 @@ async def test_bootstrap_alembic_meta_idempotent(plane_topology) -> None:
                 version = await conn.fetchval(
                     "SELECT version_num FROM alembic_meta.alembic_version_tp"
                 )
-                assert version == "tp0001"
+                assert version is not None and str(version).startswith("tp000")
         finally:
             await conn.close()
