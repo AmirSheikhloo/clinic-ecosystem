@@ -1,0 +1,48 @@
+"""TP0001 — Extensions and tenant root.
+
+Installs/verifies btree_gist and creates tenant_registry using the complete
+verbatim F.2 definition from docs/FINAL_MASTER_SPECIFICATION_v3.0.1_FINAL.txt.
+No UUID-generating defaults, no RLS, no other F.2 tables.
+
+Revision ID: tp0001
+Revises:
+Create Date: 2026-11-08
+"""
+
+from typing import Sequence, Union
+
+from alembic import op
+
+revision: str = "tp0001"
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+# Verbatim Appendix F.2 statements (v3.0.1) — do not paraphrase.
+# Executed as separate statements because asyncpg rejects multi-command
+# prepared statements; SQL text remains identical to F.2.
+_F2_BTREE_GIST = "CREATE EXTENSION IF NOT EXISTS btree_gist;"
+
+_F2_TENANT_REGISTRY = """CREATE TABLE tenant_registry (
+    tenant_id UUID PRIMARY KEY,
+    tenant_status VARCHAR(24) NOT NULL
+        CHECK (tenant_status IN ('ACTIVE', 'SUSPENDED', 'DELETING', 'DELETED')),
+    timezone_name TEXT NOT NULL,
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    updated_at_utc TIMESTAMPTZ NOT NULL
+);"""
+
+
+def upgrade() -> None:
+    op.execute(_F2_BTREE_GIST)
+    op.execute(_F2_TENANT_REGISTRY)
+
+
+def downgrade() -> None:
+    # Appendix E.4: irreversible / data-bearing roots require a forward-fix /
+    # restore plan — not a fake destructive DROP after tenant data may exist.
+    raise NotImplementedError(
+        "TP0001 downgrade is intentionally irreversible under Appendix E.4: "
+        "dropping tenant_registry after tenant data may exist requires a "
+        "forward-fix/restore plan, not a destructive downgrade."
+    )
