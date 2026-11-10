@@ -2,6 +2,7 @@
 
 Migrations run as actual tp_migrator_login / local_migrator_login identities
 (assuming only db_migrator). Admin connections are used for inspection only.
+Alembic version tables live in schema alembic_meta.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ EXPECTED_COLUMNS = {
     "created_at_utc",
     "updated_at_utc",
 }
+ALEMBIC_META = "alembic_meta"
 
 
 async def _table_columns(conn: asyncpg.Connection, table: str) -> dict[str, dict]:
@@ -70,7 +72,6 @@ async def _assert_postgres_15(conn: asyncpg.Connection) -> None:
 
 @pytest.mark.asyncio
 async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> None:
-    # Actual migrator logins (SET ROLE db_migrator via ALTER ROLE)
     assert plane_topology.cloud_tenant.user == "tp_migrator_login"
     assert plane_topology.local_hub.user == "local_migrator_login"
 
@@ -115,11 +116,21 @@ async def test_tp0001_applies_to_cloud_tenant_and_local_hub(plane_topology) -> N
             assert "DELETING" in check
             assert "DELETED" in check
 
-            tables = await _public_tables(conn)
-            app_tables = tables - {"alembic_version_tp"}
-            assert app_tables == {"tenant_registry"}
-
-            version = await conn.fetchval("SELECT version_num FROM alembic_version_tp")
+            # Application tables only in public; version table is in alembic_meta
+            assert await _public_tables(conn) == {"tenant_registry"}
+            assert (
+                await conn.fetchval(
+                    """
+                    SELECT 1 FROM pg_tables
+                    WHERE schemaname = $1 AND tablename = 'alembic_version_tp'
+                    """,
+                    ALEMBIC_META,
+                )
+                == 1
+            )
+            version = await conn.fetchval(
+                f'SELECT version_num FROM "{ALEMBIC_META}".alembic_version_tp'
+            )
             assert version == "tp0001"
         finally:
             await conn.close()
@@ -135,43 +146,61 @@ async def test_tp0001_objects_owned_by_db_migrator(plane_topology) -> None:
             await _admin_db_dsn(plane_topology, cloud=cloud, database=database)
         )
         try:
-            for table in ("tenant_registry", "alembic_version_tp"):
-                owner = await conn.fetchval(
-                    """
-                    SELECT tableowner FROM pg_tables
-                    WHERE schemaname = 'public' AND tablename = $1
-                    """,
-                    table,
-                )
-                assert owner == "db_migrator", f"{database}.{table} owner={owner!r}"
+            owner = await conn.fetchval(
+                """
+                SELECT tableowner FROM pg_tables
+                WHERE schemaname = 'public' AND tablename = 'tenant_registry'
+                """
+            )
+            assert owner == "db_migrator"
+            ver_owner = await conn.fetchval(
+                """
+                SELECT tableowner FROM pg_tables
+                WHERE schemaname = $1 AND tablename = 'alembic_version_tp'
+                """,
+                ALEMBIC_META,
+            )
+            assert ver_owner == "db_migrator"
+            ext_owner = await conn.fetchval(
+                """
+                SELECT r.rolname
+                FROM pg_extension e
+                JOIN pg_roles r ON r.oid = e.extowner
+                WHERE e.extname = 'btree_gist'
+                """
+            )
+            assert ext_owner == "db_migrator"
         finally:
             await conn.close()
 
 
 @pytest.mark.asyncio
-async def test_tp0001_rejects_invalid_status(plane_topology) -> None:
+async def test_tp0001_rejects_invalid_status_cloud_and_local(plane_topology) -> None:
     await upgrade_tenant_plane_async(plane_topology.cloud_tenant.sqlalchemy_async_url())
-    conn = await asyncpg.connect(
-        await _admin_db_dsn(plane_topology, cloud=True, database="tenant_app")
-    )
-    try:
-        with pytest.raises(asyncpg.CheckViolationError):
-            await conn.execute(
-                """
-                INSERT INTO tenant_registry (
-                    tenant_id, tenant_status, timezone_name,
-                    created_at_utc, updated_at_utc
-                ) VALUES (
-                    '01900000-0000-7000-8000-000000000001',
-                    'INVALID',
-                    'UTC',
-                    NOW(),
-                    NOW()
+    await upgrade_tenant_plane_async(plane_topology.local_hub.sqlalchemy_async_url())
+
+    for cloud, database in ((True, "tenant_app"), (False, "local_hub")):
+        conn = await asyncpg.connect(
+            await _admin_db_dsn(plane_topology, cloud=cloud, database=database)
+        )
+        try:
+            with pytest.raises(asyncpg.CheckViolationError):
+                await conn.execute(
+                    """
+                    INSERT INTO tenant_registry (
+                        tenant_id, tenant_status, timezone_name,
+                        created_at_utc, updated_at_utc
+                    ) VALUES (
+                        '01900000-0000-7000-8000-000000000001',
+                        'INVALID',
+                        'UTC',
+                        NOW(),
+                        NOW()
+                    )
+                    """
                 )
-                """
-            )
-    finally:
-        await conn.close()
+        finally:
+            await conn.close()
 
 
 @pytest.mark.asyncio
@@ -187,19 +216,38 @@ async def test_tp0001_does_not_mutate_control_plane_db(plane_topology) -> None:
     )
     try:
         await _assert_postgres_15(conn)
-        tables = await _public_tables(conn)
-        assert "tenant_registry" not in tables
-        assert "alembic_version_tp" not in tables
-        assert "alembic_version_cp" in tables
-        # No invented CP business tables; version table only (E.3, no CP0000 revision)
-        assert tables == {"alembic_version_cp"}
-        row_count = await conn.fetchval("SELECT COUNT(*) FROM alembic_version_cp")
+        assert await _public_tables(conn) == set()
+        assert "tenant_registry" not in await _public_tables(conn)
+        assert (
+            await conn.fetchval(
+                """
+                SELECT 1 FROM pg_tables
+                WHERE schemaname = $1 AND tablename = 'alembic_version_cp'
+                """,
+                ALEMBIC_META,
+            )
+            == 1
+        )
+        assert (
+            await conn.fetchval(
+                """
+                SELECT 1 FROM pg_tables
+                WHERE schemaname = $1 AND tablename = 'alembic_version_tp'
+                """,
+                ALEMBIC_META,
+            )
+            is None
+        )
+        row_count = await conn.fetchval(
+            f'SELECT COUNT(*) FROM "{ALEMBIC_META}".alembic_version_cp'
+        )
         assert row_count == 0
         owner = await conn.fetchval(
             """
             SELECT tableowner FROM pg_tables
-            WHERE schemaname = 'public' AND tablename = 'alembic_version_cp'
-            """
+            WHERE schemaname = $1 AND tablename = 'alembic_version_cp'
+            """,
+            ALEMBIC_META,
         )
         assert owner == "cp_db_migrator"
     finally:
@@ -221,8 +269,38 @@ async def test_separate_alembic_version_tables(plane_topology) -> None:
             await _admin_db_dsn(plane_topology, cloud=True, database=db_name)
         )
         try:
-            tables = await _public_tables(conn)
-            assert expected_table in tables
-            assert unexpected not in tables
+            assert (
+                await conn.fetchval(
+                    """
+                    SELECT 1 FROM pg_tables
+                    WHERE schemaname = $1 AND tablename = $2
+                    """,
+                    ALEMBIC_META,
+                    expected_table,
+                )
+                == 1
+            )
+            assert (
+                await conn.fetchval(
+                    """
+                    SELECT 1 FROM pg_tables
+                    WHERE schemaname = $1 AND tablename = $2
+                    """,
+                    ALEMBIC_META,
+                    unexpected,
+                )
+                is None
+            )
+            # Must not exist in public
+            assert (
+                await conn.fetchval(
+                    """
+                    SELECT 1 FROM pg_tables
+                    WHERE schemaname = 'public' AND tablename = $1
+                    """,
+                    expected_table,
+                )
+                is None
+            )
         finally:
             await conn.close()

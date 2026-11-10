@@ -51,8 +51,7 @@ GRANT cp_db_app_runtime TO cp_app_login;
 GRANT cp_db_migrator TO cp_migrator_login;
 
 -- Migration jobs SET ROLE to their plane migrator group explicitly in the
--- Alembic runner (E.1.4). Do not bake SET ROLE into ALTER ROLE defaults:
--- that would make RESET ROLE restore the migrator GUC instead of the login.
+-- Alembic runner (E.1.4). Do not bake SET ROLE into ALTER ROLE defaults.
 
 -- Per-database CONNECT / TEMPORARY (run after both logical DBs exist)
 -- Database names expected by tests: control_plane, tenant_app
@@ -67,6 +66,12 @@ GRANT CONNECT ON DATABASE tenant_app TO tp_migrator_login, tp_app_login;
 REVOKE CONNECT ON DATABASE control_plane FROM tp_migrator_login, tp_app_login;
 REVOKE CONNECT ON DATABASE tenant_app FROM cp_migrator_login, cp_app_login;
 
--- Minimum DB CREATE for trusted extensions (btree_gist) without SUPERUSER (E.1.8).
+-- Tenant Plane only: CREATE ON DATABASE for trusted btree_gist without SUPERUSER.
 GRANT CREATE ON DATABASE tenant_app TO db_migrator;
-GRANT CREATE ON DATABASE control_plane TO cp_db_migrator;
+
+-- Control Plane must NOT have CREATE ON DATABASE (no extension install in M0 CP).
+REVOKE CREATE ON DATABASE control_plane FROM PUBLIC;
+REVOKE CREATE ON DATABASE control_plane FROM cp_db_migrator;
+REVOKE CREATE ON DATABASE control_plane FROM cp_migrator_login;
+REVOKE CREATE ON DATABASE control_plane FROM cp_app_login;
+REVOKE CREATE ON DATABASE control_plane FROM cp_db_app_runtime;

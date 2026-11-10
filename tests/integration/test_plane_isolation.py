@@ -90,6 +90,26 @@ async def test_public_connect_revoked_on_cloud_databases(plane_topology) -> None
 
 
 @pytest.mark.asyncio
+async def test_public_connect_revoked_on_local_hub(plane_topology) -> None:
+    conn = await asyncpg.connect(plane_topology.local_admin.asyncpg_dsn())
+    try:
+        assert (
+            await conn.fetchval(
+                "SELECT has_database_privilege('public', 'local_hub', 'CONNECT')"
+            )
+            is False
+        )
+        assert (
+            await conn.fetchval(
+                "SELECT has_database_privilege('public', 'local_hub', 'TEMPORARY')"
+            )
+            is False
+        )
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
 async def test_local_hub_reuses_tenant_group_role_names(plane_topology) -> None:
     conn = await asyncpg.connect(plane_topology.local_admin.asyncpg_dsn())
     try:

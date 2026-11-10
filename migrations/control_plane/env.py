@@ -1,7 +1,7 @@
 """Control Plane Alembic environment (asyncpg).
 
 Initialized for version tracking only in M0 — no CP0001 business DDL.
-Uses version table alembic_version_cp.
+Version table alembic_version_cp lives in private schema alembic_meta.
 """
 
 from __future__ import annotations
@@ -22,18 +22,27 @@ if config.config_file_name is not None:
 
 target_metadata = None
 VERSION_TABLE = "alembic_version_cp"
-DEFAULT_SET_ROLE = "cp_db_migrator"
+VERSION_TABLE_SCHEMA = "alembic_meta"
+MIGRATOR_ROLE = "cp_db_migrator"
+
+
+def _is_placeholder_url(url: str | None) -> bool:
+    return not url or url.startswith("driver://")
 
 
 def get_url() -> str:
-    url = os.environ.get("CONTROL_PLANE_DATABASE_URL") or config.get_main_option(
-        "sqlalchemy.url"
-    )
-    if not url or url.startswith("driver://"):
+    """Prefer an explicitly configured non-placeholder sqlalchemy.url."""
+    ini_url = config.get_main_option("sqlalchemy.url")
+    if not _is_placeholder_url(ini_url):
+        url = ini_url
+    else:
+        url = os.environ.get("CONTROL_PLANE_DATABASE_URL")
+    if _is_placeholder_url(url):
         raise RuntimeError(
-            "Set CONTROL_PLANE_DATABASE_URL to a PostgreSQL URL "
-            "(postgresql+asyncpg://...)."
+            "Configure sqlalchemy.url or CONTROL_PLANE_DATABASE_URL to a "
+            "PostgreSQL URL (postgresql+asyncpg://...)."
         )
+    assert url is not None
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     return url
@@ -47,6 +56,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         version_table=VERSION_TABLE,
+        version_table_schema=VERSION_TABLE_SCHEMA,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -57,6 +67,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         version_table=VERSION_TABLE,
+        version_table_schema=VERSION_TABLE_SCHEMA,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -70,9 +81,8 @@ async def run_async_migrations() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-    set_role = os.environ.get("CONTROL_PLANE_SET_ROLE", DEFAULT_SET_ROLE)
     async with connectable.connect() as connection:
-        await connection.execute(text(f'SET ROLE "{set_role}"'))
+        await connection.execute(text(f'SET ROLE "{MIGRATOR_ROLE}"'))
         await connection.run_sync(do_run_migrations)
         await connection.commit()
     await connectable.dispose()

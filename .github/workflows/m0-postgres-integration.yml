@@ -48,11 +48,14 @@ jobs:
           python -m pip install -e ".[dev]"
 
       - name: Collect tests (must discover required suites)
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pytest tests/unit tests/integration --collect-only -q | tee m0-collect.txt
           python .github/scripts/assert_m0_pytest_evidence.py --mode collect --collect-log m0-collect.txt
 
       - name: Run unit and required integration/migration tests
+        shell: bash
         env:
           M0_REQUIRE_DOCKER: "1"
           # Ryuk is optional; keep default enabled when the daemon supports it.
