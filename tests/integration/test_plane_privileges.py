@@ -165,25 +165,30 @@ async def test_runtime_login_cannot_ddl_or_truncate_and_dml_rolls_back(
 ) -> None:
     await upgrade_tenant_plane_async(plane_topology.cloud_tenant.sqlalchemy_async_url())
     conn = await asyncpg.connect(_cloud_dsn(plane_topology, "tp_app_login", "tenant_app"))
-    tx = conn.transaction()
-    await tx.start()
     try:
+        # Privilege denials outside the DML transaction: a failed statement would
+        # abort a shared transaction and block later INSERT/ROLLBACK proofs.
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             await conn.execute("CREATE TABLE runtime_forbidden (id int)")
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             await conn.execute("TRUNCATE tenant_registry")
-        await conn.execute(
-            """
-            INSERT INTO tenant_registry (
-              tenant_id, tenant_status, timezone_name, created_at_utc, updated_at_utc
-            ) VALUES (
-              '01900000-0000-7000-8000-0000000000aa',
-              'ACTIVE', 'UTC', NOW(), NOW()
+
+        tx = conn.transaction()
+        await tx.start()
+        try:
+            await conn.execute(
+                """
+                INSERT INTO tenant_registry (
+                  tenant_id, tenant_status, timezone_name, created_at_utc, updated_at_utc
+                ) VALUES (
+                  '01900000-0000-7000-8000-0000000000aa',
+                  'ACTIVE', 'UTC', NOW(), NOW()
+                )
+                """
             )
-            """
-        )
+        finally:
+            await tx.rollback()
     finally:
-        await tx.rollback()
         await conn.close()
 
     # No residual row
