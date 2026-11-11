@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
@@ -107,6 +108,8 @@ async def test_manual_overlap_requires_ack_then_audits(plane_topology) -> None:
         )
         assert len(audits) == 1
         details = audits[0]["details_json"]
+        if isinstance(details, str):
+            details = json.loads(details)
         snap = details["conflict_snapshot"]
         assert len(snap) == 1
         assert snap[0]["appointment_id"] == str(first.appointment_id)
