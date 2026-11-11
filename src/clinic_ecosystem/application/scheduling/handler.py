@@ -1,4 +1,4 @@
-"""ScheduleAppointmentHandler — clauses 185–201 + v3.0 amendment."""
+"""ScheduleAppointmentHandler — clauses 185–201 / 779 / 782–783."""
 
 from __future__ import annotations
 
@@ -9,8 +9,10 @@ from uuid import UUID
 
 from clinic_ecosystem.application.scheduling.commands import ScheduleAppointmentCommand
 from clinic_ecosystem.application.scheduling.exceptions import (
+    ConflictDisplayItem,
     IdempotencyConflict,
     IdempotencyInProgress,
+    ManualOverlapAcknowledgementRequired,
     UnauthorizedScheduling,
 )
 from clinic_ecosystem.application.scheduling.ports import (
@@ -18,14 +20,13 @@ from clinic_ecosystem.application.scheduling.ports import (
     AuditStore,
     IdempotencyStore,
     OutboxStore,
+    PatientDisplayDirectory,
     PermissionService,
     UnitOfWork,
     validate_resource_set,
 )
-from clinic_ecosystem.domain.scheduling.exceptions import (
-    CapacityConflictException,
-    ManualOverlapAcknowledgementRequired,
-)
+from clinic_ecosystem.domain.scheduling.conflicts import OverlapConflictFact
+from clinic_ecosystem.domain.scheduling.exceptions import CapacityConflictException
 from clinic_ecosystem.domain.scheduling.model import (
     Appointment,
     AppointmentStatus,
@@ -53,6 +54,7 @@ class ScheduleAppointmentHandler:
         outbox: OutboxStore,
         audit: AuditStore,
         permissions: PermissionService,
+        patient_display: PatientDisplayDirectory,
     ) -> None:
         self._uow_factory = uow_factory
         self._appointments = appointments
@@ -60,6 +62,7 @@ class ScheduleAppointmentHandler:
         self._outbox = outbox
         self._audit = audit
         self._permissions = permissions
+        self._patient_display = patient_display
 
     async def handle(self, command: ScheduleAppointmentCommand) -> ScheduleAppointmentResult:
         owner_token = new_uuid7()
@@ -87,7 +90,14 @@ class ScheduleAppointmentHandler:
                 await uow.rollback()
                 raise IdempotencyConflict("idempotency fingerprint mismatch")
 
-            result = await self._execute_business(uow, command)
+            try:
+                result = await self._execute_business(uow, command)
+            except Exception:
+                # Unsuccessful MANUAL confirmation / any business failure rolls back
+                # the entire UoW including the idempotency claim.
+                await uow.rollback()
+                raise
+
             await self._idempotency.complete(
                 tenant_id=command.tenant_id,
                 principal_id=command.principal_id,
@@ -103,9 +113,8 @@ class ScheduleAppointmentHandler:
         self, uow: UnitOfWork, command: ScheduleAppointmentCommand
     ) -> ScheduleAppointmentResult:
         now = datetime.now(timezone.utc)
-        resource_ids = sorted(command.resource_ids)  # lock order: resource.id ASC
+        resource_ids = sorted(command.resource_ids)
 
-        # Resolve resources without business locks first (clause 783).
         requirements = await self._appointments.get_service_requirements(
             command.tenant_id, command.service_id
         )
@@ -120,8 +129,10 @@ class ScheduleAppointmentHandler:
             requirements, resource_types, list(resource_ids)
         )
 
-        # Global lock order step 1: BookableResource rows ASC.
+        # Clause 783 step 1: BookableResource rows ASC.
         await self._appointments.lock_resources(command.tenant_id, list(resource_ids))
+
+        audit_conflict_snapshot: list[dict[str, Any]] | None = None
 
         if command.capacity_pool == CapacityPool.ONLINE:
             await self._appointments.expire_conflicting_holds(
@@ -132,31 +143,9 @@ class ScheduleAppointmentHandler:
                 now_utc=now,
             )
         else:
-            overlaps = await self._appointments.find_overlaps(
-                tenant_id=command.tenant_id,
-                resource_ids=list(resource_ids),
-                start_at_utc=command.start_at_utc,
-                end_at_utc=command.end_at_utc,
+            audit_conflict_snapshot = await self._manual_overlap_gate(
+                command, resource_ids=list(resource_ids)
             )
-            if overlaps:
-                if not command.acknowledge_overlap:
-                    raise ManualOverlapAcknowledgementRequired(overlaps)
-                allowed = await self._permissions.principal_has(
-                    tenant_id=command.tenant_id,
-                    principal_id=command.principal_id,
-                    permission_code=ALLOW_MANUAL_OVERBOOKING,
-                )
-                if not allowed:
-                    raise UnauthorizedScheduling(ALLOW_MANUAL_OVERBOOKING)
-                # Re-check conflict list after locks (clause 779).
-                overlaps_again = await self._appointments.find_overlaps(
-                    tenant_id=command.tenant_id,
-                    resource_ids=list(resource_ids),
-                    start_at_utc=command.start_at_utc,
-                    end_at_utc=command.end_at_utc,
-                )
-                if _conflict_ids(overlaps) != _conflict_ids(overlaps_again):
-                    raise ManualOverlapAcknowledgementRequired(overlaps_again)
 
         initial_status = (
             AppointmentStatus.PENDING_PAYMENT_HOLD
@@ -188,7 +177,7 @@ class ScheduleAppointmentHandler:
         try:
             await self._appointments.add(appointment)
             await uow.flush()
-        except Exception as exc:  # noqa: BLE001 — translate PG EXCLUDE
+        except Exception as exc:  # noqa: BLE001
             if _is_exclude_violation(exc):
                 raise CapacityConflictException("online capacity conflict") from exc
             raise
@@ -210,7 +199,7 @@ class ScheduleAppointmentHandler:
                 payload=event,
             )
 
-        if command.capacity_pool == CapacityPool.MANUAL and command.acknowledge_overlap:
+        if audit_conflict_snapshot is not None:
             await self._audit.append(
                 tenant_id=command.tenant_id,
                 actor_type=command.actor_type,
@@ -220,27 +209,107 @@ class ScheduleAppointmentHandler:
                 target_id=appointment.id,
                 details={
                     "correlation_id": str(command.correlation_id),
-                    "conflict_snapshot": await self._appointments.find_overlaps(
-                        tenant_id=command.tenant_id,
-                        resource_ids=list(resource_ids),
-                        start_at_utc=command.start_at_utc,
-                        end_at_utc=command.end_at_utc,
-                    ),
+                    "conflict_appointment_ids": [
+                        item["appointment_id"] for item in audit_conflict_snapshot
+                    ],
+                    "conflict_snapshot": audit_conflict_snapshot,
                 },
             )
 
         return ScheduleAppointmentResult(appointment_id=appointment.id, replayed=False)
 
+    async def _manual_overlap_gate(
+        self, command: ScheduleAppointmentCommand, *, resource_ids: list[UUID]
+    ) -> list[dict[str, Any]] | None:
+        """Resource→Appointment→Allocation locks, authz, ack, pre-insert snapshot."""
+        candidate_ids = await self._appointments.discover_overlapping_appointment_ids(
+            tenant_id=command.tenant_id,
+            resource_ids=resource_ids,
+            start_at_utc=command.start_at_utc,
+            end_at_utc=command.end_at_utc,
+        )
+        # Clause 783 steps 2–3 under the same UoW.
+        await self._appointments.lock_appointments(command.tenant_id, candidate_ids)
+        await self._appointments.lock_allocations_for_appointments(
+            command.tenant_id, candidate_ids
+        )
+        facts = await self._appointments.find_overlap_facts(
+            tenant_id=command.tenant_id,
+            resource_ids=resource_ids,
+            start_at_utc=command.start_at_utc,
+            end_at_utc=command.end_at_utc,
+        )
+        if not facts:
+            return None
 
-def _conflict_ids(overlaps: list[dict[str, Any]]) -> set[str]:
-    return {str(item["appointment_id"]) for item in overlaps}
+        # Authz before any display-safe name disclosure.
+        allowed = await self._permissions.principal_has(
+            tenant_id=command.tenant_id,
+            principal_id=command.principal_id,
+            permission_code=ALLOW_MANUAL_OVERBOOKING,
+        )
+        if not allowed:
+            raise UnauthorizedScheduling(ALLOW_MANUAL_OVERBOOKING)
+
+        display = await self._to_display_conflicts(command.tenant_id, facts)
+        current_ids = _unique_appointment_ids(facts)
+        if not command.acknowledge_overlap:
+            raise ManualOverlapAcknowledgementRequired(display)
+        if set(command.acknowledged_conflict_ids) != current_ids:
+            raise ManualOverlapAcknowledgementRequired(display)
+
+        # Immutable pre-insert audit snapshot: IDs/channels/times only (no names).
+        return _audit_snapshot(facts)
+
+    async def _to_display_conflicts(
+        self, tenant_id: UUID, facts: list[OverlapConflictFact]
+    ) -> list[ConflictDisplayItem]:
+        patient_ids = sorted({f.beneficiary_patient_id for f in facts})
+        names = await self._patient_display.display_safe_names(
+            tenant_id=tenant_id, patient_ids=patient_ids
+        )
+        by_appointment: dict[UUID, OverlapConflictFact] = {}
+        for fact in facts:
+            by_appointment.setdefault(fact.appointment_id, fact)
+        return [
+            ConflictDisplayItem(
+                appointment_id=appt_id,
+                display_safe_patient_name=names.get(
+                    fact.beneficiary_patient_id, ""
+                ),
+                booking_channel=fact.booking_channel,
+                scheduled_start_at_utc=fact.scheduled_start_at_utc,
+                scheduled_end_at_utc=fact.scheduled_end_at_utc,
+            )
+            for appt_id, fact in sorted(by_appointment.items(), key=lambda x: str(x[0]))
+        ]
+
+
+def _unique_appointment_ids(facts: list[OverlapConflictFact]) -> set[UUID]:
+    return {f.appointment_id for f in facts}
+
+
+def _audit_snapshot(facts: list[OverlapConflictFact]) -> list[dict[str, Any]]:
+    by_appointment: dict[UUID, OverlapConflictFact] = {}
+    for fact in facts:
+        by_appointment.setdefault(fact.appointment_id, fact)
+    return [
+        {
+            "appointment_id": str(fact.appointment_id),
+            "beneficiary_patient_id": str(fact.beneficiary_patient_id),
+            "booking_channel": fact.booking_channel,
+            "capacity_pool": fact.capacity_pool,
+            "scheduled_start_at_utc": fact.scheduled_start_at_utc.isoformat(),
+            "scheduled_end_at_utc": fact.scheduled_end_at_utc.isoformat(),
+        }
+        for _, fact in sorted(by_appointment.items(), key=lambda x: str(x[0]))
+    ]
 
 
 def _is_exclude_violation(exc: BaseException) -> bool:
     text = str(exc).lower()
     if EXCLUDE_CONSTRAINT_NAME.lower() in text:
         return True
-    # asyncpg / SQLAlchemy exclusion violation markers
     if "exclusion constraint" in text or "conflicting key value" in text:
         return True
     cause = getattr(exc, "orig", None) or getattr(exc, "__cause__", None)

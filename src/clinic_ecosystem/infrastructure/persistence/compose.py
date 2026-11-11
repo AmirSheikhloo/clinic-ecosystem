@@ -14,6 +14,9 @@ from clinic_ecosystem.infrastructure.persistence.appointment_repository import (
 from clinic_ecosystem.infrastructure.persistence.audit import SqlAuditStore
 from clinic_ecosystem.infrastructure.persistence.idempotency import SqlIdempotencyStore
 from clinic_ecosystem.infrastructure.persistence.outbox import SqlOutboxStore
+from clinic_ecosystem.infrastructure.persistence.patient_display import (
+    SqlPatientDisplayDirectory,
+)
 from clinic_ecosystem.infrastructure.persistence.permissions import SqlPermissionService
 from clinic_ecosystem.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 
@@ -27,6 +30,7 @@ class _SessionScopedContainer:
         self.outbox = SqlOutboxStore(session)
         self.audit = SqlAuditStore(session)
         self.permissions = SqlPermissionService(session)
+        self.patient_display = SqlPatientDisplayDirectory(session)
 
 
 class _PortProxy:
@@ -63,11 +67,11 @@ def build_schedule_appointment_handler(engine: AsyncEngine) -> ScheduleAppointme
         outbox=_PortProxy(holder, "outbox"),  # type: ignore[arg-type]
         audit=_PortProxy(holder, "audit"),  # type: ignore[arg-type]
         permissions=_PortProxy(holder, "permissions"),  # type: ignore[arg-type]
+        patient_display=_PortProxy(holder, "patient_display"),  # type: ignore[arg-type]
     )
 
 
 def build_handler_for_session(session: AsyncSession) -> ScheduleAppointmentHandler:
-    """Single externally managed session for the whole handle() call (tests)."""
     container = _SessionScopedContainer(session, owns_session=False)
 
     @asynccontextmanager
@@ -86,4 +90,5 @@ def build_handler_for_session(session: AsyncSession) -> ScheduleAppointmentHandl
         outbox=container.outbox,
         audit=container.audit,
         permissions=container.permissions,
+        patient_display=container.patient_display,
     )

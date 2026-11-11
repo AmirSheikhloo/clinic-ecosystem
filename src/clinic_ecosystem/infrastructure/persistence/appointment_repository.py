@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clinic_ecosystem.domain.scheduling.conflicts import OverlapConflictFact
 from clinic_ecosystem.domain.scheduling.model import Appointment
 from clinic_ecosystem.shared_kernel.uuid7 import new_uuid7
 
@@ -71,23 +72,95 @@ class SqlAppointmentRepository:
         )
         return {row.id: row.resource_type for row in result}
 
-    async def find_overlaps(
+
+    async def discover_overlapping_appointment_ids(
         self,
         *,
         tenant_id: UUID,
         resource_ids: list[UUID],
         start_at_utc: datetime,
         end_at_utc: datetime,
-    ) -> list[dict[str, Any]]:
+    ) -> list[UUID]:
+        if not resource_ids:
+            return []
+        result = await self._session.execute(
+            _ids_stmt(
+                """
+                SELECT DISTINCT a.id AS appointment_id
+                FROM appointment_resource_allocations ara
+                JOIN appointments a
+                  ON a.tenant_id = ara.tenant_id AND a.id = ara.appointment_id
+                WHERE ara.tenant_id = :tenant_id
+                  AND ara.resource_id = ANY(:ids)
+                  AND ara.allocation_status IN (
+                      'PENDING_PAYMENT_HOLD', 'CONFIRMED', 'CHECKED_IN'
+                  )
+                  AND ara.time_slot && tstzrange(:start_at, :end_at, '[)')
+                ORDER BY a.id
+                """
+            ),
+            {
+                "tenant_id": tenant_id,
+                "ids": list(resource_ids),
+                "start_at": start_at_utc,
+                "end_at": end_at_utc,
+            },
+        )
+        return [row.appointment_id for row in result]
+
+    async def lock_appointments(
+        self, tenant_id: UUID, appointment_ids: list[UUID]
+    ) -> None:
+        if not appointment_ids:
+            return
+        await self._session.execute(
+            _ids_stmt(
+                """
+                SELECT id FROM appointments
+                WHERE tenant_id = :tenant_id AND id = ANY(:ids)
+                ORDER BY id ASC
+                FOR UPDATE
+                """
+            ),
+            {"tenant_id": tenant_id, "ids": list(appointment_ids)},
+        )
+
+    async def lock_allocations_for_appointments(
+        self, tenant_id: UUID, appointment_ids: list[UUID]
+    ) -> None:
+        if not appointment_ids:
+            return
+        await self._session.execute(
+            _ids_stmt(
+                """
+                SELECT id FROM appointment_resource_allocations
+                WHERE tenant_id = :tenant_id AND appointment_id = ANY(:ids)
+                ORDER BY appointment_id ASC, resource_id ASC, id ASC
+                FOR UPDATE
+                """
+            ),
+            {"tenant_id": tenant_id, "ids": list(appointment_ids)},
+        )
+
+    async def find_overlap_facts(
+        self,
+        *,
+        tenant_id: UUID,
+        resource_ids: list[UUID],
+        start_at_utc: datetime,
+        end_at_utc: datetime,
+    ) -> list[OverlapConflictFact]:
+        if not resource_ids:
+            return []
         result = await self._session.execute(
             _ids_stmt(
                 """
                 SELECT a.id AS appointment_id,
+                       a.beneficiary_patient_id,
                        a.booking_channel,
                        a.capacity_pool,
                        a.scheduled_start_at_utc,
                        a.scheduled_end_at_utc,
-                       a.beneficiary_patient_id,
                        ara.resource_id,
                        ara.allocation_status
                 FROM appointment_resource_allocations ara
@@ -99,7 +172,7 @@ class SqlAppointmentRepository:
                       'PENDING_PAYMENT_HOLD', 'CONFIRMED', 'CHECKED_IN'
                   )
                   AND ara.time_slot && tstzrange(:start_at, :end_at, '[)')
-                ORDER BY a.id, ara.resource_id
+                ORDER BY a.id, ara.resource_id, ara.id
                 """
             ),
             {
@@ -109,7 +182,19 @@ class SqlAppointmentRepository:
                 "end_at": end_at_utc,
             },
         )
-        return [dict(row._mapping) for row in result]
+        return [
+            OverlapConflictFact(
+                appointment_id=row.appointment_id,
+                beneficiary_patient_id=row.beneficiary_patient_id,
+                booking_channel=row.booking_channel,
+                capacity_pool=row.capacity_pool,
+                scheduled_start_at_utc=row.scheduled_start_at_utc,
+                scheduled_end_at_utc=row.scheduled_end_at_utc,
+                resource_id=row.resource_id,
+                allocation_status=row.allocation_status,
+            )
+            for row in result
+        ]
 
     async def expire_conflicting_holds(
         self,

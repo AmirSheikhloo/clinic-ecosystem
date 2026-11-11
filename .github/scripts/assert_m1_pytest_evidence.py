@@ -14,8 +14,13 @@ REQUIRED = [
     "tests/unit/test_appointment_schedule_domain.py::test_schedule_online_hold_requires_expiry",
     "tests/unit/test_appointment_schedule_domain.py::test_schedule_manual_success",
     "tests/unit/test_schedule_handler_unit.py::test_idempotency_in_progress_raises_425_semantics",
-    "tests/unit/test_schedule_handler_unit.py::test_manual_overlap_requires_acknowledgement",
+    "tests/unit/test_schedule_handler_unit.py::test_manual_overlap_authorized_requires_ack_with_display_name",
+    "tests/unit/test_schedule_handler_unit.py::test_manual_overlap_unauthorized_no_display_lookup",
+    "tests/unit/test_schedule_handler_unit.py::test_manual_ack_uses_preinsert_audit_snapshot_and_lock_order",
     "tests/unit/test_schedule_handler_unit.py::test_manual_schedule_success_stages_outbox",
+    "tests/unit/test_rfc8785_fingerprint.py::test_object_key_ordering_independent_of_insertion",
+    "tests/unit/test_rfc8785_fingerprint.py::test_equivalent_schedule_fields_same_fingerprint",
+    "tests/unit/test_rfc8785_fingerprint.py::test_acknowledged_id_ordering_deterministic",
     "tests/unit/test_m1_migration_sql_contracts.py::test_tp0005_contains_online_exclude_predicate",
     "tests/unit/test_m1_migration_sql_contracts.py::test_tp0007_forces_rls_on_appointments",
     "tests/integration/test_m1_migrations.py::test_tenant_plane_upgrades_to_tp0007",
@@ -24,8 +29,11 @@ REQUIRED = [
     "tests/integration/test_m1_schedule_appointment.py::test_online_overlap_raises_capacity_conflict",
     "tests/integration/test_m1_schedule_appointment.py::test_idempotency_fingerprint_conflict",
     "tests/integration/test_m1_manual_and_holds.py::test_manual_overlap_requires_ack_then_audits",
+    "tests/integration/test_m1_manual_and_holds.py::test_manual_denied_without_permission_rolls_back",
     "tests/integration/test_m1_manual_and_holds.py::test_hold_expiry_worker_claim_then_expire",
     "tests/integration/test_m1_manual_and_holds.py::test_concurrent_online_bookings_only_one_wins",
+    "tests/integration/test_m1_manual_and_holds.py::test_concurrent_manual_writers_serialize_on_resource_lock",
+    "tests/integration/test_m1_rls_fail_closed.py::test_runtime_rls_fail_closed_without_tenant_guc_and_cross_tenant",
 ]
 
 
@@ -45,26 +53,22 @@ def mode_collect(collect_log: Path) -> None:
 def mode_junit(junit: Path, pytest_log: Path) -> None:
     tree = ET.parse(junit)
     root = tree.getroot()
-    # pytest junit may nest testcase under testsuite
     cases = root.findall(".//testcase")
     executed = {
         f"{c.attrib.get('classname', '').replace('.', '/')}.py::{c.attrib.get('name')}"
         for c in cases
     }
-    # Also accept raw node id forms from log
     log = pytest_log.read_text(encoding="utf-8")
     missing = []
     for nid in REQUIRED:
         short = nid.split("::", 1)[-1]
         if nid in log or short in log:
             continue
-        # junit classname is dotted module path without tests prefix sometimes
         if any(short == c.attrib.get("name") for c in cases):
             continue
         missing.append(nid)
     if missing:
         _fail("required M1 tests not evidenced as executed:\n" + "\n".join(missing))
-    # Fail if any required test failed
     for c in cases:
         name = c.attrib.get("name", "")
         if any(name == nid.split("::")[-1] for nid in REQUIRED):

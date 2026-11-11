@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Protocol
 from uuid import UUID
 
+from clinic_ecosystem.domain.scheduling.conflicts import OverlapConflictFact
 from clinic_ecosystem.domain.scheduling.model import Appointment, ResourceAllocationRequest
 
 
@@ -33,8 +34,7 @@ class IdempotencyStore(Protocol):
         idempotency_key: str,
         request_fingerprint: str,
         owner_token: UUID,
-    ) -> dict[str, Any]:
-        """Return status dict: COMPLETED|IN_PROGRESS|CLAIMED|FINGERPRINT_CONFLICT."""
+    ) -> dict[str, Any]: ...
 
     async def complete(
         self,
@@ -59,14 +59,31 @@ class AppointmentRepository(Protocol):
         self, tenant_id: UUID, resource_ids: list[UUID]
     ) -> dict[UUID, str]: ...
 
-    async def find_overlaps(
+    async def discover_overlapping_appointment_ids(
         self,
         *,
         tenant_id: UUID,
         resource_ids: list[UUID],
         start_at_utc: datetime,
         end_at_utc: datetime,
-    ) -> list[dict[str, Any]]: ...
+    ) -> list[UUID]: ...
+
+    async def lock_appointments(
+        self, tenant_id: UUID, appointment_ids: list[UUID]
+    ) -> None: ...
+
+    async def lock_allocations_for_appointments(
+        self, tenant_id: UUID, appointment_ids: list[UUID]
+    ) -> None: ...
+
+    async def find_overlap_facts(
+        self,
+        *,
+        tenant_id: UUID,
+        resource_ids: list[UUID],
+        start_at_utc: datetime,
+        end_at_utc: datetime,
+    ) -> list[OverlapConflictFact]: ...
 
     async def expire_conflicting_holds(
         self,
@@ -87,6 +104,14 @@ class AppointmentRepository(Protocol):
         appointment_id: UUID,
         due_at_utc: datetime,
     ) -> None: ...
+
+
+class PatientDisplayDirectory(Protocol):
+    """Authorized display-safe patient names from tenant_persons operational name fields."""
+
+    async def display_safe_names(
+        self, *, tenant_id: UUID, patient_ids: list[UUID]
+    ) -> dict[UUID, str]: ...
 
 
 class OutboxStore(Protocol):
@@ -118,11 +143,9 @@ def validate_resource_set(
     resource_types: dict[UUID, str],
     resource_ids: list[UUID],
 ) -> list[ResourceAllocationRequest]:
-    """Validate requested resources against service_resource_requirements."""
     from clinic_ecosystem.application.scheduling.exceptions import ServiceRequirementsNotMet
 
     if not requirements:
-        # Service with no requirements still needs at least the provided resources.
         return [
             ResourceAllocationRequest(resource_id=rid, resource_type=resource_types[rid])
             for rid in resource_ids

@@ -28,4 +28,5 @@ class ScheduleAppointmentCommand:
     end_at_utc: datetime
     hold_expires_at_utc: datetime | None
     acknowledge_overlap: bool
+    acknowledged_conflict_ids: tuple[UUID, ...] = ()
     operation_scope: str = "appointment.schedule"

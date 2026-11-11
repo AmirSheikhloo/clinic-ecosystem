@@ -10,11 +10,13 @@ from uuid import UUID
 import pytest
 
 from clinic_ecosystem.application.scheduling.commands import ScheduleAppointmentCommand
-from clinic_ecosystem.application.scheduling.exceptions import IdempotencyInProgress
-from clinic_ecosystem.application.scheduling.handler import ScheduleAppointmentHandler
-from clinic_ecosystem.domain.scheduling.exceptions import (
+from clinic_ecosystem.application.scheduling.exceptions import (
+    IdempotencyInProgress,
     ManualOverlapAcknowledgementRequired,
+    UnauthorizedScheduling,
 )
+from clinic_ecosystem.application.scheduling.handler import ScheduleAppointmentHandler
+from clinic_ecosystem.domain.scheduling.conflicts import OverlapConflictFact
 from clinic_ecosystem.domain.scheduling.model import BookingChannel, CapacityPool
 from clinic_ecosystem.shared_kernel.uuid7 import new_uuid7
 
@@ -53,13 +55,13 @@ class FakeIdempotency:
 
 
 class FakeAppointments:
-    def __init__(self, *, overlaps: list[dict] | None = None) -> None:
-        self.overlaps = overlaps or []
+    def __init__(self, *, facts: list[OverlapConflictFact] | None = None) -> None:
+        self.facts = facts or []
         self.added = None
-        self.resource_id = new_uuid7()
+        self.lock_calls: list[str] = []
 
     async def lock_resources(self, tenant_id: UUID, resource_ids: list[UUID]) -> None:
-        return None
+        self.lock_calls.append("resources")
 
     async def get_service_requirements(self, tenant_id: UUID, service_id: UUID) -> list:
         return []
@@ -67,8 +69,19 @@ class FakeAppointments:
     async def get_resource_types(self, tenant_id: UUID, resource_ids: list[UUID]) -> dict:
         return {rid: "ROOM" for rid in resource_ids}
 
-    async def find_overlaps(self, **kwargs: Any) -> list[dict]:
-        return list(self.overlaps)
+    async def discover_overlapping_appointment_ids(self, **kwargs: Any) -> list[UUID]:
+        return sorted({f.appointment_id for f in self.facts}, key=str)
+
+    async def lock_appointments(self, tenant_id: UUID, appointment_ids: list[UUID]) -> None:
+        self.lock_calls.append("appointments")
+
+    async def lock_allocations_for_appointments(
+        self, tenant_id: UUID, appointment_ids: list[UUID]
+    ) -> None:
+        self.lock_calls.append("allocations")
+
+    async def find_overlap_facts(self, **kwargs: Any) -> list[OverlapConflictFact]:
+        return list(self.facts)
 
     async def expire_conflicting_holds(self, **kwargs: Any) -> list[UUID]:
         return []
@@ -104,6 +117,16 @@ class FakePermissions:
         return self.allowed
 
 
+class FakePatientDisplay:
+    def __init__(self, names: dict[UUID, str] | None = None) -> None:
+        self.names = names or {}
+        self.called = False
+
+    async def display_safe_names(self, **kwargs: Any) -> dict[UUID, str]:
+        self.called = True
+        return dict(self.names)
+
+
 def _command(**overrides: Any) -> ScheduleAppointmentCommand:
     resource_id = overrides.pop("resource_id", new_uuid7())
     start = datetime.now(timezone.utc) + timedelta(hours=1)
@@ -125,71 +148,159 @@ def _command(**overrides: Any) -> ScheduleAppointmentCommand:
         end_at_utc=start + timedelta(minutes=30),
         hold_expires_at_utc=None,
         acknowledge_overlap=False,
+        acknowledged_conflict_ids=(),
     )
     base.update(overrides)
     return ScheduleAppointmentCommand(**base)
 
 
-@pytest.mark.asyncio
-async def test_idempotency_in_progress_raises_425_semantics() -> None:
-    uow = FakeUow()
-
+def _handler(uow, appts, perms=None, display=None, idem=None):
     @asynccontextmanager
     async def factory():
         yield uow
 
-    handler = ScheduleAppointmentHandler(
+    return ScheduleAppointmentHandler(
         uow_factory=factory,
-        appointments=FakeAppointments(),
-        idempotency=FakeIdempotency(status="IN_PROGRESS"),
+        appointments=appts,
+        idempotency=idem or FakeIdempotency(),
         outbox=FakeOutbox(),
         audit=FakeAudit(),
-        permissions=FakePermissions(),
+        permissions=perms or FakePermissions(),
+        patient_display=display or FakePatientDisplay(),
     )
+
+
+@pytest.mark.asyncio
+async def test_idempotency_in_progress_raises_425_semantics() -> None:
+    uow = FakeUow()
+    handler = _handler(uow, FakeAppointments(), idem=FakeIdempotency(status="IN_PROGRESS"))
     with pytest.raises(IdempotencyInProgress):
         await handler.handle(_command())
     assert uow.rolled_back
 
 
 @pytest.mark.asyncio
-async def test_manual_overlap_requires_acknowledgement() -> None:
+async def test_manual_overlap_authorized_requires_ack_with_display_name() -> None:
     uow = FakeUow()
+    patient_id = new_uuid7()
+    appt_id = new_uuid7()
+    start = datetime.now(timezone.utc)
+    facts = [
+        OverlapConflictFact(
+            appointment_id=appt_id,
+            beneficiary_patient_id=patient_id,
+            booking_channel="ONLINE_WEB",
+            capacity_pool="ONLINE",
+            scheduled_start_at_utc=start,
+            scheduled_end_at_utc=start + timedelta(minutes=30),
+            resource_id=new_uuid7(),
+            allocation_status="CONFIRMED",
+        )
+    ]
+    display = FakePatientDisplay({patient_id: "Ada Clinic"})
+    handler = _handler(
+        uow,
+        FakeAppointments(facts=facts),
+        perms=FakePermissions(True),
+        display=display,
+    )
+    with pytest.raises(ManualOverlapAcknowledgementRequired) as excinfo:
+        await handler.handle(_command())
+    assert display.called
+    assert excinfo.value.conflicts[0].display_safe_patient_name == "Ada Clinic"
+    assert uow.rolled_back
+
+
+@pytest.mark.asyncio
+async def test_manual_overlap_unauthorized_no_display_lookup() -> None:
+    uow = FakeUow()
+    patient_id = new_uuid7()
+    start = datetime.now(timezone.utc)
+    facts = [
+        OverlapConflictFact(
+            appointment_id=new_uuid7(),
+            beneficiary_patient_id=patient_id,
+            booking_channel="MANUAL_STAFF",
+            capacity_pool="MANUAL",
+            scheduled_start_at_utc=start,
+            scheduled_end_at_utc=start + timedelta(minutes=30),
+            resource_id=new_uuid7(),
+            allocation_status="CONFIRMED",
+        )
+    ]
+    display = FakePatientDisplay({patient_id: "Secret Name"})
+    handler = _handler(
+        uow,
+        FakeAppointments(facts=facts),
+        perms=FakePermissions(False),
+        display=display,
+    )
+    with pytest.raises(UnauthorizedScheduling):
+        await handler.handle(_command())
+    assert display.called is False
+    assert uow.rolled_back
+
+
+@pytest.mark.asyncio
+async def test_manual_ack_uses_preinsert_audit_snapshot_and_lock_order() -> None:
+    uow = FakeUow()
+    patient_id = new_uuid7()
+    appt_id = new_uuid7()
+    start = datetime.now(timezone.utc)
+    facts = [
+        OverlapConflictFact(
+            appointment_id=appt_id,
+            beneficiary_patient_id=patient_id,
+            booking_channel="MANUAL_STAFF",
+            capacity_pool="MANUAL",
+            scheduled_start_at_utc=start,
+            scheduled_end_at_utc=start + timedelta(minutes=30),
+            resource_id=new_uuid7(),
+            allocation_status="CONFIRMED",
+        )
+    ]
+    appts = FakeAppointments(facts=facts)
+    audit = FakeAudit()
 
     @asynccontextmanager
     async def factory():
         yield uow
 
-    appts = FakeAppointments(
-        overlaps=[
-            {
-                "appointment_id": new_uuid7(),
-                "booking_channel": "ONLINE_WEB",
-                "capacity_pool": "ONLINE",
-            }
-        ]
-    )
     handler = ScheduleAppointmentHandler(
         uow_factory=factory,
         appointments=appts,
         idempotency=FakeIdempotency(),
         outbox=FakeOutbox(),
-        audit=FakeAudit(),
-        permissions=FakePermissions(),
+        audit=audit,
+        permissions=FakePermissions(True),
+        patient_display=FakePatientDisplay({patient_id: "Ada Clinic"}),
     )
-    with pytest.raises(ManualOverlapAcknowledgementRequired):
-        await handler.handle(_command())
+    result = await handler.handle(
+        _command(acknowledge_overlap=True, acknowledged_conflict_ids=(appt_id,))
+    )
+    assert result.replayed is False
+    assert appts.lock_calls == ["resources", "appointments", "allocations"]
+    assert len(audit.entries) == 1
+    snap = audit.entries[0]["details"]["conflict_snapshot"]
+    assert len(snap) == 1
+    assert snap[0]["appointment_id"] == str(appt_id)
+    assert "display_safe_patient_name" not in snap[0]
+    assert str(result.appointment_id) not in {
+        item["appointment_id"] for item in snap
+    }
+    assert uow.committed
 
 
 @pytest.mark.asyncio
 async def test_manual_schedule_success_stages_outbox() -> None:
     uow = FakeUow()
+    outbox = FakeOutbox()
+    appts = FakeAppointments()
 
     @asynccontextmanager
     async def factory():
         yield uow
 
-    outbox = FakeOutbox()
-    appts = FakeAppointments()
     handler = ScheduleAppointmentHandler(
         uow_factory=factory,
         appointments=appts,
@@ -197,6 +308,7 @@ async def test_manual_schedule_success_stages_outbox() -> None:
         outbox=outbox,
         audit=FakeAudit(),
         permissions=FakePermissions(),
+        patient_display=FakePatientDisplay(),
     )
     result = await handler.handle(_command())
     assert result.replayed is False
