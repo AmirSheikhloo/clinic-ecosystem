@@ -1,0 +1,78 @@
+name: M1 Appointment Vertical Slice
+
+on:
+  push:
+    branches:
+      - feature/m1-01-appointment-vertical-slice
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m1-postgres:
+    name: M1 PostgreSQL 15 Testcontainers evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Report Python version
+        run: |
+          python --version
+          python -c "import sys; print(sys.version)"
+
+      - name: Verify Docker daemon
+        run: |
+          set -euo pipefail
+          docker version
+          docker info
+          if ! docker info >/dev/null 2>&1; then
+            echo "::error::Docker daemon is unavailable on this runner"
+            exit 1
+          fi
+
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Collect tests (must discover required M1 suites)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/unit tests/integration --collect-only -q | tee m1-collect.txt
+          python .github/scripts/assert_m1_pytest_evidence.py --mode collect --collect-log m1-collect.txt
+
+      - name: Run unit and integration tests
+        shell: bash
+        env:
+          M0_REQUIRE_DOCKER: "1"
+        run: |
+          set -euo pipefail
+          python -m pytest tests/unit tests/integration -v --tb=short -rs \
+            --junitxml=m1-junit.xml | tee m1-pytest.txt
+
+      - name: Assert required M1 suites executed (no silent skips)
+        run: |
+          python .github/scripts/assert_m1_pytest_evidence.py \
+            --mode junit \
+            --junit m1-junit.xml \
+            --pytest-log m1-pytest.txt
+
+      - name: Upload pytest evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m1-appointment-pytest-evidence
+          path: |
+            m1-collect.txt
+            m1-pytest.txt
+            m1-junit.xml

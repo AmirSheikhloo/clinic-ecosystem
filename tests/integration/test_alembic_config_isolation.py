@@ -87,6 +87,40 @@ def test_plane_configs_do_not_reuse_another_database_url(plane_topology) -> None
             os.environ["CONTROL_PLANE_DATABASE_URL"] = previous_cp
 
 
+async def _provision_cloud_tenant_db_for_tp0001(
+    plane_topology, *, database: str, schema_privs_sql: str
+) -> str:
+    """Create an empty Tenant Plane DB so TP0001 freeze checks are not polluted by head."""
+    from tests.integration.conftest import _apply_db_script
+
+    admin = plane_topology.cloud_admin
+    admin_dsn = (
+        f"postgresql://{quote_plus(admin.user)}:{quote_plus(admin.password)}"
+        f"@{admin.host}:{admin.port}/{admin.database}"
+    )
+    conn = await asyncpg.connect(admin_dsn)
+    try:
+        exists = await conn.fetchval(
+            "SELECT 1 FROM pg_database WHERE datname = $1", database
+        )
+        if not exists:
+            await conn.execute(f'CREATE DATABASE "{database}"')
+        await conn.execute(f'REVOKE CONNECT, TEMPORARY ON DATABASE "{database}" FROM PUBLIC')
+        await conn.execute(
+            f'GRANT CONNECT ON DATABASE "{database}" TO tp_migrator_login, tp_app_login'
+        )
+        await conn.execute(f'GRANT CREATE ON DATABASE "{database}" TO db_migrator')
+    finally:
+        await conn.close()
+
+    await _apply_db_script(admin, database, schema_privs_sql)
+    pwd = plane_topology.passwords["tp_migrator_login"]
+    return (
+        f"postgresql+asyncpg://{quote_plus('tp_migrator_login')}:{quote_plus(pwd)}"
+        f"@{admin.host}:{admin.port}/{database}"
+    )
+
+
 @pytest.mark.asyncio
 async def test_bootstrap_alembic_meta_idempotent(plane_topology) -> None:
     """Re-applying schema privilege SQL keeps alembic_meta owner and denials."""
@@ -96,11 +130,17 @@ async def test_bootstrap_alembic_meta_idempotent(plane_topology) -> None:
         _apply_db_script,
     )
 
-    await upgrade_tenant_plane_async(plane_topology.cloud_tenant.sqlalchemy_async_url())
+    # Isolated DB: shared tenant_app may already be past TP0001 in this session.
+    tp0001_db = "tenant_app_m0_tp0001"
+    tp0001_url = await _provision_cloud_tenant_db_for_tp0001(
+        plane_topology, database=tp0001_db, schema_privs_sql=TENANT_SCHEMA_PRIVS_SQL
+    )
+    await upgrade_tenant_plane_async(tp0001_url, revision="tp0001")
     await ensure_control_plane_version_table_async(
         plane_topology.cloud_control.sqlalchemy_async_url()
     )
-    # Second bootstrap pass (idempotent)
+    # Second bootstrap pass (idempotent) on TP0001 DB, shared tenant_app, and CP.
+    await _apply_db_script(plane_topology.cloud_admin, tp0001_db, TENANT_SCHEMA_PRIVS_SQL)
     await _apply_db_script(plane_topology.cloud_admin, "tenant_app", TENANT_SCHEMA_PRIVS_SQL)
     await _apply_db_script(
         plane_topology.cloud_admin, "control_plane", CONTROL_SCHEMA_PRIVS_SQL
@@ -108,6 +148,7 @@ async def test_bootstrap_alembic_meta_idempotent(plane_topology) -> None:
 
     admin = plane_topology.cloud_admin
     for database, owner, runtime in (
+        (tp0001_db, "db_migrator", "db_app_runtime"),
         ("tenant_app", "db_migrator", "db_app_runtime"),
         ("control_plane", "cp_db_migrator", "cp_db_app_runtime"),
     ):
@@ -130,7 +171,7 @@ async def test_bootstrap_alembic_meta_idempotent(plane_topology) -> None:
                 runtime,
             )
             # Existing version rows must remain for TP after re-bootstrap
-            if database == "tenant_app":
+            if database == tp0001_db:
                 version = await conn.fetchval(
                     "SELECT version_num FROM alembic_meta.alembic_version_tp"
                 )

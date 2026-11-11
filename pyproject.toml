@@ -13,6 +13,8 @@ dependencies = [
   "asyncpg>=0.29",
   "httpx>=0.27",
   "sqlalchemy[asyncio]>=2.0",
+  "uuid6==2024.7.10",
+  "rfc8785==0.1.4",
 ]
 
 [project.optional-dependencies]
