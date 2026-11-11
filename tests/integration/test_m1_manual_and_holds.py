@@ -89,9 +89,12 @@ async def test_manual_overlap_requires_ack_then_audits(plane_topology) -> None:
     assert body["conflicts"][0]["display_safe_patient_name"] == "Ada Clinic"
     assert body["conflicts"][0]["appointment_id"] == str(first.appointment_id)
 
+    # Bounds match SqlAuditStore's Python UTC clock for created_at_utc.
+    before_utc = datetime.now(timezone.utc)
     result = await schedule(
         key="manual-3", ack=True, ack_ids=(first.appointment_id,)
     )
+    after_utc = datetime.now(timezone.utc)
     assert result.replayed is False
 
     conn = await asyncpg.connect(_app_dsn(plane_topology))
@@ -101,27 +104,77 @@ async def test_manual_overlap_requires_ack_then_audits(plane_topology) -> None:
         )
         audits = await conn.fetch(
             """
-            SELECT details_json FROM audit_entries
+            SELECT actor_type, actor_id, target_type, target_id,
+                   details_json, created_at_utc
+            FROM audit_entries
             WHERE tenant_id = $1 AND operation = 'ALLOW_MANUAL_OVERBOOKING'
             """,
             ids.tenant_id,
         )
         assert len(audits) == 1
-        details = audits[0]["details_json"]
+        audit = audits[0]
+        assert audit["actor_type"] == "USER"
+        assert audit["actor_id"] == ids.user_account_id
+        assert audit["target_type"] == "appointment"
+        assert audit["target_id"] == result.appointment_id
+
+        created_at = audit["created_at_utc"]
+        assert isinstance(created_at, datetime)
+        assert created_at.tzinfo is not None
+        assert before_utc <= created_at <= after_utc
+
+        details = audit["details_json"]
         if isinstance(details, str):
             details = json.loads(details)
+        assert isinstance(details, dict)
         snap = details["conflict_snapshot"]
         assert len(snap) == 1
         assert snap[0]["appointment_id"] == str(first.appointment_id)
+        assert details["conflict_appointment_ids"] == [str(first.appointment_id)]
         assert str(result.appointment_id) not in {
             row["appointment_id"] for row in snap
         }
+        assert str(result.appointment_id) not in details["conflict_appointment_ids"]
         assert "display_safe_patient_name" not in snap[0]
+        assert "first_name" not in snap[0]
+        assert "last_name" not in snap[0]
+        snap_blob = json.dumps(snap, default=str)
+        assert "Ada" not in snap_blob
+        assert "Clinic" not in snap_blob
+
         appts = await conn.fetchval(
             "SELECT count(*) FROM appointments WHERE tenant_id = $1 AND capacity_pool = 'MANUAL'",
             ids.tenant_id,
         )
         assert appts == 2
+        allocs = await conn.fetchval(
+            """
+            SELECT count(*) FROM appointment_resource_allocations
+            WHERE tenant_id = $1 AND appointment_id = $2
+            """,
+            ids.tenant_id,
+            result.appointment_id,
+        )
+        assert allocs == 1
+        outbox = await conn.fetchval(
+            """
+            SELECT count(*) FROM outbox_messages
+            WHERE tenant_id = $1
+              AND message_type = 'appointment.scheduled'
+              AND payload_json::text LIKE $2
+            """,
+            ids.tenant_id,
+            f"%{result.appointment_id}%",
+        )
+        assert outbox == 1
+        idem = await conn.fetchval(
+            """
+            SELECT state FROM idempotency_records
+            WHERE tenant_id = $1 AND idempotency_key = 'manual-3'
+            """,
+            ids.tenant_id,
+        )
+        assert idem == "COMPLETED"
     finally:
         await conn.close()
         await engine.dispose()

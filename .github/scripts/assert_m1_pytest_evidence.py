@@ -34,6 +34,7 @@ REQUIRED = [
     "tests/integration/test_m1_manual_and_holds.py::test_concurrent_online_bookings_only_one_wins",
     "tests/integration/test_m1_manual_and_holds.py::test_concurrent_manual_writers_serialize_on_resource_lock",
     "tests/integration/test_m1_rls_fail_closed.py::test_runtime_rls_fail_closed_without_tenant_guc_and_cross_tenant",
+    "tests/integration/test_m1_audit_append_only_privileges.py::test_audit_entries_runtime_cannot_update_or_delete_with_tenant_guc",
 ]
 
 
