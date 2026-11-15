@@ -1,4 +1,4 @@
-"""Concurrent index build, invalid-index repair, and two-session barriers."""
+"""Concurrent index build, invalid-index repair, and mandatory two-session barriers."""
 
 from __future__ import annotations
 
@@ -11,6 +11,12 @@ from alembic.runtime.migration import MigrationContext
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
+
+from experiments.m102_hmac_physical.index_catalog import assert_index_catalog
+
+
+class BarrierError(RuntimeError):
+    """Raised when the overlapping-writer lock wait is not observed."""
 
 
 async def create_unique_index_concurrently_via_alembic(
@@ -38,6 +44,35 @@ async def create_unique_index_concurrently_via_alembic(
         await engine.dispose()
 
 
+async def create_and_assert_unique_index(
+    *,
+    sqlalchemy_async_url: str,
+    inspect_dsn: str,
+    ddl: str,
+    index_name: str,
+    table_name: str,
+    required_fragments: list[str],
+    forbidden_fragments: list[str] | None = None,
+) -> None:
+    """Build concurrently, then fail closed unless catalog matches exactly."""
+    await create_unique_index_concurrently_via_alembic(sqlalchemy_async_url, ddl)
+    conn = await asyncpg.connect(inspect_dsn)
+    try:
+        await conn.execute("SET ROLE db_migrator")
+        await assert_index_catalog(
+            conn,
+            index_name=index_name,
+            table_name=table_name,
+            required_fragments=required_fragments,
+            forbidden_fragments=forbidden_fragments,
+            unique=True,
+            valid=True,
+            ready=True,
+        )
+    finally:
+        await conn.close()
+
+
 async def wait_until_waiting_on_lock(
     inspector: asyncpg.Connection, *, backend_pid: int, timeout_s: float = 5.0
 ) -> bool:
@@ -60,12 +95,12 @@ async def two_session_unique_conflict(
     setup_role: str = "db_migrator",
     first_insert: Callable[[asyncpg.Connection], Awaitable[None]],
     second_insert: Callable[[asyncpg.Connection], Awaitable[None]],
-) -> tuple[str, str]:
-    """Prove overlapping uncommitted writers with deterministic barrier.
+    require_observed_lock_wait: bool = True,
+    first_commits: bool = True,
+) -> tuple[str, str, bool]:
+    """Prove overlapping uncommitted writers with a mandatory lock-wait assertion.
 
-    Session-1 inserts and holds the transaction open.
-    Session-2 starts after session-1 insert and blocks on uniqueness.
-    Session-1 then commits; session-2 must observe UniqueViolation.
+    Returns (first_outcome, second_outcome, lock_wait_observed).
     """
     conn1 = await asyncpg.connect(dsn)
     conn2 = await asyncpg.connect(dsn)
@@ -96,14 +131,34 @@ async def two_session_unique_conflict(
                 raise
 
         task = asyncio.create_task(second())
-        # Allow session-2 to reach the blocking INSERT.
-        await asyncio.sleep(0.15)
-        pid2 = pid2_holder.get("pid")
-        if pid2 is not None:
-            await wait_until_waiting_on_lock(inspector, backend_pid=pid2, timeout_s=3.0)
-        await tx1.commit()
+        # Wait until session-2 has a backend pid, then require lock wait.
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 5.0
+        while "pid" not in pid2_holder and loop.time() < deadline:
+            await asyncio.sleep(0.02)
+        if "pid" not in pid2_holder:
+            task.cancel()
+            await tx1.rollback()
+            raise BarrierError("session-2 never started INSERT before timeout")
+
+        lock_wait_observed = await wait_until_waiting_on_lock(
+            inspector, backend_pid=pid2_holder["pid"], timeout_s=5.0
+        )
+        if require_observed_lock_wait and not lock_wait_observed:
+            task.cancel()
+            await tx1.rollback()
+            raise BarrierError(
+                "session-2 was not observed waiting on Lock/LWLock before session-1 resolved"
+            )
+
+        if first_commits:
+            await tx1.commit()
+            first_outcome = "committed"
+        else:
+            await tx1.rollback()
+            first_outcome = "rolled_back"
         second_result = await asyncio.wait_for(task, timeout=10.0)
-        return "committed", second_result
+        return first_outcome, second_result, lock_wait_observed
     finally:
         await conn1.close()
         await conn2.close()
@@ -113,10 +168,7 @@ async def two_session_unique_conflict(
 async def force_invalid_unique_index(
     conn: asyncpg.Connection, *, table: str, index_name: str, column: str
 ) -> None:
-    """Create a unique index that fails validation, leaving an INVALID catalog entry.
-
-    Technique: insert duplicate keys, attempt concurrent unique index, catch failure.
-    """
+    """Create a unique index that fails validation, leaving an INVALID catalog entry."""
     await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{index_name}")
     await conn.execute(f"DROP TABLE IF EXISTS public.{table}")
     await conn.execute(
@@ -159,6 +211,7 @@ async def force_invalid_unique_index(
         await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{index_name}")
         raise RuntimeError("index unexpectedly valid after duplicate concurrent build")
 
+
 async def drop_invalid_and_retry(
     conn: asyncpg.Connection,
     *,
@@ -178,7 +231,6 @@ async def drop_invalid_and_retry(
     assert before is not None
     assert before["valid"] is False
     await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{index_name}")
-    # Resolve cause: keep one row only.
     await conn.execute(f"DELETE FROM public.{table} WHERE id = 2")
     await conn.execute(
         f"""
@@ -196,3 +248,38 @@ async def drop_invalid_and_retry(
     )
     assert after is not None
     return dict(after)
+
+
+async def recover_invalid_generation_index(
+    conn: asyncpg.Connection,
+    *,
+    index_name: str,
+    rebuild_ddl: str,
+    resolve_duplicates: Callable[[asyncpg.Connection], Awaitable[None]],
+) -> None:
+    """Fail-closed recovery for a real experimental generation index."""
+    row = await conn.fetchrow(
+        """
+        SELECT i.indisvalid AS valid
+        FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+        WHERE c.relname = $1
+        """,
+        index_name,
+    )
+    if row is None:
+        raise IndexError(f"no catalog row for {index_name}")
+    if row["valid"]:
+        raise RuntimeError(f"{index_name} is unexpectedly valid; nothing to recover")
+    await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{index_name}")
+    await resolve_duplicates(conn)
+    await conn.execute(rebuild_ddl)
+    after = await conn.fetchrow(
+        """
+        SELECT i.indisvalid AS valid, i.indisready AS ready, i.indisunique AS unique_index
+        FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+        WHERE c.relname = $1
+        """,
+        index_name,
+    )
+    if after is None or not after["valid"] or not after["ready"] or not after["unique_index"]:
+        raise RuntimeError(f"recovery failed for {index_name}: {after}")

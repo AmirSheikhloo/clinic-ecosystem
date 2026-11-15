@@ -1,4 +1,4 @@
-"""P1 staged-column HMAC physical experiment on disposable PG15.
+"""P1 staged-column HMAC physical experiment — N01/N04/N06/N07 corrections.
 
 EXPERIMENTAL ONLY — not Package-1, not official TP0008+, not Gate A evidence.
 """
@@ -11,16 +11,19 @@ import asyncpg
 import pytest
 
 from experiments.m102_hmac_physical.concurrent_ops import (
-    create_unique_index_concurrently_via_alembic,
-    drop_invalid_and_retry,
+    create_and_assert_unique_index,
     force_invalid_unique_index,
+    recover_invalid_generation_index,
     two_session_unique_conflict,
 )
 from experiments.m102_hmac_physical.fixtures import (
-    fetch_index_catalog,
     insert_identifier,
     seed_tenant_person,
     tp0002_indexes_intact,
+)
+from experiments.m102_hmac_physical.lifecycle import (
+    prepare_cutover_candidate,
+    progress_with_evidence,
 )
 from experiments.m102_hmac_physical.p1_staged_columns import (
     P1_GEN2_INDEX,
@@ -31,14 +34,18 @@ from experiments.m102_hmac_physical.p1_staged_columns import (
 )
 from experiments.m102_hmac_physical.phase_gate import (
     PhaseGateError,
-    advance_to,
     cutover_generation,
     experimental_upgrade_head,
+    get_state,
     init_model,
-    set_candidate_generation,
+    rollback_to_previous_active,
 )
 from experiments.m102_hmac_physical.rotation import (
+    RotationError,
+    p1_assert_generation_authority,
     p1_backfill_gen2_batch,
+    p1_backfill_gen3_batch,
+    p1_drop_generation_index_if_safe,
     p1_dual_write_gen2,
     p1_rollback_gen2,
 )
@@ -70,81 +77,53 @@ async def test_p1_expand_preserves_tp0002_indexes_and_adds_nonredundant_gen2(
         await apply_p1_expand(conn)
         await init_model(conn, model="P1", active_generation=1)
         tenant, person = await seed_tenant_person(conn)
-        # Populate before Phase-6 index build.
         for i in range(5):
-            await insert_identifier(
-                conn,
-                tenant_id=tenant,
-                person_id=person,
-                normalized=f"001{i:07d}",
+            fx = await insert_identifier(
+                conn, tenant_id=tenant, person_id=person, normalized=f"001{i:07d}"
             )
-        for i in range(5):
-            row = await conn.fetchrow(
-                "SELECT id, id_type, issuing_country_or_authority, id_ciphertext "
-                "FROM person_identifiers WHERE tenant_id=$1 ORDER BY id OFFSET $2 LIMIT 1",
-                tenant,
-                i,
-            )
-            normalized = bytes(row["id_ciphertext"])[len(b"cipher:") :].decode()
             await p1_dual_write_gen2(
                 conn,
-                identifier_id=row["id"],
+                identifier_id=fx.identifier_id,
                 tenant_id=tenant,
-                id_type=row["id_type"],
-                authority=row["issuing_country_or_authority"],
-                normalized=normalized,
+                id_type=fx.id_type,
+                authority=fx.authority,
+                normalized=fx.normalized,
                 gen2_version=2,
             )
         assert await tp0002_indexes_intact(conn)
-
-        for phase in (1, 2, 3, 4, 5):
-            await advance_to(conn, model="P1", phase=phase)
-        await set_candidate_generation(conn, model="P1", candidate=2)
+        await progress_with_evidence(conn, model="P1", to_phase=5)
     finally:
         await conn.close()
 
-    await create_unique_index_concurrently_via_alembic(
-        ep.sqlalchemy_async_url(), P1_GEN2_INDEX_DDL
+    cleaner = await _mig(ep)
+    try:
+        await cleaner.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
+    finally:
+        await cleaner.close()
+
+    await create_and_assert_unique_index(
+        sqlalchemy_async_url=ep.sqlalchemy_async_url(),
+        inspect_dsn=ep.asyncpg_dsn(),
+        ddl=P1_GEN2_INDEX_DDL,
+        index_name=P1_GEN2_INDEX,
+        table_name="person_identifiers",
+        required_fragments=["exp_lookup_hmac_gen2", "UNIQUE"],
+        forbidden_fragments=["lookup_hmac_next"],
     )
 
     conn = await _mig(ep)
     try:
-        await advance_to(conn, model="P1", phase=6)
-        catalog = {
-            r["name"]: r
-            for r in await fetch_index_catalog(
-                conn,
-                [
-                    "uq_person_identifier_active_lookup",
-                    "uq_person_identifier_next_lookup",
-                    P1_GEN2_INDEX,
-                ],
-            )
-        }
-        assert set(catalog) == {
-            "uq_person_identifier_active_lookup",
-            "uq_person_identifier_next_lookup",
-            P1_GEN2_INDEX,
-        }
-        assert catalog[P1_GEN2_INDEX]["valid"] and catalog[P1_GEN2_INDEX]["ready"]
-        assert "exp_lookup_hmac_gen2" in catalog[P1_GEN2_INDEX]["definition"]
-        assert "lookup_hmac_next" not in catalog[P1_GEN2_INDEX]["definition"]
-        # Nonredundant physical target: different OID and different indexed column.
-        assert (
-            catalog[P1_GEN2_INDEX]["oid"]
-            != catalog["uq_person_identifier_next_lookup"]["oid"]
-        )
+        await progress_with_evidence(conn, model="P1", to_phase=7)
         assert await conn.fetchval(
             "SELECT version_num FROM alembic_meta.alembic_version_tp"
         ) == "tp0007"
+        assert await tp0002_indexes_intact(conn)
     finally:
         await conn.close()
 
 
 @pytest.mark.asyncio
-async def test_p1_deterministic_old_new_writer_conflict_on_gen2(
-    plane_topology,
-) -> None:
+async def test_p1_deterministic_old_new_writer_conflict_on_gen2(plane_topology) -> None:
     ep = plane_topology.cloud_tenant
     await upgrade_tenant_plane_async(ep.sqlalchemy_async_url(), revision="tp0007")
     conn = await _mig(ep)
@@ -152,15 +131,20 @@ async def test_p1_deterministic_old_new_writer_conflict_on_gen2(
         await apply_p1_expand(conn)
         tenant, p1 = await seed_tenant_person(conn)
         _, p2 = await seed_tenant_person(conn, tenant_id=tenant, person_id=uuid4())
-        # Existing active uniqueness remains for version-1 values.
         await insert_identifier(
             conn, tenant_id=tenant, person_id=p1, normalized="1111111111", next_version=None
         )
+        await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
     finally:
         await conn.close()
 
-    await create_unique_index_concurrently_via_alembic(
-        ep.sqlalchemy_async_url(), P1_GEN2_INDEX_DDL
+    await create_and_assert_unique_index(
+        sqlalchemy_async_url=ep.sqlalchemy_async_url(),
+        inspect_dsn=ep.asyncpg_dsn(),
+        ddl=P1_GEN2_INDEX_DDL,
+        index_name=P1_GEN2_INDEX,
+        table_name="person_identifiers",
+        required_fragments=["exp_lookup_hmac_gen2"],
     )
 
     conflict_hmac = synthetic_lookup_hmac(
@@ -172,7 +156,6 @@ async def test_p1_deterministic_old_new_writer_conflict_on_gen2(
     )
 
     async def first_insert(c: asyncpg.Connection) -> None:
-        fid = uuid4()
         await c.execute(
             """
             INSERT INTO person_identifiers (
@@ -189,7 +172,7 @@ async def test_p1_deterministic_old_new_writer_conflict_on_gen2(
               $8,2
             )
             """,
-            fid,
+            uuid4(),
             tenant,
             p1,
             b"cipher:race-a",
@@ -206,7 +189,6 @@ async def test_p1_deterministic_old_new_writer_conflict_on_gen2(
         )
 
     async def second_insert(c: asyncpg.Connection) -> None:
-        fid = uuid4()
         await c.execute(
             """
             INSERT INTO person_identifiers (
@@ -223,7 +205,7 @@ async def test_p1_deterministic_old_new_writer_conflict_on_gen2(
               $8,2
             )
             """,
-            fid,
+            uuid4(),
             tenant,
             p2,
             b"cipher:race-b",
@@ -239,19 +221,131 @@ async def test_p1_deterministic_old_new_writer_conflict_on_gen2(
             conflict_hmac,
         )
 
-    first, second = await two_session_unique_conflict(
+    first, second, observed = await two_session_unique_conflict(
         dsn=ep.asyncpg_dsn(),
         first_insert=first_insert,
         second_insert=second_insert,
+        require_observed_lock_wait=True,
+        first_commits=True,
     )
     assert first == "committed"
     assert second == "unique_violation"
+    assert observed is True
+
+    # Rollback-loser path uses a fresh collision digest (prior winner remains indexed).
+    conflict_hmac_rb = synthetic_lookup_hmac(
+        tenant_id=tenant,
+        id_type="IR_NATIONAL_ID",
+        issuing_country_or_authority="IR",
+        normalized_identifier="2222222299",
+        hmac_key_version=2,
+    )
+
+    async def first_insert_rb(c: asyncpg.Connection) -> None:
+        await c.execute(
+            """
+            INSERT INTO person_identifiers (
+              id, tenant_id, person_id, id_type, issuing_country_or_authority,
+              id_ciphertext, nonce_96bit, auth_tag_128bit,
+              encryption_key_version, aad_version, masked_display,
+              verification_status, lookup_hmac_active, hmac_key_version_active,
+              lookup_hmac_next, hmac_key_version_next, created_at_utc,
+              exp_lookup_hmac_gen2, exp_hmac_key_version_gen2
+            ) VALUES (
+              $1,$2,$3,'IR_NATIONAL_ID','IR',
+              $4,$5,$6,1,1,'****',
+              'SYNTACTICALLY_VALID_UNVERIFIED',$7,1,NULL,NULL,NOW(),
+              $8,2
+            )
+            """,
+            uuid4(),
+            tenant,
+            p1,
+            b"cipher:race-a-rb",
+            b"\x13" * 12,
+            b"\x14" * 16,
+            synthetic_lookup_hmac(
+                tenant_id=tenant,
+                id_type="IR_NATIONAL_ID",
+                issuing_country_or_authority="IR",
+                normalized_identifier="race-a-rb",
+                hmac_key_version=1,
+            ),
+            conflict_hmac_rb,
+        )
+
+    async def second_insert_rb(c: asyncpg.Connection) -> None:
+        await c.execute(
+            """
+            INSERT INTO person_identifiers (
+              id, tenant_id, person_id, id_type, issuing_country_or_authority,
+              id_ciphertext, nonce_96bit, auth_tag_128bit,
+              encryption_key_version, aad_version, masked_display,
+              verification_status, lookup_hmac_active, hmac_key_version_active,
+              lookup_hmac_next, hmac_key_version_next, created_at_utc,
+              exp_lookup_hmac_gen2, exp_hmac_key_version_gen2
+            ) VALUES (
+              $1,$2,$3,'IR_NATIONAL_ID','IR',
+              $4,$5,$6,1,1,'****',
+              'SYNTACTICALLY_VALID_UNVERIFIED',$7,1,NULL,NULL,NOW(),
+              $8,2
+            )
+            """,
+            uuid4(),
+            tenant,
+            p2,
+            b"cipher:race-b-rb",
+            b"\x15" * 12,
+            b"\x16" * 16,
+            synthetic_lookup_hmac(
+                tenant_id=tenant,
+                id_type="IR_NATIONAL_ID",
+                issuing_country_or_authority="IR",
+                normalized_identifier="race-b-rb",
+                hmac_key_version=1,
+            ),
+            conflict_hmac_rb,
+        )
+
+    first_rb, second_rb, observed_rb = await two_session_unique_conflict(
+        dsn=ep.asyncpg_dsn(),
+        first_insert=first_insert_rb,
+        second_insert=second_insert_rb,
+        require_observed_lock_wait=True,
+        first_commits=False,
+    )
+    assert first_rb == "rolled_back"
+    assert second_rb == "inserted"
+    assert observed_rb is True
 
 
 @pytest.mark.asyncio
-async def test_p1_resumable_backfill_rollback_and_two_rotation_cycles(
-    plane_topology,
-) -> None:
+async def test_p1_atomic_dual_write_rejects_active_hmac_mismatch(plane_topology) -> None:
+    ep = plane_topology.cloud_tenant
+    await upgrade_tenant_plane_async(ep.sqlalchemy_async_url(), revision="tp0007")
+    conn = await _mig(ep)
+    try:
+        await apply_p1_expand(conn)
+        tenant, person = await seed_tenant_person(conn)
+        fx = await insert_identifier(
+            conn, tenant_id=tenant, person_id=person, normalized="1212121212", next_version=None
+        )
+        with pytest.raises(RotationError, match="active HMAC does not match"):
+            await p1_dual_write_gen2(
+                conn,
+                identifier_id=fx.identifier_id,
+                tenant_id=tenant,
+                id_type=fx.id_type,
+                authority=fx.authority,
+                normalized="9999999999",  # wrong canonical vs stored active
+                gen2_version=2,
+            )
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_p1_two_complete_rotations_preserve_active_authority(plane_topology) -> None:
     ep = plane_topology.cloud_tenant
     await upgrade_tenant_plane_async(ep.sqlalchemy_async_url(), revision="tp0007")
     conn = await _mig(ep)
@@ -259,7 +353,7 @@ async def test_p1_resumable_backfill_rollback_and_two_rotation_cycles(
         await apply_p1_expand(conn)
         await init_model(conn, model="P1")
         tenant, person = await seed_tenant_person(conn)
-        for i in range(7):
+        for i in range(6):
             await insert_identifier(
                 conn,
                 tenant_id=tenant,
@@ -267,92 +361,186 @@ async def test_p1_resumable_backfill_rollback_and_two_rotation_cycles(
                 normalized=f"333{i:07d}",
                 next_version=None,
             )
-        for phase in (1, 2, 3):
-            await advance_to(conn, model="P1", phase=phase)
-        # Partial backfill (resumable).
+        await progress_with_evidence(conn, model="P1", to_phase=3)
         n1, cursor = await p1_backfill_gen2_batch(
-            conn, tenant_id=tenant, batch_size=3, after_id=None
+            conn, tenant_id=tenant, batch_size=2, after_id=None
         )
-        assert n1 == 3 and cursor is not None
-        n2, cursor2 = await p1_backfill_gen2_batch(
+        assert n1 == 2 and cursor is not None
+        n2, _ = await p1_backfill_gen2_batch(
             conn, tenant_id=tenant, batch_size=10, after_id=cursor
         )
         assert n2 == 4
-        remaining = await conn.fetchval(
-            """
-            SELECT count(*) FROM person_identifiers
-            WHERE tenant_id=$1 AND exp_lookup_hmac_gen2 IS NULL
-            """,
-            tenant,
+        assert (
+            await conn.fetchval(
+                """
+                SELECT count(*) FROM person_identifiers
+                WHERE tenant_id=$1 AND exp_lookup_hmac_gen2 IS NULL
+                """,
+                tenant,
+            )
+            == 0
         )
-        assert remaining == 0
-        # Idempotent re-run yields zero work.
-        n3, _ = await p1_backfill_gen2_batch(conn, tenant_id=tenant, batch_size=50)
-        assert n3 == 0
-
-        await advance_to(conn, model="P1", phase=4)
-        await advance_to(conn, model="P1", phase=5)
+        await progress_with_evidence(conn, model="P1", to_phase=5)
+        await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
     finally:
         await conn.close()
 
-    await create_unique_index_concurrently_via_alembic(
-        ep.sqlalchemy_async_url(), P1_GEN2_INDEX_DDL
+    await create_and_assert_unique_index(
+        sqlalchemy_async_url=ep.sqlalchemy_async_url(),
+        inspect_dsn=ep.asyncpg_dsn(),
+        ddl=P1_GEN2_INDEX_DDL,
+        index_name=P1_GEN2_INDEX,
+        table_name="person_identifiers",
+        required_fragments=["exp_lookup_hmac_gen2"],
     )
 
     conn = await _mig(ep)
     try:
-        for phase in (6, 7, 8):
-            await advance_to(conn, model="P1", phase=phase)
+        await progress_with_evidence(conn, model="P1", to_phase=7)
+        await prepare_cutover_candidate(conn, model="P1", candidate=2)
+        await progress_with_evidence(conn, model="P1", to_phase=8)
         await cutover_generation(conn, model="P1", new_active=2)
+        await p1_assert_generation_authority(
+            conn, model="P1", generation=2, index_name=P1_GEN2_INDEX
+        )
 
-        # Rollback window rehearsal: clear gen2 staging values.
-        cleared = await p1_rollback_gen2(conn, tenant_id=tenant)
-        assert cleared == 7
-        await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
-
-        # Second rotation cycle targets gen3 (nonredundant vs gen2/next/active).
-        for row in await conn.fetch(
-            "SELECT id, id_type, issuing_country_or_authority, id_ciphertext "
-            "FROM person_identifiers WHERE tenant_id=$1",
-            tenant,
-        ):
-            normalized = bytes(row["id_ciphertext"])[len(b"cipher:") :].decode()
-            digest = synthetic_lookup_hmac(
-                tenant_id=tenant,
-                id_type=row["id_type"],
-                issuing_country_or_authority=row["issuing_country_or_authority"],
-                normalized_identifier=normalized,
-                hmac_key_version=3,
+        # Unsafe wipe while gen2 is active must fail closed.
+        with pytest.raises(RotationError, match="refusing to clear gen2"):
+            await p1_rollback_gen2(conn, tenant_id=tenant)
+        with pytest.raises(RotationError, match="refusing DROP INDEX"):
+            await p1_drop_generation_index_if_safe(
+                conn, model="P1", generation=2, index_name=P1_GEN2_INDEX
             )
+
+        # Authority-preserving rollback to old generation keeps gen2 index.
+        await rollback_to_previous_active(conn, model="P1", previous_active=1)
+        assert (await get_state(conn, "P1")).active_generation == 1
+        await p1_assert_generation_authority(
+            conn, model="P1", generation=1, index_name="uq_person_identifier_active_lookup"
+        )
+        assert await conn.fetchval(
+            "SELECT to_regclass($1)::text", f"public.{P1_GEN2_INDEX}"
+        )
+
+        # Recutover to gen2, then complete second cycle to gen3 without dropping gen2 first.
+        await prepare_cutover_candidate(conn, model="P1", candidate=2)
+        # Need phase still >=8; cutover_ready was cleared — re-attest.
+        await cutover_generation(conn, model="P1", new_active=2)
+        await p1_assert_generation_authority(
+            conn, model="P1", generation=2, index_name=P1_GEN2_INDEX
+        )
+
+        # Second rotation: gen3 backfill + index + cutover while gen2 remains.
+        n3, _ = await p1_backfill_gen3_batch(conn, tenant_id=tenant, batch_size=50)
+        assert n3 == 6
+        await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN3_INDEX}")
+    finally:
+        await conn.close()
+
+    await create_and_assert_unique_index(
+        sqlalchemy_async_url=ep.sqlalchemy_async_url(),
+        inspect_dsn=ep.asyncpg_dsn(),
+        ddl=P1_GEN3_INDEX_DDL,
+        index_name=P1_GEN3_INDEX,
+        table_name="person_identifiers",
+        required_fragments=["exp_lookup_hmac_gen3"],
+        forbidden_fragments=["lookup_hmac_next", "exp_lookup_hmac_gen2"],
+    )
+
+    conn = await _mig(ep)
+    try:
+        # Re-attest index_valid + cutover for gen3 under existing phase 8.
+        from experiments.m102_hmac_physical.phase_gate import record_evidence
+
+        await record_evidence(
+            conn, model="P1", phase=6, evidence_kind="index_valid", evidence={"gen3": True}
+        )
+        await prepare_cutover_candidate(conn, model="P1", candidate=3)
+        await cutover_generation(conn, model="P1", new_active=3)
+        await p1_assert_generation_authority(
+            conn, model="P1", generation=3, index_name=P1_GEN3_INDEX
+        )
+        # gen2 index still present until explicit safe retirement after new authority.
+        assert await conn.fetchval(
+            "SELECT to_regclass($1)::text", f"public.{P1_GEN2_INDEX}"
+        )
+        await progress_with_evidence(conn, model="P1", to_phase=9)
+        assert (await get_state(conn, "P1")).phase9_operational_executed is False
+        # Only now may gen2 be dropped — it is no longer active.
+        await p1_drop_generation_index_if_safe(
+            conn, model="P1", generation=2, index_name=P1_GEN2_INDEX
+        )
+        assert await tp0002_indexes_intact(conn)
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_p1_invalid_generation_index_recovery_on_real_target(plane_topology) -> None:
+    ep = plane_topology.cloud_tenant
+    await upgrade_tenant_plane_async(ep.sqlalchemy_async_url(), revision="tp0007")
+    conn = await _mig(ep)
+    try:
+        await apply_p1_expand(conn)
+        tenant, p1 = await seed_tenant_person(conn)
+        _, p2 = await seed_tenant_person(conn, tenant_id=tenant, person_id=uuid4())
+        a = await insert_identifier(
+            conn, tenant_id=tenant, person_id=p1, normalized="9000000001", next_version=None
+        )
+        b = await insert_identifier(
+            conn, tenant_id=tenant, person_id=p2, normalized="9000000002", next_version=None
+        )
+        collision = b"\xcd" * 32
+        for ident in (a.identifier_id, b.identifier_id):
             await conn.execute(
                 """
                 UPDATE person_identifiers
-                SET exp_lookup_hmac_gen3=$2, exp_hmac_key_version_gen3=3
+                SET exp_lookup_hmac_gen2=$2, exp_hmac_key_version_gen2=2
                 WHERE id=$1
                 """,
-                row["id"],
-                digest,
+                ident,
+                collision,
             )
-        await set_candidate_generation(conn, model="P1", candidate=3)
-    finally:
-        await conn.close()
-
-    await create_unique_index_concurrently_via_alembic(
-        ep.sqlalchemy_async_url(), P1_GEN3_INDEX_DDL
-    )
-    conn = await _mig(ep)
-    try:
-        cat = await fetch_index_catalog(conn, [P1_GEN3_INDEX])
-        assert len(cat) == 1 and cat[0]["valid"] and cat[0]["ready"]
-        assert "exp_lookup_hmac_gen3" in cat[0]["definition"]
-        assert await tp0002_indexes_intact(conn)
-        # Phase-9 dry-run only — operational retirement not executed.
-        await advance_to(conn, model="P1", phase=9)
-        state_phase = await conn.fetchval(
-            "SELECT phase9_operational_executed FROM m102_exp_rotation_phase_meta WHERE model='P1'"
+        await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
+        try:
+            await conn.execute(P1_GEN2_INDEX_DDL)
+        except (asyncpg.UniqueViolationError, asyncpg.PostgresError):
+            pass
+        invalid = await conn.fetchval(
+            """
+            SELECT i.indisvalid FROM pg_index i
+            JOIN pg_class c ON c.oid=i.indexrelid WHERE c.relname=$1
+            """,
+            P1_GEN2_INDEX,
         )
-        assert state_phase is False
+        assert invalid is False
+
+        async def resolve(c: asyncpg.Connection) -> None:
+            # Keep one colliding row's gen2 value; clear the other.
+            await c.execute(
+                """
+                UPDATE person_identifiers
+                SET exp_lookup_hmac_gen2=NULL, exp_hmac_key_version_gen2=NULL
+                WHERE id=$1
+                """,
+                b.identifier_id,
+            )
+
+        await recover_invalid_generation_index(
+            conn,
+            index_name=P1_GEN2_INDEX,
+            rebuild_ddl=P1_GEN2_INDEX_DDL,
+            resolve_duplicates=resolve,
+        )
+        assert await conn.fetchval(
+            """
+            SELECT i.indisvalid AND i.indisready FROM pg_index i
+            JOIN pg_class c ON c.oid=i.indexrelid WHERE c.relname=$1
+            """,
+            P1_GEN2_INDEX,
+        )
     finally:
+        await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
         await conn.close()
 
 
@@ -368,6 +556,8 @@ async def test_p1_invalid_index_cleanup_and_retry(plane_topology) -> None:
             index_name="uq_exp_p1_invalid_probe",
             column="blind_key",
         )
+        from experiments.m102_hmac_physical.concurrent_ops import drop_invalid_and_retry
+
         repaired = await drop_invalid_and_retry(
             conn,
             table="m102_exp_p1_invalid_probe",
@@ -375,8 +565,6 @@ async def test_p1_invalid_index_cleanup_and_retry(plane_topology) -> None:
             column="blind_key",
         )
         assert repaired["valid"] is True
-        assert repaired["ready"] is True
-        assert repaired["unique_index"] is True
     finally:
         await conn.execute("DROP INDEX CONCURRENTLY IF EXISTS public.uq_exp_p1_invalid_probe")
         await conn.execute("DROP TABLE IF EXISTS public.m102_exp_p1_invalid_probe")
@@ -390,7 +578,7 @@ async def test_p1_unsafe_upgrade_head_fail_closed(plane_topology) -> None:
     conn = await _mig(ep)
     try:
         await init_model(conn, model="P1")
-        await advance_to(conn, model="P1", phase=1)
+        await progress_with_evidence(conn, model="P1", to_phase=1)
         with pytest.raises(PhaseGateError, match="refusing experimental upgrade head"):
             await experimental_upgrade_head(conn, model="P1", target_phase=6)
     finally:

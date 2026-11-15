@@ -70,8 +70,9 @@ P1_EXPAND_STATEMENTS = [
     """,
 ]
 
+# No IF NOT EXISTS: callers must DROP invalid leftovers or assert catalog first.
 P1_GEN2_INDEX_DDL = f"""
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS {P1_GEN2_INDEX}
+CREATE UNIQUE INDEX CONCURRENTLY {P1_GEN2_INDEX}
 ON public.person_identifiers (
   tenant_id, id_type, issuing_country_or_authority, exp_lookup_hmac_gen2
 )
@@ -79,7 +80,7 @@ WHERE exp_lookup_hmac_gen2 IS NOT NULL
 """
 
 P1_GEN3_INDEX_DDL = f"""
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS {P1_GEN3_INDEX}
+CREATE UNIQUE INDEX CONCURRENTLY {P1_GEN3_INDEX}
 ON public.person_identifiers (
   tenant_id, id_type, issuing_country_or_authority, exp_lookup_hmac_gen3
 )
@@ -98,7 +99,6 @@ async def drop_p1_indexes(conn: asyncpg.Connection) -> None:
 
 
 async def rollback_p1_expand(conn: asyncpg.Connection) -> None:
-    """Best-effort experimental teardown (disposable DB only)."""
     await drop_p1_indexes(conn)
     await conn.execute(
         """

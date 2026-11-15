@@ -1,22 +1,21 @@
-# M1-02 P1/P2 HMAC physical experiment (NONPRODUCTION)
+# M1-02 experimental HMAC physical probes (P1 vs P2)
 
-**Status:** `EXPERIMENTAL / PROPOSED / NOT APPROVED / NOT Package-1`
+**Classification:** `EXPERIMENTAL / NOT APPROVED / NOT Package-1 / NOT official TP0008+`
 
-This package applies **scratch DDL at runtime** inside disposable PostgreSQL 15
-Testcontainers. It does **not** add official `TP0008+` Alembic revisions and must
-not be merged as production migration code.
+Disposable PostgreSQL 15 probes comparing:
 
-## Models under test
+- **P1** — staged gen2/gen3 columns on `person_identifiers`
+- **P2** — generation-aware sidecar with parent identity binding + ACTIVE uniqueness
 
-- **P1** — additive staged generation columns on `person_identifiers`
-  (`exp_lookup_hmac_gen2` / `gen3`) with nonredundant concurrent unique indexes.
-- **P2** — generation-aware sidecar table `person_identifier_hmac_generations_exp`
-  with status-scoped unique indexes and FORCE RLS.
+## Safety corrections (N01–N09)
 
-## Explicitly out of scope
+This package includes fail-closed guards for:
 
-- Production auth/API/key-management services
-- Official ACR/ADR approval
-- Gate A/B/C/D acceptance
-- Real patient data / production keys / persistent target DBs
-- Modification of frozen `FINAL_MASTER_SPECIFICATION_v3.0.1_FINAL.txt` or R4.12
+- Active-generation index/value wipe refusal (N01)
+- P2 ACTIVE partial unique index + person/type/authority parent consistency (N02/N03)
+- Mandatory observed Lock/LWLock two-session barrier (N04)
+- Evidence-bound phase transitions (N05)
+- Exact index catalog assert + real-target invalid index recovery (N06)
+- Atomic dual-write / resumable backfill / two complete rotations (N07)
+
+Synthetic digests only (`synthetic_hmac.py`). No production keys, no patient data, no merge to `main`.
