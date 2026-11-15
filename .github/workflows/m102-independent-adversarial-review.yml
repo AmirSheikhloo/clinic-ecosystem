@@ -1,0 +1,72 @@
+name: M1-02 independent adversarial P1/P2 counterexamples
+
+on:
+  push:
+    branches:
+      - audit/m102-cursor-adversarial-20261116
+
+permissions:
+  contents: read
+
+jobs:
+  adversarial-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Confirm branch and disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "audit/m102-cursor-adversarial-20261116"
+          test -z "$(find migrations/tenant_plane/versions -maxdepth 1 \( -name 'tp000[8-9]*.py' -o -name 'tp001*.py' \) -print)"
+          docker info >/dev/null
+      - name: Install project test dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Run existing suite plus risk-confirming negative counterexamples
+        shell: bash
+        env:
+          M0_REQUIRE_DOCKER: '1'
+        run: |
+          set -euo pipefail
+          python -m pytest tests/unit tests/integration -v --tb=short -rs \
+            --junitxml=m102-independent-review-junit.xml | tee m102-independent-review-pytest.txt
+      - name: Verify exactly three counterexample nodes ran and were not skipped
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root = ET.parse('m102-independent-review-junit.xml').getroot()
+          cases = root.findall('.//testcase')
+          names={x.attrib.get('name'):x for x in cases}
+          required=[
+            'test_adversarial_p1_cutover_then_rollback_removes_active_gen2_authority',
+            'test_adversarial_p2_active_status_has_no_unique_index_and_person_mismatch',
+            'test_adversarial_phase_gate_can_cutover_without_evidence_or_enforce_phase9_flag'
+          ]
+          for name in required:
+            assert name in names, f'missing {name}'
+            case=names[name]
+            assert all(case.find(x) is None for x in ['failure','error','skipped']), name
+          assert len(cases)>=90, len(cases)
+          assert all(all(c.find(x) is None for x in ['failure','error','skipped']) for c in cases)
+          Path('m102-independent-review-summary.txt').write_text(
+            f"total={len(cases)}; risk-counterexamples-confirmed={len(required)}; failed=0; skipped=0\n"
+          )
+          print(Path('m102-independent-review-summary.txt').read_text())
+          PY
+      - name: Upload test evidence even on failure
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m102-adversarial-p1-p2-risk-evidence
+          path: |
+            m102-independent-review-junit.xml
+            m102-independent-review-pytest.txt
+            m102-independent-review-summary.txt
+          if-no-files-found: warn
