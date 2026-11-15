@@ -15,6 +15,7 @@ from experiments.m102_hmac_physical.phase_gate import (
     attest_cutover_ready,
     attest_drain,
     attest_index_valid,
+    begin_next_candidate_cycle,
     collect_backfill_proof,
     collect_drain_proof,
     collect_index_proof,

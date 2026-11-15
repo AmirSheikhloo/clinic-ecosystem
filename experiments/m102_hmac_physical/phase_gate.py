@@ -724,9 +724,6 @@ async def cutover_generation(
         SET active_generation = $2,
             candidate_generation = NULL,
             cutover_ready = FALSE,
-            -- Next rotation must re-prove backfill/index for the new candidate.
-            backfill_complete = FALSE,
-            index_valid_attested = FALSE,
             updated_at_utc = NOW()
         WHERE model = $1
         """,
@@ -784,6 +781,38 @@ async def rollback_to_previous_active(
             "index_name": index_name,
         },
         proof_source="rollback_to_previous_active",
+    )
+
+
+async def begin_next_candidate_cycle(conn: asyncpg.Connection, *, model: str) -> None:
+    """Clear backfill/index/cutover flags so the next generation must be re-proven.
+
+    Call explicitly before starting the next rotation's backfill/index work.
+    Cutover itself does not forge a clean slate — that would break phase-9 dry-run
+    after a completed cutover.
+    """
+    state = await get_state(conn, model)
+    if state.phase < 8:
+        raise PhaseGateError(f"{model}: begin_next_candidate_cycle requires phase>=8")
+    await conn.execute(
+        f"""
+        UPDATE public.{META_TABLE}
+        SET backfill_complete = FALSE,
+            index_valid_attested = FALSE,
+            cutover_ready = FALSE,
+            candidate_generation = NULL,
+            updated_at_utc = NOW()
+        WHERE model = $1
+        """,
+        model,
+    )
+    await _append_evidence(
+        conn,
+        model=model,
+        phase=state.phase,
+        evidence_kind="next_candidate_cycle_opened",
+        evidence={"prior_active": state.active_generation},
+        proof_source="begin_next_candidate_cycle",
     )
 
 

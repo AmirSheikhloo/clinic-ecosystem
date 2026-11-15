@@ -28,6 +28,7 @@ from experiments.m102_hmac_physical.lifecycle import (
     prove_drain_and_backfill,
     prove_index,
 )
+from experiments.m102_hmac_physical.phase_gate import begin_next_candidate_cycle
 from experiments.m102_hmac_physical.p2_generation_sidecar import (
     P2_ACTIVE_INDEX,
     P2_ACTIVE_INDEX_DDL,
@@ -374,6 +375,7 @@ async def test_p2_active_uniqueness_person_consistency_and_two_cycles(
             )
 
         # Cycle 2 candidates (v3) while ACTIVE v2 remains indexed.
+        await begin_next_candidate_cycle(conn, model="P2")
         n3, _ = await p2_backfill_candidate_batch(
             conn, tenant_id=tenant, candidate_version=3, batch_size=50
         )

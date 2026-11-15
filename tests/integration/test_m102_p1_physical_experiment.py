@@ -39,6 +39,7 @@ from experiments.m102_hmac_physical.p1_staged_columns import (
 )
 from experiments.m102_hmac_physical.phase_gate import (
     PhaseGateError,
+    begin_next_candidate_cycle,
     cutover_generation,
     experimental_upgrade_head,
     get_state,
@@ -455,23 +456,15 @@ async def test_p1_two_complete_rotations_preserve_active_authority(plane_topolog
             "SELECT to_regclass($1)::text", f"public.{P1_GEN2_INDEX}"
         )
 
-        # Recutover to gen2 requires re-proving backfill/index after prior cutover reset.
-        await prove_drain_and_backfill(
-            conn, model="P1", tenant_id=tenant, generation=2
-        )
-        await prove_index(
-            conn,
-            model="P1",
-            index_name=P1_GEN2_INDEX,
-            table_name="person_identifiers",
-            generation=2,
-        )
+        # Recutover to gen2 (drain/backfill/index still proven; cutover_ready re-attested).
         await prepare_cutover_candidate(conn, model="P1", candidate=2)
         await cutover_generation(conn, model="P1", new_active=2)
         await p1_assert_generation_authority(
             conn, model="P1", generation=2, index_name=P1_GEN2_INDEX
         )
 
+        # Open next candidate cycle so gen3 must be freshly proven.
+        await begin_next_candidate_cycle(conn, model="P1")
         # Second rotation: gen3 backfill + index + cutover while gen2 remains.
         n3, _ = await p1_backfill_gen3_batch(conn, tenant_id=tenant, batch_size=50)
         assert n3 == 6
@@ -537,6 +530,8 @@ async def test_p1_invalid_generation_index_recovery_on_real_target(plane_topolog
         b = await insert_identifier(
             conn, tenant_id=tenant, person_id=p2, normalized="9000000002", next_version=None
         )
+        # Drop any leftover gen2 index before planting collisions (shared fixture).
+        await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
         collision = b"\xcd" * 32
         for ident in (a.identifier_id, b.identifier_id):
             await conn.execute(
@@ -548,7 +543,6 @@ async def test_p1_invalid_generation_index_recovery_on_real_target(plane_topolog
                 ident,
                 collision,
             )
-        await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
         try:
             await conn.execute(P1_GEN2_INDEX_DDL)
         except (asyncpg.UniqueViolationError, asyncpg.PostgresError):
