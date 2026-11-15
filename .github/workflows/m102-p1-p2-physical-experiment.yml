@@ -55,13 +55,13 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
-          required = [
-            "test_p1_expand_preserves_tp0002_indexes_and_adds_nonredundant_gen2",
+
+          # Exact nodes plus parametrized bases that must run on both planes.
+          required_exact = [
             "test_p1_deterministic_old_new_writer_conflict_on_gen2",
             "test_p1_resumable_backfill_rollback_and_two_rotation_cycles",
             "test_p1_invalid_index_cleanup_and_retry",
             "test_p1_unsafe_upgrade_head_fail_closed",
-            "test_p2_sidecar_expand_rls_and_nonredundant_candidate_index",
             "test_p2_deterministic_candidate_writer_conflict",
             "test_p2_two_cycle_backfill_cutover_and_runtime_rls",
             "test_fresh_install_then_experimental_expand",
@@ -71,23 +71,58 @@ jobs:
             "test_p1_phase6_index_targets_gen2_not_lookup_hmac_next",
             "test_p2_candidate_index_is_status_scoped_and_non_tp0002_next",
           ]
+          required_parametrized = {
+            "test_p1_expand_preserves_tp0002_indexes_and_adds_nonredundant_gen2": [
+              "cloud_tenant",
+              "local_hub",
+            ],
+            "test_p2_sidecar_expand_rls_and_nonredundant_candidate_index": [
+              "cloud_tenant",
+              "local_hub",
+            ],
+          }
+
           root = ET.parse("m102-p1-p2-junit.xml").getroot()
           cases = root.findall(".//testcase")
           by_name = {c.attrib.get("name"): c for c in cases}
-          missing = [n for n in required if n not in by_name]
+
+          missing = []
+          checked = []
+          for n in required_exact:
+            if n not in by_name:
+              missing.append(n)
+            else:
+              checked.append(by_name[n])
+          for base, planes in required_parametrized.items():
+            for plane in planes:
+              name = f"{base}[{plane}]"
+              if name not in by_name:
+                missing.append(name)
+              else:
+                checked.append(by_name[name])
           if missing:
             raise SystemExit("missing required nodes:\n" + "\n".join(missing))
-          for n in required:
-            c = by_name[n]
+          for c in checked:
+            name = c.attrib.get("name")
             if c.find("failure") is not None or c.find("error") is not None:
-              raise SystemExit(f"required failed: {n}")
+              raise SystemExit(f"required failed: {name}")
             if c.find("skipped") is not None:
-              raise SystemExit(f"required skipped: {n}")
-          failed = sum(1 for c in cases if c.find("failure") is not None or c.find("error") is not None)
+              raise SystemExit(f"required skipped: {name}")
+          failed = sum(
+            1
+            for c in cases
+            if c.find("failure") is not None or c.find("error") is not None
+          )
           skipped = sum(1 for c in cases if c.find("skipped") is not None)
-          print(f"OK required={len(required)} total={len(cases)} failed={failed} skipped={skipped}")
+          if failed or skipped:
+            raise SystemExit(f"suite not clean: failed={failed} skipped={skipped}")
+          print(
+            f"OK required={len(checked)} total={len(cases)} "
+            f"failed={failed} skipped={skipped}"
+          )
           Path("m102-p1-p2-summary.txt").write_text(
-              f"required={len(required)}\ntotal={len(cases)}\nfailed={failed}\nskipped={skipped}\n",
+              f"required={len(checked)}\ntotal={len(cases)}\n"
+              f"failed={failed}\nskipped={skipped}\n",
               encoding="utf-8",
           )
           PY

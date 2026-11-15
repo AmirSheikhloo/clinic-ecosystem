@@ -4,28 +4,30 @@
 **Repository:** `AmirSheikhloo/clinic-ecosystem`
 **Branch:** `cursor/m102-p1-p2-hmac-physical-experiment-95a4`
 **Base:** `origin/main` @ `fdae362e1a889831975060808ac612369d3b0d0a`
-**Experiment commit SHA:** _(filled after push)_
-**Classification:** `EXPERIMENTAL / PROPOSED / TESTED-IN-EPHEMERAL-PG15-ONLY / NOT APPROVED / NOT Package-1 / NOT Gate A`
+**Experiment SHAs:**
+- Implementation: `101d1d8bab662d8ece4219382efcc83a57d1e8c6`
+- Evidence-guard fix: _(this commit)_
+**Classification:** `EXPERIMENTAL / PROPOSED / TESTED-IN-EPHEMERAL-PG15 / NOT APPROVED / NOT Package-1 / NOT Gate A`
 
 ## 0. Authority and non-claims
 
 | Statement | Status |
 |---|---|
-| Frozen source `docs/FINAL_MASTER_SPECIFICATION_v3.0.1_FINAL.txt` clauses 771–772 | `SOURCE CONTRACT` (unchanged) |
-| R4.12 roadmap / C0.4 contract files in this checkout | `NOT PRESENT in repository tree` — referenced by handoff docs only; treated as `REVIEW CANDIDATE / UNAVAILABLE LOCALLY` |
+| Frozen source clauses 771–772 | `SOURCE CONTRACT` (unchanged) |
+| R4.12 / C0.4 files in repository checkout | `NOT PRESENT` — unavailable locally; handoff-only review candidates |
 | Option C migration numbering | `NOT SELECTED / NOT APPROVED` |
-| Official `TP0008+` migrations | `NOT CREATED` |
-| Package-1 implementation / Gate A/B/C/D | `NOT AUTHORIZED / NOT CLAIMED` |
-| Production keys, patient data, persistent target DB | `NOT ACCESSED` |
-| Prior CI runs 72/75/77 | `HISTORICAL SPIKES ONLY` — do not prove HMAC Phase-6 generation design |
+| Official `TP0008+` | `NOT CREATED` |
+| Package-1 / Gates A–D | `NOT AUTHORIZED / NOT CLAIMED` |
+| Production keys / patient data / persistent DB | `NOT ACCESSED` |
+| Prior runs 72/75/77 | `HISTORICAL SPIKES ONLY` |
 
 ## 1. Source inspection (verified)
 
-### 1.1 Clause 771–772 (frozen)
+### 1.1 Clause 771–772
 
-HMAC rotation requires nine phases including dual-write, drain, backfill, `CREATE UNIQUE INDEX CONCURRENTLY` in a dedicated autocommit Alembic revision, `pg_index.indisvalid` remediation, cutover with rollback window, and later contraction/key retirement. Dual-write must compute old/new indexes from the same canonical source in one write transaction; old writers must be drained; partial/failed concurrent indexes must be remediated before cutover.
+Nine-phase HMAC rotation with dual-write, drain, backfill, `CREATE UNIQUE INDEX CONCURRENTLY` in dedicated autocommit Alembic revision, `indisvalid` remediation, cutover/rollback window, later contraction. Dual-write must use one canonical source value per write transaction.
 
-### 1.2 TP0002 indexes (implemented on `main`)
+### 1.2 TP0002 unique indexes (immutable on this experiment)
 
 ```sql
 CREATE UNIQUE INDEX uq_person_identifier_active_lookup
@@ -36,27 +38,19 @@ ON person_identifiers (tenant_id, id_type, issuing_country_or_authority, lookup_
 WHERE lookup_hmac_next IS NOT NULL;
 ```
 
-TP lineage on `main` ends at `TP0007`. Control Plane versions directory remains `.gitkeep` only in source.
+### 1.3 Prior CI (not new generation proof)
 
-### 1.3 Prior CI evidence (re-checked, not re-counted as new unique proof)
+| Run | SHA | Notes |
+|---|---|---|
+| [43747042672](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43747042672) | `a49171a` | foundations preflight |
+| [43747538019](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43747538019) | `4039293` | duplicate next-index on empty table |
+| [43748254928](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43748254928) | `8a13097` | existing next-index only; no TX barrier |
 
-| Run | SHA | Result | Limitation |
-|---|---|---|---|
-| [43747042672](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43747042672) | `a49171a` | success / 72 passed | Foundations preflight |
-| [43747538019](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43747538019) | `4039293` | success / 75 passed | Duplicate next-index spike on empty table |
-| [43748254928](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43748254928) | `8a13097` | success / 77 passed | Existing next-index only; no deterministic TX barrier |
+## 2. Experimental models (PROPOSED)
 
-## 2. Experimental physical models (PROPOSED)
+### P1 — staged columns
 
-### 2.1 P1 — staged generation columns
-
-Additive columns on `person_identifiers`:
-
-- `exp_lookup_hmac_gen2` / `exp_hmac_key_version_gen2`
-- `exp_lookup_hmac_gen3` / `exp_hmac_key_version_gen3`
-- pairing CHECKs
-
-Phase-6 candidate indexes (nonredundant vs TP0002 next):
+Additive `exp_lookup_hmac_gen2/gen3` (+ version + pairing CHECKs) on `person_identifiers`.
 
 ```sql
 CREATE UNIQUE INDEX CONCURRENTLY uq_exp_p1_identifier_gen2_lookup
@@ -70,9 +64,9 @@ ON public.person_identifiers (
 ) WHERE exp_lookup_hmac_gen3 IS NOT NULL;
 ```
 
-### 2.2 P2 — generation sidecar
+### P2 — generation sidecar
 
-Table `person_identifier_hmac_generations_exp` with denormalized `(id_type, issuing_country_or_authority)`, `hmac_key_version`, `lookup_hmac`, `generation_status ∈ {ACTIVE,NEXT,CANDIDATE,RETIRED}`, FK to `person_identifiers`, FORCE RLS mirror of tenant runtime/migrator policies.
+`person_identifier_hmac_generations_exp` with status-scoped unique indexes and FORCE RLS.
 
 ```sql
 CREATE UNIQUE INDEX CONCURRENTLY uq_exp_p2_hmac_candidate_lookup
@@ -81,47 +75,80 @@ ON public.person_identifier_hmac_generations_exp (
 ) WHERE generation_status = 'CANDIDATE';
 ```
 
-### 2.3 Phase gate metadata
+### Phase gate
 
-Table `m102_exp_rotation_phase_meta` enforces one-step phase advances and fail-closed experimental `upgrade head`. Phase 9 is dry-run only (`phase9_operational_executed = FALSE`).
+`m102_exp_rotation_phase_meta` one-step advances; experimental upgrade-head fail-closed; phase 9 dry-run only (`phase9_operational_executed=FALSE`).
 
-## 3. Tests implemented
+## 3. Code/test inventory
 
-Runtime experimental package: `experiments/m102_hmac_physical/`
-Integration tests:
-
+- `experiments/m102_hmac_physical/` runtime scratch DDL/helpers
 - `tests/integration/test_m102_p1_physical_experiment.py`
 - `tests/integration/test_m102_p2_physical_experiment.py`
 - `tests/integration/test_m102_fresh_upgrade_and_package2_guard.py`
+- `tests/unit/test_m102_p1_p2_experiment_contracts.py`
+- `.github/workflows/m102-p1-p2-physical-experiment.yml`
 
-Unit contracts: `tests/unit/test_m102_p1_p2_experiment_contracts.py`
-Workflow: `.github/workflows/m102-p1-p2-physical-experiment.yml`
+## 4. CI evidence
 
-## 4. Requirement matrix (filled after CI)
+### Run A (implementation SHA `101d1d8`)
 
-| Requirement | P1 | P2 | Notes |
+- URL: https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43749863252
+- Pytest: **87 passed / 0 failed / 0 skipped** (`TESTED`)
+- Workflow overall: **failure** because evidence-summary required unparametrized names and missed `[cloud_tenant]/[local_hub]` nodes (`BLOCKED` evidence-guard only; tests themselves passed)
+- Artifact: `m102-p1-p2-physical-evidence` (`m102-p1-p2-junit.xml`, `m102-p1-p2-pytest.txt`)
+
+### Run B (evidence-guard fix)
+
+- _Pending push of this commit_
+
+## 5. Requirement results from Run A JUnit (ephemeral PG15)
+
+| Requirement | P1 | P2 | Status |
 |---|---|---|---|
-| Compatibility with `person_identifiers` | _pending CI_ | _pending CI_ | |
-| Preserve TP0002 active/next indexes | _pending CI_ | _pending CI_ | |
-| Nonredundant physical generation index | _pending CI_ | _pending CI_ | |
-| `CREATE UNIQUE INDEX CONCURRENTLY` on populated tables | _pending CI_ | _pending CI_ | |
-| Deterministic two-session TX barrier conflicts | _pending CI_ | _pending CI_ | |
-| Invalid-index detect/cleanup/retry | _pending CI_ | N/A (shared probe) | |
-| Resumable backfill + rollback | _pending CI_ | _pending CI_ | |
-| Two consecutive rotation cycles | _pending CI_ | _pending CI_ | |
-| Roles / RLS / Cloud+Local | _pending CI_ | _pending CI_ | |
-| Fresh install vs upgrade | _pending CI_ | expand covered | |
-| Phase gate / unsafe head | _pending CI_ | meta shared | |
-| Package-2 / deferred Phase-9 impact | PASS (static) | PASS (static) | no TP0008+/TP0011 invented |
+| Compatibility with `person_identifiers` | PASS | PASS | `TESTED` |
+| Preserve TP0002 active/next indexes | PASS | PASS | `TESTED` |
+| Nonredundant physical generation index | PASS (gen2/gen3 cols) | PASS (sidecar + status predicate) | `TESTED` |
+| `CREATE UNIQUE INDEX CONCURRENTLY` on populated tables | PASS | PASS | `TESTED` |
+| Deterministic two-session TX barrier uniqueness | PASS | PASS | `TESTED` |
+| Invalid-index detect/cleanup/retry | PASS | shared probe | `TESTED` |
+| Resumable backfill + rollback | PASS | PASS (candidate batches) | `TESTED` |
+| Two consecutive rotation cycles | PASS (gen2 then gen3) | PASS (v2 then v3) | `TESTED` |
+| Roles / RLS / Cloud+Local | PASS (both planes) | PASS (+ runtime GUC) | `TESTED` |
+| Fresh install vs upgrade | PASS | expand on fresh | `TESTED` |
+| Phase gate / unsafe head | PASS | shared meta | `TESTED` |
+| Package-2 / deferred Phase-9 | PASS (no TP0008+/TP0011; phase9 not operational) | PASS | `TESTED` (static+meta) |
 
-## 5. CI evidence
+## 6. P1 vs P2 comparison (PROPOSED)
 
-_Pending first push of this branch._
+| Dimension | P1 staged columns | P2 generation sidecar |
+|---|---|---|
+| Frozen F.2 proximity | Closer: additive columns on existing table | Farther: new relation beyond F.2 core shape |
+| Nonredundant Phase-6 index | Yes — indexes gen2/gen3 columns, not `lookup_hmac_next` | Yes — status-scoped sidecar indexes |
+| Repeat rotation | Needs additional staged slots or slot recycling ACR | Natural multi-version rows; still needs phase-9 cleanup ACR |
+| Dual-write atomicity | Same-row update with active/next/genN | Row + sidecar row(s); more moving parts |
+| RLS/privileges | Inherits `person_identifiers` policies | Must mirror FORCE RLS/grants (done experimentally) |
+| Migration risk | Lower schema novelty; column churn on hot table | Higher review burden; clearer generation history |
+| Package-2 impact | None while experimental (no official TP) | None while experimental |
+| Security notes | Keep ciphertext/HMAC out of logs; synthetic digests only in tests | Sidecar increases attack surface if grants/RLS wrong |
 
-## 6. Comparison and recommendation
+### Recommended physical design (PROPOSED — not approved)
 
-_Pending CI results. Recommendation will be marked **PROPOSED** only._
+**Prefer P1 as the default candidate for a future migration ACR**, because it stays additive on the frozen `person_identifiers` relation, preserves existing active/next indexes until handoff, and makes Phase-6 a genuinely new physical index on generation-specific columns.
 
-## 7. Remaining blockers
+**Keep P2 as a documented alternative** when multi-generation history / more than two staged slots becomes a hard requirement, subject to explicit frozen-spec compatibility ACR (higher review burden).
 
-See final section after CI. No Package-1 authorization is implied by this experiment.
+Neither recommendation authorizes `TP0008+`, Option C numbering, or Package-1 implementation.
+
+## 7. Remaining blockers (evidence still required)
+
+1. **Independent architecture/DBA review** of this branch’s exact DDL/tests vs clauses 771–772 — status `BLOCKED` until reviewer sign-off.
+2. **Signed ACR-M102-MIG-001** choosing implementable generation model + TP graph (incl. deferred Phase-9 placement and repeat-rotation revisions) — `NOT EFFECTIVE`.
+3. **R4.12 / C0.4 source files** were not present in the repository checkout; Package-2 numbering must be confirmed against the actual roadmap file once available — `BLOCKED / SOURCE UNAVAILABLE LOCALLY`.
+4. **Production-like crypto** (real HMAC keys, AAD, normalizer) not exercised; only synthetic digests — `NOT TESTED`.
+5. **Persistent target DB catalog** still `UNKNOWN`; ephemeral CI does not prove live Cloud/Local state.
+6. **Offline Local writer drain/fencing** beyond dual-plane fixtures remains incomplete relative to full clause-771 phase 3 — `PARTIAL`.
+7. Workflow evidence-guard false-negative on parametrized names (fixed in this commit) — re-run required for green workflow conclusion.
+
+## 8. Final status
+
+`PHYSICAL EXPERIMENT IMPLEMENTED AND PG15-TESTED (87/87) / WORKFLOW GUARD FIX PENDING GREEN RE-RUN / DESIGN RECOMMENDATION PROPOSED / NO PACKAGE-1 AUTHORIZATION / NO PRODUCTION READINESS`
