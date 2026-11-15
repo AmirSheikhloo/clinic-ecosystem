@@ -5,7 +5,7 @@
 **Correction branch:** `cursor/m102-p1-p2-n01-n09-corrections-95a4`  
 **Original experiment branch:** `cursor/m102-p1-p2-hmac-physical-experiment-95a4`  
 **Base `main`:** `fdae362e1a889831975060808ac612369d3b0d0a`  
-**Correction HEAD SHA:** `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db`  
+**Tested code SHA:** `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db` (authoritative green experiment CI — do not conflate with later docs-only commits)  
 **Classification:** `EXPERIMENTAL CORRECTIONS TESTED / NOT APPROVED / NOT Package-1 / NOT Gate A–D / NO ACR`
 
 Status vocabulary: **PROPOSED**, **IMPLEMENTED**, **TESTED**, **PASS**, **FAIL**, **BLOCKED**, **APPROVED** (unused).
@@ -34,9 +34,10 @@ This document is the **one complete corrected engineering report** for the M1-02
 | Field | Value |
 |---|---|
 | Correction branch | `cursor/m102-p1-p2-n01-n09-corrections-95a4` |
-| Correction HEAD | `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db` |
+| Tested code SHA (green CI) | `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db` |
 | N01–N09 implementation commit | `55f4d9a6565a3825256560555564e195aeb24259` |
 | Lock-wait inspector fix | `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db` |
+| Docs-only report commits | May advance branch HEAD; tested code SHA above remains authoritative |
 | Branched from original experiment HEAD | `016d547c673bfc79bfcc192e56f35b3108e4be56` |
 | Original green test SHA | `c08f057962be2a4b6da8f6d1e516213266e302d6` |
 | Original implementation | `101d1d8bab662d8ece4219382efcc83a57d1e8c6` |
