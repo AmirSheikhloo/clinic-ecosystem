@@ -1,6 +1,7 @@
 """Regression tests proving N01–N05 unsafe sequences now fail closed.
 
 PASS means the previously observed safety gap is closed under disposable PG15.
+N05 tests here prove forged/self-attested evidence cannot drive cutover.
 """
 
 from __future__ import annotations
@@ -13,6 +14,9 @@ import pytest
 from experiments.m102_hmac_physical.concurrent_ops import create_and_assert_unique_index
 from experiments.m102_hmac_physical.fixtures import insert_identifier, seed_tenant_person
 from experiments.m102_hmac_physical.lifecycle import (
+    advance_phase_chain,
+    advance_to_validate_after_backfill,
+    advance_to_verify_after_index,
     prepare_cutover_candidate,
     progress_with_evidence,
 )
@@ -30,9 +34,13 @@ from experiments.m102_hmac_physical.p2_generation_sidecar import (
 from experiments.m102_hmac_physical.phase_gate import (
     PhaseGateError,
     advance_to,
+    collect_drain_proof,
     cutover_generation,
     get_state,
     init_model,
+    record_evidence,
+    rollback_to_previous_active,
+    set_candidate_generation,
 )
 from experiments.m102_hmac_physical.rotation import (
     RotationError,
@@ -78,7 +86,9 @@ async def test_n01_closed_cannot_wipe_or_drop_active_gen2_after_cutover(
             authority=fx.authority,
             normalized=fx.normalized,
         )
-        await progress_with_evidence(conn, model="P1", to_phase=5)
+        await advance_to_validate_after_backfill(
+            conn, model="P1", tenant_id=tenant, generation=2
+        )
         await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
     finally:
         await conn.close()
@@ -93,9 +103,15 @@ async def test_n01_closed_cannot_wipe_or_drop_active_gen2_after_cutover(
     )
     conn = await _mig(ep)
     try:
-        await progress_with_evidence(conn, model="P1", to_phase=7)
+        await advance_to_verify_after_index(
+            conn,
+            model="P1",
+            index_name=P1_GEN2_INDEX,
+            table_name="person_identifiers",
+            generation=2,
+        )
         await prepare_cutover_candidate(conn, model="P1", candidate=2)
-        await progress_with_evidence(conn, model="P1", to_phase=8)
+        await advance_phase_chain(conn, model="P1", to_phase=8)
         await cutover_generation(conn, model="P1", new_active=2)
         assert (await get_state(conn, "P1")).active_generation == 2
         with pytest.raises(RotationError):
@@ -242,5 +258,54 @@ async def test_n05_closed_phase_gate_rejects_evidenceless_transitions(
                 SET phase9_operational_executed=TRUE WHERE model='P1'
                 """
             )
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_n05_closed_forged_progress_and_absent_generation_rollback(
+    plane_topology,
+) -> None:
+    """Former adversarial bypass: self-attested progress/cutover/rollback must fail."""
+    ep = plane_topology.cloud_tenant
+    await upgrade_tenant_plane_async(ep.sqlalchemy_async_url(), revision="tp0007")
+    conn = await _mig(ep)
+    try:
+        await init_model(conn, model="P1", active_generation=1)
+        await set_candidate_generation(conn, model="P1", candidate=77)
+        # Helper must not forge drain/backfill/index evidence.
+        with pytest.raises(PhaseGateError, match="drain"):
+            await progress_with_evidence(conn, model="P1", to_phase=8)
+        with pytest.raises(PhaseGateError, match="record_evidence"):
+            await record_evidence(
+                conn,
+                model="P1",
+                phase=3,
+                evidence_kind="drain",
+                evidence={"fenced": False, "proof": "NEGATIVE_CASE"},
+            )
+        # Drain proof with active leases fails closed.
+        from experiments.m102_hmac_physical.phase_gate import (
+            acquire_writer_lease,
+            attest_drain,
+        )
+
+        await acquire_writer_lease(conn, model="P1", writer_name="stale-writer")
+        proof = await collect_drain_proof(conn, model="P1")
+        with pytest.raises(PhaseGateError, match="active writer leases"):
+            await attest_drain(conn, model="P1", proof=proof)
+        # Rollback to an absent generation index fails closed.
+        await conn.execute(
+            """
+            UPDATE m102_exp_rotation_phase_meta
+            SET phase=8, drain_attested=TRUE, backfill_complete=TRUE,
+                index_valid_attested=TRUE, cutover_ready=TRUE,
+                active_generation=2, candidate_generation=NULL
+            WHERE model='P1'
+            """
+        )
+        with pytest.raises(PhaseGateError, match="missing index|index proof"):
+            await rollback_to_previous_active(conn, model="P1", previous_active=99)
+        assert (await get_state(conn, "P1")).active_generation == 2
     finally:
         await conn.close()

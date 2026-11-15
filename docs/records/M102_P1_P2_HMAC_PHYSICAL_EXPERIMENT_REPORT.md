@@ -5,7 +5,8 @@
 **Correction branch:** `cursor/m102-p1-p2-n01-n09-corrections-95a4`  
 **Original experiment branch:** `cursor/m102-p1-p2-hmac-physical-experiment-95a4`  
 **Base `main`:** `fdae362e1a889831975060808ac612369d3b0d0a`  
-**Tested code SHA:** `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db` (authoritative green experiment CI — do not conflate with later docs-only commits)  
+**Tested code SHA:** *(set to the green CI SHA of the N05 proof-bound fix after CI)*  
+**Prior green SHA (pre-N05 re-review):** `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db`  
 **Classification:** `EXPERIMENTAL CORRECTIONS TESTED / NOT APPROVED / NOT Package-1 / NOT Gate A–D / NO ACR`
 
 Status vocabulary: **PROPOSED**, **IMPLEMENTED**, **TESTED**, **PASS**, **FAIL**, **BLOCKED**, **APPROVED** (unused).
@@ -93,7 +94,7 @@ Official TP lineage on `main` still ends at `TP0007`.
 | **N02** | P2 ACTIVE uniqueness missing after promotion | Build/assert `P2_ACTIVE_INDEX` before promotion; duplicate ACTIVE rejected | **PASS** |
 | **N03** | Sidecar person/type/authority unbound | Composite FK `(tenant_id,identifier_id,person_id)` + BEFORE trigger for type/authority | **PASS** |
 | **N04** | Lock wait optional / ignored | `require_observed_lock_wait=True` fail-closed; superuser inspector DSN; commit + rollback loser paths | **PASS** |
-| **N05** | Evidenceless phase/cutover; tautological phase9 CHECK | Evidence flags + `m102_exp_phase_evidence`; cutover requires drain/backfill/index/cutover_ready + candidate match; `phase9_operational_executed` forced FALSE | **PASS** (metadata simulation only — still not a real Alembic gate) |
+| **N05** | Evidenceless phase/cutover; tautological phase9 CHECK; self-attested lifecycle forge | Removed forge path: `record_evidence` disabled; `progress_with_evidence` no longer invents proofs; `attest_*` require live lease/backfill/index catalog checks (re-validated at attest time); append-only evidence log; rollback refuses absent generation indexes; phase9 CHECK remains non-operational | **PASS** (experimental proof-bound simulation) / **BLOCKED** (not a deployable Alembic/migration gate) |
 | **N06** | `IF NOT EXISTS` without catalog assert; probe-only invalid recovery | Exact `pg_get_indexdef` catalog assert; recover invalid on real gen2 target | **PASS** |
 | **N07** | Atomic dual-write / two full rotations incomplete | `p1_atomic_dual_write_gen` same-TX verify+write; resumable FOR UPDATE backfill; gen2 then gen3 cutovers with prior index retained until safe drop | **PASS** (synthetic canonical source) |
 | **N08** | Premature P1/P2 recommendation | Reassessed below; neither APPROVED | **PASS** (recommendation corrected) |
@@ -196,7 +197,8 @@ First correction CI failure is recorded deliberately: tests were **not** weakene
 | Resumable backfill + atomic dual-write (synthetic) | **PASS** | FOR UPDATE batches; HMAC mismatch denied |
 | Two complete consecutive rotations | **PASS** | P1 gen2→gen3; P2 v2→v3 with ACTIVE retained |
 | Invalid index recovery on real generation target | **PASS** | Gen2 target + probe table |
-| Evidence-bound experimental phase transitions | **PASS** | Still metadata simulation only |
+| Evidence-bound experimental phase transitions | **PASS** / **BLOCKED** for deployable gating | Live lease/backfill/index proofs required; still not an Alembic head controller |
+| Self-attested / forged evidence cutover bypass | **PASS** (closed) | `progress_with_evidence` + `record_evidence` fail closed; absent-generation rollback refused |
 | Real Alembic TP0008+ / Package-2 deployable gate | **BLOCKED** | No official revisions; not claimed |
 | Real HMAC/AES/AAD and key custody | **BLOCKED** | Synthetic only |
 | Offline Local Hub drain/fencing (production lease) | **BLOCKED** | Evidence flag stand-in only |
@@ -233,7 +235,8 @@ First correction CI failure is recorded deliberately: tests were **not** weakene
 
 | Blocker | Status | Evidence required |
 |---|---|---|
-| Independent re-review of correction branch vs 771–772 | `BLOCKED` | Written review citing this report’s SHAs/CI |
+| Independent re-review of correction branch vs 771–772 (incl. post-N05 proof-bound gate) | `BLOCKED` | Written review citing this report’s SHAs/CI |
+| Deployable migration gate (non-forgeable catalog/lease dual-writer evidence in Alembic) | `BLOCKED` | Production gate must not rely on this experimental simulator |
 | Signed `ACR-M102-MIG-001` (model + TP graph + Phase-9 + re-rotation) | `NOT EFFECTIVE` | PO/DBA signed ACR |
 | Real keyed HMAC + AES-GCM AAD normalizer | `BLOCKED` | Crypto vectors under test-key custody |
 | Production-like writer drain / lease fencing | `BLOCKED` | Offline Local Hub fence proofs beyond evidence flags |

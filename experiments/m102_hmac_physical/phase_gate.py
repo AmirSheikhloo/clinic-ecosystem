@@ -1,7 +1,8 @@
-"""Evidence-bound experimental phase metadata (clause-771 simulation only).
+"""Proof-bound experimental phase metadata (clause-771 simulation only).
 
-Not a real Alembic revision gate. Transitions fail closed unless immutable
-evidence flags for drain/backfill/index/cutover are set. Phase-9 operational
+Not a real Alembic revision gate and not a deployable migration controller.
+Attestations require live catalog/lease/backfill proofs; forged boolean payloads
+are rejected. Evidence rows are append-only (no overwrite). Phase-9 operational
 retirement cannot be marked executed in this experiment.
 """
 
@@ -9,12 +10,18 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 
+from experiments.m102_hmac_physical.p1_staged_columns import P1_GEN2_INDEX, P1_GEN3_INDEX
+from experiments.m102_hmac_physical.p2_generation_sidecar import P2_ACTIVE_INDEX, P2_TABLE
+
 META_TABLE = "m102_exp_rotation_phase_meta"
 EVIDENCE_TABLE = "m102_exp_phase_evidence"
+LEASE_TABLE = "m102_exp_writer_leases"
 
 PHASE_NAMES = {
     0: "BASELINE",
@@ -29,6 +36,17 @@ PHASE_NAMES = {
     9: "CONTRACT_DRY_RUN_ONLY",
 }
 
+# Experimental generation → unique index that must exist for authority/rollback.
+P1_GENERATION_INDEX = {
+    1: "uq_person_identifier_active_lookup",
+    2: P1_GEN2_INDEX,
+    3: P1_GEN3_INDEX,
+}
+P1_GENERATION_COLUMN = {
+    2: "exp_lookup_hmac_gen2",
+    3: "exp_lookup_hmac_gen3",
+}
+
 
 @dataclass(frozen=True)
 class PhaseState:
@@ -41,6 +59,73 @@ class PhaseState:
     backfill_complete: bool
     index_valid_attested: bool
     cutover_ready: bool
+
+
+@dataclass(frozen=True)
+class DrainProof:
+    model: str
+    active_writer_leases: int
+    collected_at_utc: datetime
+
+    def validate(self) -> None:
+        if self.active_writer_leases != 0:
+            raise PhaseGateError(
+                f"drain proof rejected: {self.active_writer_leases} active writer leases"
+            )
+
+
+@dataclass(frozen=True)
+class BackfillProof:
+    model: str
+    tenant_id: UUID
+    generation: int
+    remaining_null_rows: int
+    collected_at_utc: datetime
+
+    def validate(self) -> None:
+        if self.remaining_null_rows != 0:
+            raise PhaseGateError(
+                f"backfill proof rejected: {self.remaining_null_rows} rows still null"
+            )
+
+
+@dataclass(frozen=True)
+class IndexProof:
+    model: str
+    index_name: str
+    table_name: str
+    unique_index: bool
+    valid: bool
+    ready: bool
+    collected_at_utc: datetime
+
+    def validate(self) -> None:
+        if not (self.unique_index and self.valid and self.ready):
+            raise PhaseGateError(
+                f"index proof rejected for {self.index_name}: "
+                f"unique={self.unique_index} valid={self.valid} ready={self.ready}"
+            )
+
+
+@dataclass(frozen=True)
+class CutoverProof:
+    model: str
+    candidate_generation: int
+    index_name: str
+    index_valid: bool
+    drain_attested: bool
+    backfill_complete: bool
+    collected_at_utc: datetime
+
+    def validate(self) -> None:
+        if not self.drain_attested:
+            raise PhaseGateError("cutover proof rejected: drain not attested")
+        if not self.backfill_complete:
+            raise PhaseGateError("cutover proof rejected: backfill incomplete")
+        if not self.index_valid:
+            raise PhaseGateError(
+                f"cutover proof rejected: index {self.index_name} not valid"
+            )
 
 
 CREATE_META = f"""
@@ -63,12 +148,23 @@ CREATE TABLE IF NOT EXISTS public.{META_TABLE} (
 
 CREATE_EVIDENCE = f"""
 CREATE TABLE IF NOT EXISTS public.{EVIDENCE_TABLE} (
+    evidence_id BIGSERIAL PRIMARY KEY,
     model VARCHAR(8) NOT NULL CHECK (model IN ('P1', 'P2')),
     phase SMALLINT NOT NULL CHECK (phase BETWEEN 0 AND 9),
     evidence_kind VARCHAR(64) NOT NULL,
     evidence_json JSONB NOT NULL DEFAULT '{{}}'::jsonb,
-    created_at_utc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (model, phase, evidence_kind)
+    proof_source VARCHAR(64) NOT NULL,
+    created_at_utc TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+"""
+
+CREATE_LEASES = f"""
+CREATE TABLE IF NOT EXISTS public.{LEASE_TABLE} (
+    lease_id BIGSERIAL PRIMARY KEY,
+    model VARCHAR(8) NOT NULL CHECK (model IN ('P1', 'P2')),
+    writer_name TEXT NOT NULL,
+    acquired_at_utc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    released_at_utc TIMESTAMPTZ NULL
 )
 """
 
@@ -79,8 +175,30 @@ class PhaseGateError(RuntimeError):
 
 async def ensure_meta(conn: asyncpg.Connection) -> None:
     await conn.execute(CREATE_META)
+    await conn.execute(CREATE_LEASES)
+    # Prefer append-only evidence schema; rebuild if an older mutable table exists.
+    exists = await conn.fetchval(
+        """
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema='public' AND table_name=$1
+        )
+        """,
+        EVIDENCE_TABLE,
+    )
+    if exists:
+        has_id = await conn.fetchval(
+            """
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name=$1 AND column_name='evidence_id'
+            )
+            """,
+            EVIDENCE_TABLE,
+        )
+        if not has_id:
+            await conn.execute(f"DROP TABLE public.{EVIDENCE_TABLE}")
     await conn.execute(CREATE_EVIDENCE)
-    # Repair older experimental schemas that lack evidence columns / weak CHECKs.
     await conn.execute(
         f"""
         ALTER TABLE public.{META_TABLE}
@@ -118,9 +236,8 @@ async def init_model(
     conn: asyncpg.Connection, *, model: str, active_generation: int = 1
 ) -> None:
     await ensure_meta(conn)
-    await conn.execute(
-        f"DELETE FROM public.{EVIDENCE_TABLE} WHERE model = $1", model
-    )
+    await conn.execute(f"DELETE FROM public.{EVIDENCE_TABLE} WHERE model = $1", model)
+    await conn.execute(f"DELETE FROM public.{LEASE_TABLE} WHERE model = $1", model)
     await conn.execute(
         f"""
         INSERT INTO public.{META_TABLE} (
@@ -167,6 +284,318 @@ async def get_state(conn: asyncpg.Connection, model: str) -> PhaseState:
     )
 
 
+async def acquire_writer_lease(
+    conn: asyncpg.Connection, *, model: str, writer_name: str
+) -> int:
+    await ensure_meta(conn)
+    return int(
+        await conn.fetchval(
+            f"""
+            INSERT INTO public.{LEASE_TABLE} (model, writer_name)
+            VALUES ($1, $2) RETURNING lease_id
+            """,
+            model,
+            writer_name,
+        )
+    )
+
+
+async def release_writer_lease(conn: asyncpg.Connection, *, lease_id: int) -> None:
+    await conn.execute(
+        f"""
+        UPDATE public.{LEASE_TABLE}
+        SET released_at_utc = NOW()
+        WHERE lease_id = $1 AND released_at_utc IS NULL
+        """,
+        lease_id,
+    )
+
+
+async def collect_drain_proof(conn: asyncpg.Connection, *, model: str) -> DrainProof:
+    await ensure_meta(conn)
+    active = int(
+        await conn.fetchval(
+            f"""
+            SELECT count(*) FROM public.{LEASE_TABLE}
+            WHERE model = $1 AND released_at_utc IS NULL
+            """,
+            model,
+        )
+    )
+    return DrainProof(
+        model=model,
+        active_writer_leases=active,
+        collected_at_utc=datetime.now(timezone.utc),
+    )
+
+
+async def collect_backfill_proof(
+    conn: asyncpg.Connection,
+    *,
+    model: str,
+    tenant_id: UUID,
+    generation: int,
+) -> BackfillProof:
+    await ensure_meta(conn)
+    if model == "P1":
+        column = P1_GENERATION_COLUMN.get(generation)
+        if column is None:
+            raise PhaseGateError(f"P1 backfill proof unsupported for generation {generation}")
+        remaining = int(
+            await conn.fetchval(
+                f"""
+                SELECT count(*) FROM person_identifiers
+                WHERE tenant_id = $1 AND {column} IS NULL
+                """,
+                tenant_id,
+            )
+        )
+    elif model == "P2":
+        remaining = int(
+            await conn.fetchval(
+                f"""
+                SELECT count(*) FROM person_identifiers pi
+                WHERE pi.tenant_id = $1
+                  AND NOT EXISTS (
+                    SELECT 1 FROM {P2_TABLE} g
+                    WHERE g.tenant_id = pi.tenant_id
+                      AND g.identifier_id = pi.id
+                      AND g.hmac_key_version = $2
+                  )
+                """,
+                tenant_id,
+                generation,
+            )
+        )
+    else:
+        raise PhaseGateError(f"unknown model {model}")
+    return BackfillProof(
+        model=model,
+        tenant_id=tenant_id,
+        generation=generation,
+        remaining_null_rows=remaining,
+        collected_at_utc=datetime.now(timezone.utc),
+    )
+
+
+async def collect_index_proof(
+    conn: asyncpg.Connection, *, model: str, index_name: str, table_name: str
+) -> IndexProof:
+    row = await conn.fetchrow(
+        """
+        SELECT i.indisunique AS unique_index,
+               i.indisvalid AS valid,
+               i.indisready AS ready,
+               t.relname AS table_name
+        FROM pg_index i
+        JOIN pg_class c ON c.oid = i.indexrelid
+        JOIN pg_class t ON t.oid = i.indrelid
+        WHERE c.relname = $1
+        """,
+        index_name,
+    )
+    if row is None:
+        raise PhaseGateError(f"index proof: missing index {index_name}")
+    if row["table_name"] != table_name:
+        raise PhaseGateError(
+            f"index proof: {index_name} on {row['table_name']}, expected {table_name}"
+        )
+    return IndexProof(
+        model=model,
+        index_name=index_name,
+        table_name=table_name,
+        unique_index=bool(row["unique_index"]),
+        valid=bool(row["valid"]),
+        ready=bool(row["ready"]),
+        collected_at_utc=datetime.now(timezone.utc),
+    )
+
+
+def generation_index_name(model: str, generation: int) -> str:
+    if model == "P1":
+        name = P1_GENERATION_INDEX.get(generation)
+        if name is None:
+            raise PhaseGateError(f"no P1 index mapping for generation {generation}")
+        return name
+    if model == "P2":
+        # P2 active authority is the status-scoped ACTIVE unique index.
+        return P2_ACTIVE_INDEX
+    raise PhaseGateError(f"unknown model {model}")
+
+
+async def _append_evidence(
+    conn: asyncpg.Connection,
+    *,
+    model: str,
+    phase: int,
+    evidence_kind: str,
+    evidence: dict[str, Any],
+    proof_source: str,
+) -> None:
+    """Append-only insert. Never UPDATE existing evidence rows."""
+    await ensure_meta(conn)
+    await conn.execute(
+        f"""
+        INSERT INTO public.{EVIDENCE_TABLE} (
+          model, phase, evidence_kind, evidence_json, proof_source, created_at_utc
+        ) VALUES ($1, $2, $3, CAST($4 AS jsonb), $5, NOW())
+        """,
+        model,
+        phase,
+        evidence_kind,
+        json.dumps(evidence, default=str),
+        proof_source,
+    )
+
+
+async def attest_drain(conn: asyncpg.Connection, *, model: str, proof: DrainProof) -> None:
+    if proof.model != model:
+        raise PhaseGateError("drain proof model mismatch")
+    proof.validate()
+    # Re-check live lease table; do not trust a stale proof object alone.
+    live = await collect_drain_proof(conn, model=model)
+    live.validate()
+    state = await get_state(conn, model)
+    if state.drain_attested:
+        # Idempotent if already proven with zero leases; still refuse forged path.
+        live.validate()
+        return
+    await _append_evidence(
+        conn,
+        model=model,
+        phase=3,
+        evidence_kind="drain",
+        evidence={
+            "active_writer_leases": live.active_writer_leases,
+            "collected_at_utc": live.collected_at_utc.isoformat(),
+        },
+        proof_source="collect_drain_proof",
+    )
+    await conn.execute(
+        f"UPDATE public.{META_TABLE} SET drain_attested=TRUE, updated_at_utc=NOW() WHERE model=$1",
+        model,
+    )
+
+
+async def attest_backfill(
+    conn: asyncpg.Connection, *, model: str, proof: BackfillProof
+) -> None:
+    if proof.model != model:
+        raise PhaseGateError("backfill proof model mismatch")
+    proof.validate()
+    live = await collect_backfill_proof(
+        conn, model=model, tenant_id=proof.tenant_id, generation=proof.generation
+    )
+    live.validate()
+    await _append_evidence(
+        conn,
+        model=model,
+        phase=4,
+        evidence_kind=f"backfill_g{live.generation}",
+        evidence={
+            "tenant_id": str(live.tenant_id),
+            "generation": live.generation,
+            "remaining_null_rows": live.remaining_null_rows,
+            "collected_at_utc": live.collected_at_utc.isoformat(),
+        },
+        proof_source="collect_backfill_proof",
+    )
+    await conn.execute(
+        f"UPDATE public.{META_TABLE} SET backfill_complete=TRUE, updated_at_utc=NOW() WHERE model=$1",
+        model,
+    )
+
+
+async def attest_index_valid(
+    conn: asyncpg.Connection,
+    *,
+    model: str,
+    proof: IndexProof,
+    generation: int | None = None,
+) -> None:
+    if proof.model != model:
+        raise PhaseGateError("index proof model mismatch")
+    proof.validate()
+    live = await collect_index_proof(
+        conn, model=model, index_name=proof.index_name, table_name=proof.table_name
+    )
+    live.validate()
+    kind = f"index_valid_g{generation}" if generation is not None else f"index_valid_{live.index_name}"
+    await _append_evidence(
+        conn,
+        model=model,
+        phase=6,
+        evidence_kind=kind,
+        evidence={
+            "index_name": live.index_name,
+            "table_name": live.table_name,
+            "unique": live.unique_index,
+            "valid": live.valid,
+            "ready": live.ready,
+            "collected_at_utc": live.collected_at_utc.isoformat(),
+        },
+        proof_source="collect_index_proof",
+    )
+    await conn.execute(
+        f"""
+        UPDATE public.{META_TABLE}
+        SET index_valid_attested=TRUE, updated_at_utc=NOW()
+        WHERE model=$1
+        """,
+        model,
+    )
+
+
+async def attest_cutover_ready(
+    conn: asyncpg.Connection,
+    *,
+    model: str,
+    candidate: int,
+    index_name: str,
+    table_name: str,
+) -> None:
+    state = await get_state(conn, model)
+    if not state.drain_attested or not state.backfill_complete or not state.index_valid_attested:
+        raise PhaseGateError(
+            f"{model}: cutover_ready requires drain+backfill+index attestations first"
+        )
+    if state.candidate_generation != candidate:
+        raise PhaseGateError(
+            f"{model}: cutover_ready candidate {candidate} != metadata "
+            f"{state.candidate_generation}"
+        )
+    idx = await collect_index_proof(
+        conn, model=model, index_name=index_name, table_name=table_name
+    )
+    idx.validate()
+    proof = CutoverProof(
+        model=model,
+        candidate_generation=candidate,
+        index_name=index_name,
+        index_valid=True,
+        drain_attested=True,
+        backfill_complete=True,
+        collected_at_utc=datetime.now(timezone.utc),
+    )
+    proof.validate()
+    await _append_evidence(
+        conn,
+        model=model,
+        phase=8,
+        evidence_kind=f"cutover_ready_g{candidate}",
+        evidence={
+            "candidate": candidate,
+            "index_name": index_name,
+            "collected_at_utc": proof.collected_at_utc.isoformat(),
+        },
+        proof_source="attest_cutover_ready",
+    )
+    await conn.execute(
+        f"UPDATE public.{META_TABLE} SET cutover_ready=TRUE, updated_at_utc=NOW() WHERE model=$1",
+        model,
+    )
+
+
 async def record_evidence(
     conn: asyncpg.Connection,
     *,
@@ -175,48 +604,18 @@ async def record_evidence(
     evidence_kind: str,
     evidence: dict[str, Any],
 ) -> None:
-    await ensure_meta(conn)
-    await conn.execute(
-        f"""
-        INSERT INTO public.{EVIDENCE_TABLE} (
-          model, phase, evidence_kind, evidence_json, created_at_utc
-        ) VALUES ($1, $2, $3, CAST($4 AS jsonb), NOW())
-        ON CONFLICT (model, phase, evidence_kind) DO UPDATE SET
-          evidence_json = EXCLUDED.evidence_json,
-          created_at_utc = NOW()
-        """,
-        model,
-        phase,
-        evidence_kind,
-        json.dumps(evidence, default=str),
+    """Deprecated forge path — always fail closed.
+
+    Callers must use attest_drain / attest_backfill / attest_index_valid /
+    attest_cutover_ready with live proofs.
+    """
+    raise PhaseGateError(
+        f"{model}: record_evidence({evidence_kind}) is disabled; "
+        "use proof-bound attest_* APIs (forged payloads are rejected)"
     )
-    if evidence_kind == "drain":
-        await conn.execute(
-            f"UPDATE public.{META_TABLE} SET drain_attested=TRUE, updated_at_utc=NOW() WHERE model=$1",
-            model,
-        )
-    elif evidence_kind == "backfill":
-        await conn.execute(
-            f"UPDATE public.{META_TABLE} SET backfill_complete=TRUE, updated_at_utc=NOW() WHERE model=$1",
-            model,
-        )
-    elif evidence_kind == "index_valid":
-        await conn.execute(
-            f"UPDATE public.{META_TABLE} SET index_valid_attested=TRUE, updated_at_utc=NOW() WHERE model=$1",
-            model,
-        )
-    elif evidence_kind == "cutover_ready":
-        await conn.execute(
-            f"UPDATE public.{META_TABLE} SET cutover_ready=TRUE, updated_at_utc=NOW() WHERE model=$1",
-            model,
-        )
 
 
 def _require_evidence_for_phase(state: PhaseState, phase: int) -> None:
-    # Entering these phases requires prior evidence.
-    if phase >= 3 and not state.drain_attested and phase != 3:
-        # Advancing INTO phase 3 is allowed to record drain; leaving 3 requires drain.
-        pass
     if phase > 3 and not state.drain_attested:
         raise PhaseGateError(f"{state.model}: drain evidence required before phase {phase}")
     if phase > 4 and not state.backfill_complete:
@@ -246,7 +645,6 @@ async def advance_to(conn: asyncpg.Connection, *, model: str, phase: int) -> Non
         )
     if phase == state.phase:
         return
-    # Validate evidence needed to leave current phase / enter target.
     if phase >= 4 and state.phase == 3 and not state.drain_attested:
         raise PhaseGateError(f"{model}: cannot leave DRAIN without drain evidence")
     if phase >= 5 and state.phase == 4 and not state.backfill_complete:
@@ -313,37 +711,55 @@ async def cutover_generation(
             f"{model}: cutover new_active={new_active} must equal "
             f"candidate_generation={state.candidate_generation}"
         )
+    # Live re-check: generation index must still be present/valid at cutover.
+    index_name = generation_index_name(model, new_active)
+    table = "person_identifiers" if model == "P1" else P2_TABLE
+    idx = await collect_index_proof(
+        conn, model=model, index_name=index_name, table_name=table
+    )
+    idx.validate()
     await conn.execute(
         f"""
         UPDATE public.{META_TABLE}
         SET active_generation = $2,
             candidate_generation = NULL,
             cutover_ready = FALSE,
+            -- Next rotation must re-prove backfill/index for the new candidate.
+            backfill_complete = FALSE,
+            index_valid_attested = FALSE,
             updated_at_utc = NOW()
         WHERE model = $1
         """,
         model,
         new_active,
     )
-    await record_evidence(
+    await _append_evidence(
         conn,
         model=model,
         phase=8,
-        evidence_kind="cutover_committed",
+        evidence_kind=f"cutover_committed_gen{new_active}",
         evidence={
             "previous_active": state.active_generation,
             "new_active": new_active,
+            "index_name": index_name,
         },
+        proof_source="cutover_generation",
     )
 
 
 async def rollback_to_previous_active(
     conn: asyncpg.Connection, *, model: str, previous_active: int
 ) -> None:
-    """Authority-preserving metadata rollback (keeps indexes/values intact)."""
+    """Authority-preserving rollback; requires the restored generation index."""
     state = await get_state(conn, model)
     if state.phase < 8:
         raise PhaseGateError(f"{model}: rollback-to-old requires phase>=8")
+    index_name = generation_index_name(model, previous_active)
+    table = "person_identifiers" if model == "P1" else P2_TABLE
+    idx = await collect_index_proof(
+        conn, model=model, index_name=index_name, table_name=table
+    )
+    idx.validate()
     await conn.execute(
         f"""
         UPDATE public.{META_TABLE}
@@ -357,15 +773,17 @@ async def rollback_to_previous_active(
         previous_active,
         state.active_generation,
     )
-    await record_evidence(
+    await _append_evidence(
         conn,
         model=model,
         phase=8,
-        evidence_kind="rollback_to_old",
+        evidence_kind=f"rollback_to_gen{previous_active}",
         evidence={
             "restored_active": previous_active,
             "demoted_generation": state.active_generation,
+            "index_name": index_name,
         },
+        proof_source="rollback_to_previous_active",
     )
 
 

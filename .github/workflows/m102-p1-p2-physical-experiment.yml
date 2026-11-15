@@ -98,6 +98,7 @@ jobs:
             "test_n01_closed_cannot_wipe_or_drop_active_gen2_after_cutover",
             "test_n02_n03_closed_active_index_and_person_mismatch_rejected",
             "test_n05_closed_phase_gate_rejects_evidenceless_transitions",
+            "test_n05_closed_forged_progress_and_absent_generation_rollback",
           ]
 
           main = ET.parse("m102-p1-p2-junit.xml").getroot().findall(".//testcase")

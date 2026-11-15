@@ -23,8 +23,12 @@ from experiments.m102_hmac_physical.fixtures import (
     tp0002_indexes_intact,
 )
 from experiments.m102_hmac_physical.lifecycle import (
+    advance_phase_chain,
+    advance_to_validate_after_backfill,
+    advance_to_verify_after_index,
     prepare_cutover_candidate,
-    progress_with_evidence,
+    prove_drain_and_backfill,
+    prove_index,
 )
 from experiments.m102_hmac_physical.p1_staged_columns import (
     P1_GEN2_INDEX,
@@ -101,7 +105,9 @@ async def test_p1_expand_preserves_tp0002_indexes_and_adds_nonredundant_gen2(
                 gen2_version=2,
             )
         assert await tp0002_indexes_intact(conn)
-        await progress_with_evidence(conn, model="P1", to_phase=5)
+        await advance_to_validate_after_backfill(
+            conn, model="P1", tenant_id=tenant, generation=2
+        )
     finally:
         await conn.close()
 
@@ -123,7 +129,13 @@ async def test_p1_expand_preserves_tp0002_indexes_and_adds_nonredundant_gen2(
 
     conn = await _mig(ep)
     try:
-        await progress_with_evidence(conn, model="P1", to_phase=7)
+        await advance_to_verify_after_index(
+            conn,
+            model="P1",
+            index_name=P1_GEN2_INDEX,
+            table_name="person_identifiers",
+            generation=2,
+        )
         assert await conn.fetchval(
             "SELECT version_num FROM alembic_meta.alembic_version_tp"
         ) == "tp0007"
@@ -373,7 +385,7 @@ async def test_p1_two_complete_rotations_preserve_active_authority(plane_topolog
                 normalized=f"333{i:07d}",
                 next_version=None,
             )
-        await progress_with_evidence(conn, model="P1", to_phase=3)
+        await advance_phase_chain(conn, model="P1", to_phase=3)
         n1, cursor = await p1_backfill_gen2_batch(
             conn, tenant_id=tenant, batch_size=2, after_id=None
         )
@@ -392,7 +404,10 @@ async def test_p1_two_complete_rotations_preserve_active_authority(plane_topolog
             )
             == 0
         )
-        await progress_with_evidence(conn, model="P1", to_phase=5)
+        await prove_drain_and_backfill(
+            conn, model="P1", tenant_id=tenant, generation=2
+        )
+        await advance_phase_chain(conn, model="P1", to_phase=5)
         await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
     finally:
         await conn.close()
@@ -408,9 +423,15 @@ async def test_p1_two_complete_rotations_preserve_active_authority(plane_topolog
 
     conn = await _mig(ep)
     try:
-        await progress_with_evidence(conn, model="P1", to_phase=7)
+        await advance_to_verify_after_index(
+            conn,
+            model="P1",
+            index_name=P1_GEN2_INDEX,
+            table_name="person_identifiers",
+            generation=2,
+        )
         await prepare_cutover_candidate(conn, model="P1", candidate=2)
-        await progress_with_evidence(conn, model="P1", to_phase=8)
+        await advance_phase_chain(conn, model="P1", to_phase=8)
         await cutover_generation(conn, model="P1", new_active=2)
         await p1_assert_generation_authority(
             conn, model="P1", generation=2, index_name=P1_GEN2_INDEX
@@ -434,9 +455,18 @@ async def test_p1_two_complete_rotations_preserve_active_authority(plane_topolog
             "SELECT to_regclass($1)::text", f"public.{P1_GEN2_INDEX}"
         )
 
-        # Recutover to gen2, then complete second cycle to gen3 without dropping gen2 first.
+        # Recutover to gen2 requires re-proving backfill/index after prior cutover reset.
+        await prove_drain_and_backfill(
+            conn, model="P1", tenant_id=tenant, generation=2
+        )
+        await prove_index(
+            conn,
+            model="P1",
+            index_name=P1_GEN2_INDEX,
+            table_name="person_identifiers",
+            generation=2,
+        )
         await prepare_cutover_candidate(conn, model="P1", candidate=2)
-        # Need phase still >=8; cutover_ready was cleared — re-attest.
         await cutover_generation(conn, model="P1", new_active=2)
         await p1_assert_generation_authority(
             conn, model="P1", generation=2, index_name=P1_GEN2_INDEX
@@ -461,11 +491,16 @@ async def test_p1_two_complete_rotations_preserve_active_authority(plane_topolog
 
     conn = await _mig(ep)
     try:
-        # Re-attest index_valid + cutover for gen3 under existing phase 8.
-        from experiments.m102_hmac_physical.phase_gate import record_evidence
-
-        await record_evidence(
-            conn, model="P1", phase=6, evidence_kind="index_valid", evidence={"gen3": True}
+        # Prove gen3 backfill+index then cutover under existing phase 8.
+        await prove_drain_and_backfill(
+            conn, model="P1", tenant_id=tenant, generation=3
+        )
+        await prove_index(
+            conn,
+            model="P1",
+            index_name=P1_GEN3_INDEX,
+            table_name="person_identifiers",
+            generation=3,
         )
         await prepare_cutover_candidate(conn, model="P1", candidate=3)
         await cutover_generation(conn, model="P1", new_active=3)
@@ -476,7 +511,7 @@ async def test_p1_two_complete_rotations_preserve_active_authority(plane_topolog
         assert await conn.fetchval(
             "SELECT to_regclass($1)::text", f"public.{P1_GEN2_INDEX}"
         )
-        await progress_with_evidence(conn, model="P1", to_phase=9)
+        await advance_phase_chain(conn, model="P1", to_phase=9)
         assert (await get_state(conn, "P1")).phase9_operational_executed is False
         # Only now may gen2 be dropped — it is no longer active.
         await p1_drop_generation_index_if_safe(
@@ -590,7 +625,7 @@ async def test_p1_unsafe_upgrade_head_fail_closed(plane_topology) -> None:
     conn = await _mig(ep)
     try:
         await init_model(conn, model="P1")
-        await progress_with_evidence(conn, model="P1", to_phase=1)
+        await advance_phase_chain(conn, model="P1", to_phase=1)
         with pytest.raises(PhaseGateError, match="refusing experimental upgrade head"):
             await experimental_upgrade_head(conn, model="P1", target_phase=6)
     finally:

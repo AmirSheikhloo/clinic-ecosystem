@@ -21,8 +21,12 @@ from experiments.m102_hmac_physical.fixtures import (
     tp0002_indexes_intact,
 )
 from experiments.m102_hmac_physical.lifecycle import (
+    advance_phase_chain,
+    advance_to_validate_after_backfill,
+    advance_to_verify_after_index,
     prepare_cutover_candidate,
-    progress_with_evidence,
+    prove_drain_and_backfill,
+    prove_index,
 )
 from experiments.m102_hmac_physical.p2_generation_sidecar import (
     P2_ACTIVE_INDEX,
@@ -118,7 +122,9 @@ async def test_p2_sidecar_expand_rls_and_nonredundant_candidate_index(
                 status="CANDIDATE",
             )
         assert await tp0002_indexes_intact(conn)
-        await progress_with_evidence(conn, model="P2", to_phase=5)
+        await advance_to_validate_after_backfill(
+            conn, model="P2", tenant_id=tenant, generation=2
+        )
         assert await conn.fetchval(
             """
             SELECT c.relrowsecurity AND c.relforcerowsecurity
@@ -281,7 +287,7 @@ async def test_p2_active_uniqueness_person_consistency_and_two_cycles(
                 b"\x11" * 32,
             )
 
-        await progress_with_evidence(conn, model="P2", to_phase=3)
+        await advance_phase_chain(conn, model="P2", to_phase=3)
         n1, cur = await p2_backfill_candidate_batch(
             conn, tenant_id=tenant, candidate_version=2, batch_size=2
         )
@@ -294,7 +300,10 @@ async def test_p2_active_uniqueness_person_consistency_and_two_cycles(
             after_identifier_id=cur,
         )
         assert n2 == 3
-        await progress_with_evidence(conn, model="P2", to_phase=5)
+        await prove_drain_and_backfill(
+            conn, model="P2", tenant_id=tenant, generation=2
+        )
+        await advance_phase_chain(conn, model="P2", to_phase=5)
         await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P2_ACTIVE_INDEX}")
         await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P2_CANDIDATE_INDEX}")
     finally:
@@ -320,9 +329,15 @@ async def test_p2_active_uniqueness_person_consistency_and_two_cycles(
 
     conn = await _mig(ep)
     try:
-        await progress_with_evidence(conn, model="P2", to_phase=7)
+        await advance_to_verify_after_index(
+            conn,
+            model="P2",
+            index_name=P2_ACTIVE_INDEX,
+            table_name=P2_TABLE,
+            generation=2,
+        )
         await prepare_cutover_candidate(conn, model="P2", candidate=2)
-        await progress_with_evidence(conn, model="P2", to_phase=8)
+        await advance_phase_chain(conn, model="P2", to_phase=8)
         await p2_promote_candidate_to_active(
             conn, tenant_id=tenant, from_version=1, to_version=2
         )
@@ -363,13 +378,23 @@ async def test_p2_active_uniqueness_person_consistency_and_two_cycles(
             conn, tenant_id=tenant, candidate_version=3, batch_size=50
         )
         assert n3 == 5
+        await prove_drain_and_backfill(
+            conn, model="P2", tenant_id=tenant, generation=3
+        )
+        await prove_index(
+            conn,
+            model="P2",
+            index_name=P2_ACTIVE_INDEX,
+            table_name=P2_TABLE,
+            generation=3,
+        )
         await prepare_cutover_candidate(conn, model="P2", candidate=3)
         await p2_promote_candidate_to_active(
             conn, tenant_id=tenant, from_version=2, to_version=3
         )
         await cutover_generation(conn, model="P2", new_active=3)
         assert (await get_state(conn, "P2")).active_generation == 3
-        await progress_with_evidence(conn, model="P2", to_phase=9)
+        await advance_phase_chain(conn, model="P2", to_phase=9)
         assert (await get_state(conn, "P2")).phase9_operational_executed is False
         assert await tp0002_indexes_intact(conn)
     finally:

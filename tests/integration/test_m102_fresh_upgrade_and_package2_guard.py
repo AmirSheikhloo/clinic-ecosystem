@@ -9,7 +9,11 @@ import pytest
 
 from experiments.m102_hmac_physical.concurrent_ops import create_and_assert_unique_index
 from experiments.m102_hmac_physical.fixtures import insert_identifier, seed_tenant_person
-from experiments.m102_hmac_physical.lifecycle import progress_with_evidence
+from experiments.m102_hmac_physical.lifecycle import (
+    advance_phase_chain,
+    advance_to_validate_after_backfill,
+    advance_to_verify_after_index,
+)
 from experiments.m102_hmac_physical.p1_staged_columns import (
     P1_GEN2_INDEX,
     P1_GEN2_INDEX_DDL,
@@ -23,6 +27,7 @@ from experiments.m102_hmac_physical.phase_gate import (
     experimental_upgrade_head,
     get_state,
     init_model,
+    record_evidence,
 )
 from experiments.m102_hmac_physical.rotation import p1_backfill_gen2_batch
 from tests.integration.alembic_runner import upgrade_tenant_plane_async
@@ -110,14 +115,19 @@ async def test_upgrade_path_populated_then_expand_and_backfill(plane_topology) -
             )
         await apply_p1_expand(conn)
         await init_model(conn, model="P1")
-        await progress_with_evidence(conn, model="P1", to_phase=3)
+        await advance_phase_chain(conn, model="P1", to_phase=3)
         n1, cur = await p1_backfill_gen2_batch(conn, tenant_id=tenant, batch_size=2)
         assert n1 == 2
         n2, _ = await p1_backfill_gen2_batch(
             conn, tenant_id=tenant, batch_size=20, after_id=cur
         )
         assert n2 == 4
-        await progress_with_evidence(conn, model="P1", to_phase=5)
+        from experiments.m102_hmac_physical.lifecycle import prove_drain_and_backfill
+        await prove_drain_and_backfill(
+            conn, model="P1", tenant_id=tenant, generation=2
+        )
+        await advance_phase_chain(conn, model="P1", to_phase=5)
+        assert (await get_state(conn, "P1")).phase == 5
         await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
     finally:
         await conn.close()
@@ -132,7 +142,13 @@ async def test_upgrade_path_populated_then_expand_and_backfill(plane_topology) -
     )
     conn = await _mig(ep)
     try:
-        await progress_with_evidence(conn, model="P1", to_phase=7)
+        await advance_to_verify_after_index(
+            conn,
+            model="P1",
+            index_name=P1_GEN2_INDEX,
+            table_name="person_identifiers",
+            generation=2,
+        )
         assert (await get_state(conn, "P1")).phase == 7
     finally:
         await conn.close()
@@ -149,22 +165,35 @@ async def test_phase_gate_blocks_skip_to_index_and_phase9_not_operational(
         await init_model(conn, model="P1")
         with pytest.raises(PhaseGateError, match="unsafe phase jump"):
             await advance_to(conn, model="P1", phase=6)
-        await progress_with_evidence(conn, model="P1", to_phase=1)
+        await advance_phase_chain(conn, model="P1", to_phase=1)
         with pytest.raises(PhaseGateError, match="refusing experimental upgrade head"):
             await experimental_upgrade_head(conn, model="P1", target_phase=9)
 
-        # Cutover without evidence/candidate must fail closed.
-        await progress_with_evidence(conn, model="P1", to_phase=7)
-        with pytest.raises(PhaseGateError, match="cutover_ready"):
-            await advance_to(conn, model="P1", phase=8)
+        # Forged evidence path is disabled.
+        with pytest.raises(PhaseGateError, match="record_evidence"):
+            await record_evidence(
+                conn,
+                model="P1",
+                phase=3,
+                evidence_kind="drain",
+                evidence={"fenced": True},
+            )
+
+        # Cannot leave DRAIN / enter CUTOVER without live proofs.
+        await advance_phase_chain(conn, model="P1", to_phase=3)
+        with pytest.raises(PhaseGateError, match="drain"):
+            await advance_to(conn, model="P1", phase=4)
         with pytest.raises(PhaseGateError, match="cutover"):
             await cutover_generation(conn, model="P1", new_active=99)
 
-        # Legitimate path to dry-run phase 9 keeps operational flag false.
-        await progress_with_evidence(conn, model="P1", to_phase=8)
-        # Still need candidate match for cutover; skip cutover, go to phase9 dry-run.
-        # cutover_ready was set by progress; but we can advance to 9 without cutover.
-        await advance_to(conn, model="P1", phase=9)
+        # Phase-9 operational flag remains impossible.
+        await conn.execute(
+            """
+            UPDATE m102_exp_rotation_phase_meta
+            SET phase = 9, phase9_operational_executed = FALSE
+            WHERE model = 'P1'
+            """
+        )
         state = await get_state(conn, "P1")
         assert state.phase == 9
         assert state.phase9_operational_executed is False
