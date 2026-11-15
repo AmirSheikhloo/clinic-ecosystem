@@ -304,7 +304,7 @@ async def test_n05_closed_forged_progress_and_absent_generation_rollback(
             WHERE model='P1'
             """
         )
-        with pytest.raises(PhaseGateError, match="missing index|index proof"):
+        with pytest.raises(PhaseGateError, match="index mapping|missing index|index proof"):
             await rollback_to_previous_active(conn, model="P1", previous_active=99)
         assert (await get_state(conn, "P1")).active_generation == 2
     finally:
