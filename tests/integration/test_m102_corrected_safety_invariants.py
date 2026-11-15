@@ -309,3 +309,119 @@ async def test_n05_closed_forged_progress_and_absent_generation_rollback(
         assert (await get_state(conn, "P1")).active_generation == 2
     finally:
         await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_n05_closed_partial_tenant_backfill_cannot_cutover(
+    plane_topology,
+) -> None:
+    """Full-population gate: one tenant complete must not clear other tenants."""
+    from experiments.m102_hmac_physical.phase_gate import (
+        attest_backfill,
+        attest_drain,
+        collect_backfill_proof,
+        collect_drain_proof,
+    )
+
+    ep = plane_topology.cloud_tenant
+    await upgrade_tenant_plane_async(ep.sqlalchemy_async_url(), revision="tp0007")
+    conn = await _mig(ep)
+    try:
+        await apply_p1_expand(conn)
+        await init_model(conn, model="P1", active_generation=1)
+        ta, pa = await seed_tenant_person(conn)
+        tb, pb = await seed_tenant_person(conn)
+        assert ta != tb
+        a = await insert_identifier(
+            conn, tenant_id=ta, person_id=pa, normalized="1122334455", next_version=None
+        )
+        await insert_identifier(
+            conn, tenant_id=tb, person_id=pb, normalized="6677889900", next_version=None
+        )
+        digest = synthetic_lookup_hmac(
+            tenant_id=ta,
+            id_type=a.id_type,
+            issuing_country_or_authority=a.authority,
+            normalized_identifier=a.normalized,
+            hmac_key_version=2,
+        )
+        await conn.execute(
+            """
+            UPDATE person_identifiers
+            SET exp_lookup_hmac_gen2=$2, exp_hmac_key_version_gen2=2
+            WHERE id=$1
+            """,
+            a.identifier_id,
+            digest,
+        )
+        assert (
+            await conn.fetchval(
+                """
+                SELECT count(*) FROM person_identifiers
+                WHERE tenant_id=$1 AND exp_lookup_hmac_gen2 IS NULL
+                """,
+                tb,
+            )
+            == 1
+        )
+        for phase in (1, 2, 3):
+            await advance_to(conn, model="P1", phase=phase)
+        await attest_drain(conn, model="P1", proof=await collect_drain_proof(conn, model="P1"))
+        await advance_to(conn, model="P1", phase=4)
+        proof = await collect_backfill_proof(conn, model="P1", generation=2)
+        assert proof.remaining_null_rows >= 1
+        with pytest.raises(PhaseGateError, match="still null"):
+            await attest_backfill(conn, model="P1", proof=proof)
+        assert (await get_state(conn, "P1")).backfill_complete is False
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_n05_closed_evidence_log_db_immutable_against_migrator(
+    plane_topology,
+) -> None:
+    """DB triggers forbid UPDATE/DELETE even for db_migrator."""
+    from experiments.m102_hmac_physical.phase_gate import (
+        attest_drain,
+        collect_drain_proof,
+    )
+
+    ep = plane_topology.local_hub
+    await upgrade_tenant_plane_async(ep.sqlalchemy_async_url(), revision="tp0007")
+    conn = await _mig(ep)
+    try:
+        await init_model(conn, model="P1")
+        await attest_drain(conn, model="P1", proof=await collect_drain_proof(conn, model="P1"))
+        assert (
+            await conn.fetchval(
+                """
+                SELECT count(*) FROM public.m102_exp_phase_evidence
+                WHERE model='P1' AND evidence_kind='drain'
+                """
+            )
+            >= 1
+        )
+        with pytest.raises(asyncpg.PostgresError, match="append-only"):
+            await conn.execute(
+                """
+                UPDATE public.m102_exp_phase_evidence
+                SET proof_source='TAMPERED'
+                WHERE model='P1' AND evidence_kind='drain'
+                """
+            )
+        with pytest.raises(asyncpg.PostgresError, match="append-only"):
+            await conn.execute(
+                "DELETE FROM public.m102_exp_phase_evidence WHERE model='P1'"
+            )
+        assert (
+            await conn.fetchval(
+                """
+                SELECT count(*) FROM public.m102_exp_phase_evidence
+                WHERE model='P1' AND evidence_kind='drain'
+                """
+            )
+            >= 1
+        )
+    finally:
+        await conn.close()

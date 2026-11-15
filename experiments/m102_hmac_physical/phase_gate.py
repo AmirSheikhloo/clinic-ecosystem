@@ -76,16 +76,19 @@ class DrainProof:
 
 @dataclass(frozen=True)
 class BackfillProof:
+    """Full-population backfill proof (all tenants currently holding identifiers)."""
+
     model: str
-    tenant_id: UUID
     generation: int
+    scope_tenant_ids: tuple[UUID, ...]
     remaining_null_rows: int
     collected_at_utc: datetime
 
     def validate(self) -> None:
         if self.remaining_null_rows != 0:
             raise PhaseGateError(
-                f"backfill proof rejected: {self.remaining_null_rows} rows still null"
+                f"backfill proof rejected: {self.remaining_null_rows} rows still null "
+                f"across {len(self.scope_tenant_ids)} tenant(s) in deployment scope"
             )
 
 
@@ -158,6 +161,30 @@ CREATE TABLE IF NOT EXISTS public.{EVIDENCE_TABLE} (
 )
 """
 
+EVIDENCE_IMMUTABILITY_SQL = f"""
+CREATE OR REPLACE FUNCTION public.m102_exp_forbid_evidence_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'm102_exp_phase_evidence is append-only (UPDATE/DELETE forbidden)';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_exp_evidence_no_update ON public.{EVIDENCE_TABLE};
+CREATE TRIGGER trg_exp_evidence_no_update
+  BEFORE UPDATE ON public.{EVIDENCE_TABLE}
+  FOR EACH ROW EXECUTE FUNCTION public.m102_exp_forbid_evidence_mutation();
+
+DROP TRIGGER IF EXISTS trg_exp_evidence_no_delete ON public.{EVIDENCE_TABLE};
+CREATE TRIGGER trg_exp_evidence_no_delete
+  BEFORE DELETE ON public.{EVIDENCE_TABLE}
+  FOR EACH ROW EXECUTE FUNCTION public.m102_exp_forbid_evidence_mutation();
+
+REVOKE UPDATE, DELETE ON public.{EVIDENCE_TABLE} FROM PUBLIC;
+GRANT SELECT, INSERT ON public.{EVIDENCE_TABLE} TO db_migrator;
+"""
+
 CREATE_LEASES = f"""
 CREATE TABLE IF NOT EXISTS public.{LEASE_TABLE} (
     lease_id BIGSERIAL PRIMARY KEY,
@@ -199,6 +226,12 @@ async def ensure_meta(conn: asyncpg.Connection) -> None:
         if not has_id:
             await conn.execute(f"DROP TABLE public.{EVIDENCE_TABLE}")
     await conn.execute(CREATE_EVIDENCE)
+    await conn.execute(EVIDENCE_IMMUTABILITY_SQL)
+    seq = await conn.fetchval(
+        "SELECT pg_get_serial_sequence($1, 'evidence_id')", f"public.{EVIDENCE_TABLE}"
+    )
+    if seq:
+        await conn.execute(f"GRANT USAGE, SELECT ON SEQUENCE {seq} TO db_migrator")
     await conn.execute(
         f"""
         ALTER TABLE public.{META_TABLE}
@@ -235,9 +268,20 @@ async def ensure_meta(conn: asyncpg.Connection) -> None:
 async def init_model(
     conn: asyncpg.Connection, *, model: str, active_generation: int = 1
 ) -> None:
+    """Reset phase metadata for a disposable run.
+
+    Does **not** DELETE append-only evidence rows (DB triggers forbid it).
+    Prior evidence remains for audit; gate decisions use refreshed meta flags.
+    """
     await ensure_meta(conn)
-    await conn.execute(f"DELETE FROM public.{EVIDENCE_TABLE} WHERE model = $1", model)
-    await conn.execute(f"DELETE FROM public.{LEASE_TABLE} WHERE model = $1", model)
+    await conn.execute(
+        f"""
+        UPDATE public.{LEASE_TABLE}
+        SET released_at_utc = NOW()
+        WHERE model = $1 AND released_at_utc IS NULL
+        """,
+        model,
+    )
     await conn.execute(
         f"""
         INSERT INTO public.{META_TABLE} (
@@ -333,10 +377,18 @@ async def collect_backfill_proof(
     conn: asyncpg.Connection,
     *,
     model: str,
-    tenant_id: UUID,
     generation: int,
 ) -> BackfillProof:
+    """Count incomplete generation rows across the full identifier population.
+
+    Tenant-scoped proofs are rejected: a single-tenant zero-null result must not
+    flip the model-global backfill_complete gate while other tenants remain open.
+    """
     await ensure_meta(conn)
+    scope_rows = await conn.fetch(
+        "SELECT DISTINCT tenant_id FROM person_identifiers ORDER BY tenant_id"
+    )
+    scope = tuple(UUID(str(r["tenant_id"])) for r in scope_rows)
     if model == "P1":
         column = P1_GENERATION_COLUMN.get(generation)
         if column is None:
@@ -345,9 +397,8 @@ async def collect_backfill_proof(
             await conn.fetchval(
                 f"""
                 SELECT count(*) FROM person_identifiers
-                WHERE tenant_id = $1 AND {column} IS NULL
-                """,
-                tenant_id,
+                WHERE {column} IS NULL
+                """
             )
         )
     elif model == "P2":
@@ -355,15 +406,13 @@ async def collect_backfill_proof(
             await conn.fetchval(
                 f"""
                 SELECT count(*) FROM person_identifiers pi
-                WHERE pi.tenant_id = $1
-                  AND NOT EXISTS (
-                    SELECT 1 FROM {P2_TABLE} g
-                    WHERE g.tenant_id = pi.tenant_id
-                      AND g.identifier_id = pi.id
-                      AND g.hmac_key_version = $2
-                  )
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM {P2_TABLE} g
+                  WHERE g.tenant_id = pi.tenant_id
+                    AND g.identifier_id = pi.id
+                    AND g.hmac_key_version = $1
+                )
                 """,
-                tenant_id,
                 generation,
             )
         )
@@ -371,8 +420,8 @@ async def collect_backfill_proof(
         raise PhaseGateError(f"unknown model {model}")
     return BackfillProof(
         model=model,
-        tenant_id=tenant_id,
         generation=generation,
+        scope_tenant_ids=scope,
         remaining_null_rows=remaining,
         collected_at_utc=datetime.now(timezone.utc),
     )
@@ -483,8 +532,9 @@ async def attest_backfill(
     if proof.model != model:
         raise PhaseGateError("backfill proof model mismatch")
     proof.validate()
+    # Always re-scan the full live population (tenants may appear after a snapshot).
     live = await collect_backfill_proof(
-        conn, model=model, tenant_id=proof.tenant_id, generation=proof.generation
+        conn, model=model, generation=proof.generation
     )
     live.validate()
     await _append_evidence(
@@ -493,8 +543,9 @@ async def attest_backfill(
         phase=4,
         evidence_kind=f"backfill_g{live.generation}",
         evidence={
-            "tenant_id": str(live.tenant_id),
             "generation": live.generation,
+            "scope_tenant_ids": [str(t) for t in live.scope_tenant_ids],
+            "scope_tenant_count": len(live.scope_tenant_ids),
             "remaining_null_rows": live.remaining_null_rows,
             "collected_at_utc": live.collected_at_utc.isoformat(),
         },
@@ -564,6 +615,9 @@ async def attest_cutover_ready(
             f"{model}: cutover_ready candidate {candidate} != metadata "
             f"{state.candidate_generation}"
         )
+    # Re-verify full-population backfill at cutover-ready time (new tenants may appear).
+    bf = await collect_backfill_proof(conn, model=model, generation=candidate)
+    bf.validate()
     idx = await collect_index_proof(
         conn, model=model, index_name=index_name, table_name=table_name
     )
@@ -586,6 +640,7 @@ async def attest_cutover_ready(
         evidence={
             "candidate": candidate,
             "index_name": index_name,
+            "scope_tenant_count": len(bf.scope_tenant_ids),
             "collected_at_utc": proof.collected_at_utc.isoformat(),
         },
         proof_source="attest_cutover_ready",
@@ -711,7 +766,9 @@ async def cutover_generation(
             f"{model}: cutover new_active={new_active} must equal "
             f"candidate_generation={state.candidate_generation}"
         )
-    # Live re-check: generation index must still be present/valid at cutover.
+    # Live re-check: full-population backfill still complete + generation index valid.
+    bf = await collect_backfill_proof(conn, model=model, generation=new_active)
+    bf.validate()
     index_name = generation_index_name(model, new_active)
     table = "person_identifiers" if model == "P1" else P2_TABLE
     idx = await collect_index_proof(

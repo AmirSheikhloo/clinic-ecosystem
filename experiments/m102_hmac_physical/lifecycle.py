@@ -22,6 +22,11 @@ from experiments.m102_hmac_physical.phase_gate import (
     generation_index_name,
     set_candidate_generation,
 )
+from experiments.m102_hmac_physical.rotation import (
+    p1_backfill_gen2_batch,
+    p1_backfill_gen3_batch,
+    p2_backfill_candidate_batch,
+)
 
 
 async def advance_phase_chain(
@@ -52,18 +57,60 @@ async def progress_with_evidence(
     await advance_phase_chain(conn, model=model, to_phase=to_phase)
 
 
+async def _backfill_all_tenants(
+    conn: asyncpg.Connection, *, model: str, generation: int
+) -> None:
+    """Drive candidate backfill to global completeness across every tenant."""
+    tenants = [
+        UUID(str(r["tenant_id"]))
+        for r in await conn.fetch(
+            "SELECT DISTINCT tenant_id FROM person_identifiers ORDER BY tenant_id"
+        )
+    ]
+    for tenant_id in tenants:
+        after = None
+        while True:
+            if model == "P1" and generation == 2:
+                n, after = await p1_backfill_gen2_batch(
+                    conn, tenant_id=tenant_id, batch_size=200, after_id=after
+                )
+            elif model == "P1" and generation == 3:
+                n, after = await p1_backfill_gen3_batch(
+                    conn, tenant_id=tenant_id, batch_size=200, after_id=after
+                )
+            elif model == "P2":
+                n, after = await p2_backfill_candidate_batch(
+                    conn,
+                    tenant_id=tenant_id,
+                    candidate_version=generation,
+                    batch_size=200,
+                    after_identifier_id=after,
+                )
+            else:
+                raise PhaseGateError(
+                    f"unsupported global backfill model={model} generation={generation}"
+                )
+            if n == 0:
+                break
+
+
 async def prove_drain_and_backfill(
     conn: asyncpg.Connection,
     *,
     model: str,
-    tenant_id: UUID,
     generation: int,
+    tenant_id: UUID | None = None,
 ) -> None:
+    """Attest drain + full-population backfill.
+
+    ``tenant_id`` is accepted for call-site compatibility but ignored: completeness
+    is always evaluated across every tenant holding identifiers.
+    """
+    _ = tenant_id
     drain = await collect_drain_proof(conn, model=model)
     await attest_drain(conn, model=model, proof=drain)
-    backfill = await collect_backfill_proof(
-        conn, model=model, tenant_id=tenant_id, generation=generation
-    )
+    await _backfill_all_tenants(conn, model=model, generation=generation)
+    backfill = await collect_backfill_proof(conn, model=model, generation=generation)
     await attest_backfill(conn, model=model, proof=backfill)
 
 
@@ -85,13 +132,13 @@ async def advance_to_validate_after_backfill(
     conn: asyncpg.Connection,
     *,
     model: str,
-    tenant_id: UUID,
     generation: int,
+    tenant_id: UUID | None = None,
 ) -> None:
-    """Reach VALIDATE (5) only after live drain+backfill proofs."""
+    """Reach VALIDATE (5) only after live drain+full-population backfill proofs."""
     await advance_phase_chain(conn, model=model, to_phase=3)
     await prove_drain_and_backfill(
-        conn, model=model, tenant_id=tenant_id, generation=generation
+        conn, model=model, generation=generation, tenant_id=tenant_id
     )
     await advance_phase_chain(conn, model=model, to_phase=5)
 
@@ -124,7 +171,7 @@ async def prepare_cutover_candidate(
     index_name: str | None = None,
     table_name: str | None = None,
 ) -> None:
-    """Set candidate and attest cutover_ready only after live index re-check."""
+    """Set candidate and attest cutover_ready only after live index+population re-check."""
     await set_candidate_generation(conn, model=model, candidate=candidate)
     if index_name is None:
         index_name = generation_index_name(model, candidate)
