@@ -1,0 +1,90 @@
+name: M1-02 bounded PG15 existing-foundations preflight
+
+on:
+  push:
+    branches:
+      - preflight/m102-pg15-evidence-20261115
+
+permissions:
+  contents: read
+
+jobs:
+  pg15-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout test-only branch
+        uses: actions/checkout@v4
+      - name: Enforce scope at checked-out SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD | tee preflight-commit.txt
+          test "$GITHUB_REF_NAME" = "preflight/m102-pg15-evidence-20261115"
+          if find migrations/tenant_plane/versions -maxdepth 1 -name 'tp00*.py' | grep -E 'tp00(08|09|1[0-9]|2[0-9])'; then
+            echo 'Out of scope: TP0008+ migrations found' >&2
+            exit 1
+          fi
+          test -f migrations/tenant_plane/versions/tp0007_rls_and_role_policies.py
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify disposable runner prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker version
+          docker info >/dev/null
+      - name: Install existing project development dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Collect all existing M0/M1-01 and new preflight tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/unit tests/integration --collect-only -q | tee preflight-collect.txt
+          python .github/scripts/assert_m0_pytest_evidence.py --mode collect --collect-log preflight-collect.txt
+          python .github/scripts/assert_m1_pytest_evidence.py --mode collect --collect-log preflight-collect.txt
+      - name: Execute existing regressions plus bounded PG15 metadata checks
+        shell: bash
+        env:
+          M0_REQUIRE_DOCKER: '1'
+        run: |
+          set -euo pipefail
+          python -m pytest tests/unit tests/integration -v --tb=short -rs --junitxml=preflight-junit.xml | tee preflight-pytest.txt
+      - name: Fail closed on missing or skipped tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/scripts/assert_m0_pytest_evidence.py --mode junit --junit preflight-junit.xml --pytest-log preflight-pytest.txt
+          python .github/scripts/assert_m1_pytest_evidence.py --mode junit --junit preflight-junit.xml --pytest-log preflight-pytest.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=ET.parse("preflight-junit.xml").getroot()
+          cases=root.findall(".//testcase")
+          names={t.get("name","") for t in cases}
+          required={"test_existing_tp0007_pg15_catalog_and_indexes[cloud_tenant]","test_existing_tp0007_pg15_catalog_and_indexes[local_hub]","test_control_plane_alembic_metadata_only"}
+          failed=[t.get("name") for t in cases if t.find("failure") is not None or t.find("error") is not None]
+          skipped=[t.get("name") for t in cases if t.find("skipped") is not None]
+          files=sorted(str(p) for p in Path("preflight-pg15-evidence").glob("*.json"))
+          summary={"total_cases":len(cases),"failed":failed,"skipped":skipped,"missing":sorted(required-names),"catalog_files":files}
+          Path("preflight-summary.json").write_text(json.dumps(summary,indent=2)+"\n")
+          print(json.dumps(summary,indent=2))
+          assert len(cases)>=30 and not (failed or skipped or required-names)
+          assert len(files)==2
+          PY
+      - name: Upload evidence even on test failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m102-bounded-pg15-preflight
+          if-no-files-found: warn
+          path: |
+            preflight-commit.txt
+            preflight-collect.txt
+            preflight-pytest.txt
+            preflight-junit.xml
+            preflight-summary.json
+            preflight-pg15-evidence/*.json
