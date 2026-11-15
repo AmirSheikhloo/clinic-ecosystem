@@ -63,6 +63,14 @@ def _runtime_dsn(plane_topology) -> str:
     )
 
 
+def _admin_tenant_dsn(plane_topology) -> str:
+    admin = plane_topology.cloud_admin
+    return (
+        f"postgresql://{quote_plus(admin.user)}:{quote_plus(admin.password)}"
+        f"@{admin.host}:{admin.port}/tenant_app"
+    )
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("plane", ["cloud_tenant", "local_hub"])
 async def test_p2_sidecar_expand_rls_and_nonredundant_candidate_index(
@@ -212,6 +220,7 @@ async def test_p2_deterministic_candidate_writer_conflict(plane_topology) -> Non
 
     first, second, observed = await two_session_unique_conflict(
         dsn=ep.asyncpg_dsn(),
+        inspector_dsn=_admin_tenant_dsn(plane_topology),
         first_insert=first_insert,
         second_insert=second_insert,
         require_observed_lock_wait=True,

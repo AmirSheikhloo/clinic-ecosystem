@@ -5,6 +5,7 @@ EXPERIMENTAL ONLY — not Package-1, not official TP0008+, not Gate A evidence.
 
 from __future__ import annotations
 
+from urllib.parse import quote_plus
 from uuid import uuid4
 
 import asyncpg
@@ -63,6 +64,15 @@ async def _mig(ep):
     conn = await asyncpg.connect(ep.asyncpg_dsn())
     await conn.execute("SET ROLE db_migrator")
     return conn
+
+
+def _admin_tenant_dsn(plane_topology) -> str:
+    """Superuser DSN on tenant_app — required to observe other backends' wait events."""
+    admin = plane_topology.cloud_admin
+    return (
+        f"postgresql://{quote_plus(admin.user)}:{quote_plus(admin.password)}"
+        f"@{admin.host}:{admin.port}/tenant_app"
+    )
 
 
 @pytest.mark.asyncio
@@ -223,6 +233,7 @@ async def test_p1_deterministic_old_new_writer_conflict_on_gen2(plane_topology) 
 
     first, second, observed = await two_session_unique_conflict(
         dsn=ep.asyncpg_dsn(),
+        inspector_dsn=_admin_tenant_dsn(plane_topology),
         first_insert=first_insert,
         second_insert=second_insert,
         require_observed_lock_wait=True,
@@ -309,6 +320,7 @@ async def test_p1_deterministic_old_new_writer_conflict_on_gen2(plane_topology) 
 
     first_rb, second_rb, observed_rb = await two_session_unique_conflict(
         dsn=ep.asyncpg_dsn(),
+        inspector_dsn=_admin_tenant_dsn(plane_topology),
         first_insert=first_insert_rb,
         second_insert=second_insert_rb,
         require_observed_lock_wait=True,

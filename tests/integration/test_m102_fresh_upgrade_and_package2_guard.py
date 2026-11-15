@@ -45,16 +45,26 @@ async def _mig(ep):
 
 @pytest.mark.asyncio
 async def test_fresh_install_then_experimental_expand(plane_topology) -> None:
+    """Prove expand+backfill on a newly seeded tenant at tp0007 (no TP0008+).
+
+    Shared session fixtures may retain rows from earlier tests; this node binds
+    assertions to a fresh tenant UUID rather than a global empty table.
+    """
     ep = plane_topology.cloud_tenant
     await upgrade_tenant_plane_async(ep.sqlalchemy_async_url(), revision="tp0007")
     conn = await _mig(ep)
     try:
-        assert await conn.fetchval("SELECT count(*) FROM person_identifiers") == 0
         await apply_p1_expand(conn)
         await apply_p2_expand(conn)
         await init_model(conn, model="P1")
         await init_model(conn, model="P2")
         tenant, person = await seed_tenant_person(conn)
+        assert (
+            await conn.fetchval(
+                "SELECT count(*) FROM person_identifiers WHERE tenant_id=$1", tenant
+            )
+            == 0
+        )
         await insert_identifier(
             conn,
             tenant_id=tenant,
@@ -76,6 +86,9 @@ async def test_fresh_install_then_experimental_expand(plane_topology) -> None:
         assert await conn.fetchval(
             "SELECT version_num FROM alembic_meta.alembic_version_tp"
         ) == "tp0007"
+        assert not list(
+            (REPO / "migrations" / "tenant_plane" / "versions").glob("tp0008*.py")
+        )
     finally:
         await conn.close()
 

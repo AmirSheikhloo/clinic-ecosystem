@@ -76,15 +76,33 @@ async def create_and_assert_unique_index(
 async def wait_until_waiting_on_lock(
     inspector: asyncpg.Connection, *, backend_pid: int, timeout_s: float = 5.0
 ) -> bool:
+    """Observe session blocked on a lock via privileged pg_stat_activity / pg_locks.
+
+    Inspector must be a superuser (or pg_read_all_stats); non-privileged roles
+    cannot see other backends' wait_event_type and would false-negative.
+    """
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout_s
     while loop.time() < deadline:
-        state = await inspector.fetchval(
-            "SELECT wait_event_type FROM pg_stat_activity WHERE pid = $1",
+        row = await inspector.fetchrow(
+            """
+            SELECT a.wait_event_type,
+                   a.wait_event,
+                   a.state,
+                   EXISTS (
+                     SELECT 1 FROM pg_locks l
+                     WHERE l.pid = a.pid AND NOT l.granted
+                   ) AS has_ungranted_lock
+            FROM pg_stat_activity a
+            WHERE a.pid = $1
+            """,
             backend_pid,
         )
-        if state in {"Lock", "LWLock"}:
-            return True
+        if row is not None:
+            if row["wait_event_type"] in {"Lock", "LWLock"}:
+                return True
+            if row["has_ungranted_lock"] and row["state"] == "active":
+                return True
         await asyncio.sleep(0.05)
     return False
 
@@ -92,23 +110,26 @@ async def wait_until_waiting_on_lock(
 async def two_session_unique_conflict(
     *,
     dsn: str,
-    setup_role: str = "db_migrator",
     first_insert: Callable[[asyncpg.Connection], Awaitable[None]],
     second_insert: Callable[[asyncpg.Connection], Awaitable[None]],
+    setup_role: str = "db_migrator",
+    inspector_dsn: str | None = None,
     require_observed_lock_wait: bool = True,
     first_commits: bool = True,
 ) -> tuple[str, str, bool]:
     """Prove overlapping uncommitted writers with a mandatory lock-wait assertion.
 
-    Returns (first_outcome, second_outcome, lock_wait_observed).
+    ``inspector_dsn`` should be a superuser connection to the same PostgreSQL
+    instance (e.g. Testcontainers admin on ``tenant_app``). Returns
+    (first_outcome, second_outcome, lock_wait_observed).
     """
     conn1 = await asyncpg.connect(dsn)
     conn2 = await asyncpg.connect(dsn)
-    inspector = await asyncpg.connect(dsn)
+    inspector = await asyncpg.connect(inspector_dsn or dsn)
+    insert_started = asyncio.Event()
     try:
         await conn1.execute(f"SET ROLE {setup_role}")
         await conn2.execute(f"SET ROLE {setup_role}")
-        await inspector.execute(f"SET ROLE {setup_role}")
 
         tx1 = conn1.transaction()
         await tx1.start()
@@ -119,6 +140,9 @@ async def two_session_unique_conflict(
             tx2 = conn2.transaction()
             await tx2.start()
             pid2_holder["pid"] = await conn2.fetchval("SELECT pg_backend_pid()")
+            # Yield so the observer can attach before the blocking INSERT.
+            await asyncio.sleep(0)
+            insert_started.set()
             try:
                 await second_insert(conn2)
                 await tx2.commit()
@@ -131,18 +155,21 @@ async def two_session_unique_conflict(
                 raise
 
         task = asyncio.create_task(second())
-        # Wait until session-2 has a backend pid, then require lock wait.
-        loop = asyncio.get_running_loop()
-        deadline = loop.time() + 5.0
-        while "pid" not in pid2_holder and loop.time() < deadline:
-            await asyncio.sleep(0.02)
+        try:
+            await asyncio.wait_for(insert_started.wait(), timeout=5.0)
+        except TimeoutError:
+            task.cancel()
+            await tx1.rollback()
+            raise BarrierError("session-2 never reached INSERT start before timeout") from None
         if "pid" not in pid2_holder:
             task.cancel()
             await tx1.rollback()
-            raise BarrierError("session-2 never started INSERT before timeout")
+            raise BarrierError("session-2 backend pid missing after INSERT start signal")
 
+        # Brief yield so the INSERT request is in flight on the server.
+        await asyncio.sleep(0.05)
         lock_wait_observed = await wait_until_waiting_on_lock(
-            inspector, backend_pid=pid2_holder["pid"], timeout_s=5.0
+            inspector, backend_pid=pid2_holder["pid"], timeout_s=8.0
         )
         if require_observed_lock_wait and not lock_wait_observed:
             task.cancel()
