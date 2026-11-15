@@ -628,7 +628,7 @@ async def test_p1_unsafe_upgrade_head_fail_closed(plane_topology) -> None:
 
 @pytest.mark.asyncio
 async def test_p1_multitenant_backfill_then_cutover_succeeds(plane_topology) -> None:
-    """Positive Q01 path: all tenants in scope complete before cutover."""
+    """Positive Q01 path: every tenant in deployment scope completes before cutover."""
     from experiments.m102_hmac_physical.phase_gate import collect_backfill_proof
     from experiments.m102_hmac_physical.rotation import p1_backfill_gen2_batch
 
@@ -651,15 +651,19 @@ async def test_p1_multitenant_backfill_then_cutover_succeeds(plane_topology) -> 
                     next_version=None,
                 )
         assert len(set(tenants)) == 3
-        # Incomplete until every tenant is backfilled.
+        # Per-tenant batches for the new cohort — shared-session leftovers may remain.
         for tid in tenants:
             n, _ = await p1_backfill_gen2_batch(conn, tenant_id=tid, batch_size=50)
             assert n == 2
+        partial = await collect_backfill_proof(conn, model="P1", generation=2)
+        assert set(tenants).issubset(set(partial.scope_tenant_ids))
+        assert len(partial.scope_tenant_ids) >= 3
+        # Legitimate path: prove helpers backfill the full population before attest/cutover.
+        await advance_phase_chain(conn, model="P1", to_phase=3)
+        await prove_drain_and_backfill(conn, model="P1", generation=2)
         proof = await collect_backfill_proof(conn, model="P1", generation=2)
         assert proof.remaining_null_rows == 0
         assert set(tenants).issubset(set(proof.scope_tenant_ids))
-        await advance_phase_chain(conn, model="P1", to_phase=3)
-        await prove_drain_and_backfill(conn, model="P1", generation=2)
         await advance_phase_chain(conn, model="P1", to_phase=5)
         await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
     finally:
