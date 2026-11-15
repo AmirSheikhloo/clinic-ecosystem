@@ -1,0 +1,104 @@
+name: M1-02 P1/P2 HMAC physical experiment
+
+on:
+  push:
+    branches:
+      - cursor/m102-p1-p2-hmac-physical-experiment-95a4
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  p1-p2-physical:
+    name: Disposable PG15 P1 vs P2 physical evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify experimental scope (no official TP0008+)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "cursor/m102-p1-p2-hmac-physical-experiment-95a4"
+          test -z "$(find migrations/tenant_plane/versions -maxdepth 1 -name 'tp000[8-9]*.py' -print)"
+          test -z "$(find migrations/tenant_plane/versions -maxdepth 1 -name 'tp001*.py' -print)"
+          test -d experiments/m102_hmac_physical
+          docker info >/dev/null
+
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run unit + integration evidence suite
+        shell: bash
+        env:
+          M0_REQUIRE_DOCKER: "1"
+        run: |
+          set -euo pipefail
+          python -m pytest tests/unit tests/integration -v --tb=short -rs \
+            --junitxml=m102-p1-p2-junit.xml | tee m102-p1-p2-pytest.txt
+
+      - name: Summarize required experiment nodes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          required = [
+            "test_p1_expand_preserves_tp0002_indexes_and_adds_nonredundant_gen2",
+            "test_p1_deterministic_old_new_writer_conflict_on_gen2",
+            "test_p1_resumable_backfill_rollback_and_two_rotation_cycles",
+            "test_p1_invalid_index_cleanup_and_retry",
+            "test_p1_unsafe_upgrade_head_fail_closed",
+            "test_p2_sidecar_expand_rls_and_nonredundant_candidate_index",
+            "test_p2_deterministic_candidate_writer_conflict",
+            "test_p2_two_cycle_backfill_cutover_and_runtime_rls",
+            "test_fresh_install_then_experimental_expand",
+            "test_upgrade_path_populated_then_expand_and_backfill",
+            "test_phase_gate_blocks_skip_to_index_and_phase9_not_operational",
+            "test_no_official_tp0008_plus_committed_on_this_branch",
+            "test_p1_phase6_index_targets_gen2_not_lookup_hmac_next",
+            "test_p2_candidate_index_is_status_scoped_and_non_tp0002_next",
+          ]
+          root = ET.parse("m102-p1-p2-junit.xml").getroot()
+          cases = root.findall(".//testcase")
+          by_name = {c.attrib.get("name"): c for c in cases}
+          missing = [n for n in required if n not in by_name]
+          if missing:
+            raise SystemExit("missing required nodes:\n" + "\n".join(missing))
+          for n in required:
+            c = by_name[n]
+            if c.find("failure") is not None or c.find("error") is not None:
+              raise SystemExit(f"required failed: {n}")
+            if c.find("skipped") is not None:
+              raise SystemExit(f"required skipped: {n}")
+          failed = sum(1 for c in cases if c.find("failure") is not None or c.find("error") is not None)
+          skipped = sum(1 for c in cases if c.find("skipped") is not None)
+          print(f"OK required={len(required)} total={len(cases)} failed={failed} skipped={skipped}")
+          Path("m102-p1-p2-summary.txt").write_text(
+              f"required={len(required)}\ntotal={len(cases)}\nfailed={failed}\nskipped={skipped}\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m102-p1-p2-physical-evidence
+          path: |
+            m102-p1-p2-junit.xml
+            m102-p1-p2-pytest.txt
+            m102-p1-p2-summary.txt
+          if-no-files-found: warn
