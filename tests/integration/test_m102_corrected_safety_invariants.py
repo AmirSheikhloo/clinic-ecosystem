@@ -423,5 +423,15 @@ async def test_n05_closed_evidence_log_db_immutable_against_migrator(
             )
             >= 1
         )
+        # init_model must not erase append-only evidence history.
+        before = await conn.fetchval(
+            "SELECT count(*) FROM public.m102_exp_phase_evidence WHERE model='P1'"
+        )
+        await init_model(conn, model="P1")
+        after = await conn.fetchval(
+            "SELECT count(*) FROM public.m102_exp_phase_evidence WHERE model='P1'"
+        )
+        assert after == before
+        assert (await get_state(conn, "P1")).drain_attested is False
     finally:
         await conn.close()

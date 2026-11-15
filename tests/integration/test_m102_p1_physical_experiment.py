@@ -624,3 +624,76 @@ async def test_p1_unsafe_upgrade_head_fail_closed(plane_topology) -> None:
             await experimental_upgrade_head(conn, model="P1", target_phase=6)
     finally:
         await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_p1_multitenant_backfill_then_cutover_succeeds(plane_topology) -> None:
+    """Positive Q01 path: all tenants in scope complete before cutover."""
+    from experiments.m102_hmac_physical.phase_gate import collect_backfill_proof
+    from experiments.m102_hmac_physical.rotation import p1_backfill_gen2_batch
+
+    ep = plane_topology.cloud_tenant
+    await upgrade_tenant_plane_async(ep.sqlalchemy_async_url(), revision="tp0007")
+    conn = await _mig(ep)
+    try:
+        await apply_p1_expand(conn)
+        await init_model(conn, model="P1")
+        tenants = []
+        for i in range(3):
+            tid, pid = await seed_tenant_person(conn)
+            tenants.append(tid)
+            for j in range(2):
+                await insert_identifier(
+                    conn,
+                    tenant_id=tid,
+                    person_id=pid,
+                    normalized=f"{3000000000 + i * 10 + j}",
+                    next_version=None,
+                )
+        assert len(set(tenants)) == 3
+        # Incomplete until every tenant is backfilled.
+        for tid in tenants:
+            n, _ = await p1_backfill_gen2_batch(conn, tenant_id=tid, batch_size=50)
+            assert n == 2
+        proof = await collect_backfill_proof(conn, model="P1", generation=2)
+        assert proof.remaining_null_rows == 0
+        assert set(tenants).issubset(set(proof.scope_tenant_ids))
+        await advance_phase_chain(conn, model="P1", to_phase=3)
+        await prove_drain_and_backfill(conn, model="P1", generation=2)
+        await advance_phase_chain(conn, model="P1", to_phase=5)
+        await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS public.{P1_GEN2_INDEX}")
+    finally:
+        await conn.close()
+
+    await create_and_assert_unique_index(
+        sqlalchemy_async_url=ep.sqlalchemy_async_url(),
+        inspect_dsn=ep.asyncpg_dsn(),
+        ddl=P1_GEN2_INDEX_DDL,
+        index_name=P1_GEN2_INDEX,
+        table_name="person_identifiers",
+        required_fragments=["exp_lookup_hmac_gen2"],
+    )
+    conn = await _mig(ep)
+    try:
+        await advance_to_verify_after_index(
+            conn,
+            model="P1",
+            index_name=P1_GEN2_INDEX,
+            table_name="person_identifiers",
+            generation=2,
+        )
+        await prepare_cutover_candidate(conn, model="P1", candidate=2)
+        await advance_phase_chain(conn, model="P1", to_phase=8)
+        await cutover_generation(conn, model="P1", new_active=2)
+        assert (await get_state(conn, "P1")).active_generation == 2
+        assert (
+            await conn.fetchval(
+                """
+                SELECT count(*) FROM person_identifiers
+                WHERE exp_lookup_hmac_gen2 IS NULL
+                """
+            )
+            == 0
+        )
+    finally:
+        await conn.close()

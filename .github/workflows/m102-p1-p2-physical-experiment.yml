@@ -77,6 +77,7 @@ jobs:
             "test_p1_invalid_generation_index_recovery_on_real_target",
             "test_p1_invalid_index_cleanup_and_retry",
             "test_p1_unsafe_upgrade_head_fail_closed",
+            "test_p1_multitenant_backfill_then_cutover_succeeds",
             "test_p2_deterministic_candidate_writer_conflict",
             "test_p2_active_uniqueness_person_consistency_and_two_cycles",
             "test_fresh_install_then_experimental_expand",
