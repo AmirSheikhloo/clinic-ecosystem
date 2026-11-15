@@ -5,7 +5,7 @@
 **Correction branch:** `cursor/m102-p1-p2-n01-n09-corrections-95a4`  
 **Original experiment branch:** `cursor/m102-p1-p2-hmac-physical-experiment-95a4`  
 **Base `main`:** `fdae362e1a889831975060808ac612369d3b0d0a`  
-**Tested code SHA:** *(set to the green CI SHA of the N05 proof-bound fix after CI)*  
+**Tested code SHA:** `7f7ac603b1e27b5a0af2f6d3d4f149c868dba859` (authoritative green experiment CI after N05 proof-bound fix)  
 **Prior green SHA (pre-N05 re-review):** `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db`  
 **Classification:** `EXPERIMENTAL CORRECTIONS TESTED / NOT APPROVED / NOT Package-1 / NOT Gate A–D / NO ACR`
 
@@ -35,9 +35,10 @@ This document is the **one complete corrected engineering report** for the M1-02
 | Field | Value |
 |---|---|
 | Correction branch | `cursor/m102-p1-p2-n01-n09-corrections-95a4` |
-| Tested code SHA (green CI) | `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db` |
+| Tested code SHA (green CI) | `7f7ac603b1e27b5a0af2f6d3d4f149c868dba859` |
 | N01–N09 implementation commit | `55f4d9a6565a3825256560555564e195aeb24259` |
 | Lock-wait inspector fix | `0b5bb6a8409e60055d7cd244817f61ec7e7ef4db` |
+| N05 proof-bound gate | `7aff0b9…` → `7f7ac60…` |
 | Docs-only report commits | May advance branch HEAD; tested code SHA above remains authoritative |
 | Branched from original experiment HEAD | `016d547c673bfc79bfcc192e56f35b3108e4be56` |
 | Original green test SHA | `c08f057962be2a4b6da8f6d1e516213266e302d6` |
@@ -163,23 +164,27 @@ ON public.person_identifier_hmac_generations_exp (
 |---|---|---|---|---|
 | [43760906258](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43760906258) | `55f4d9a…` | M1-02 P1/P2 physical | **failure** | 87 passed; **2 failed** — Lock wait unobserved under migrator-role inspector (N04 observation path) |
 | [43760917123](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43760917123) | `55f4d9a…` | M0 PostgreSQL integration | **failure** | Same barrier + shared-fixture global empty-table assert |
-| [43761147557](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43761147557) | `0b5bb6a…` | M1-02 P1/P2 physical | **success** | Main suite **89 passed**; isolated safety **3 passed**; guard `required=21 total=92 failed=0 skipped=0` |
-| [43761151991](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43761151991) | `0b5bb6a…` | M0 PostgreSQL integration | **success** | Confirms corrections under full M0 suite |
+| [43761147557](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43761147557) | `0b5bb6a…` | M1-02 P1/P2 physical | **success** | Pre-N05-re-review green: 89 + 3 safety; `required=21` |
+| [43761151991](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43761151991) | `0b5bb6a…` | M0 PostgreSQL integration | **success** | Pre-N05-re-review |
+| Independent N05 bypass audit | `audit/m102-n05-evidence-bypass-20261116` @ `40b6a29…` run [43762037750](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43762037750) | **success (gaps confirmed)** | Self-attested lifecycle forge reproduced |
+| [43762602941](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43762602941) / [43762886971](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43762886971) | `7aff0b9…` / `3d7f260…` | M1-02 P1/P2 physical | **failure** | Interim proof-bound iteration (phase-9 flag reset / assertion match) — not weakened |
+| [43763052360](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43763052360) | `7f7ac60…` | M1-02 P1/P2 physical | **success** | Main **89 passed**; isolated safety **4 passed**; `required=22 total=93` |
+| [43763057088](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43763057088) | `7f7ac60…` | M0 PostgreSQL integration | **success** | Full M0 suite green |
 
-**Authoritative corrected green run:** https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43761147557  
+**Authoritative corrected green run (post-N05 proof-bound):** https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/43763052360  
 
-**Artifact:** `m102-p1-p2-physical-evidence` ID `14180930174`  
+**Artifact:** `m102-p1-p2-physical-evidence` ID `14180179497` (run 43763052360)  
 Contains: `m102-p1-p2-junit.xml`, `m102-p1-p2-pytest.txt`, `m102-safety-junit.xml`, `m102-safety-pytest.txt`, `m102-p1-p2-summary.txt`
 
 ```
-required=21
-total=92
+required=22
+total=93
 failed=0
 skipped=0
 acceptance_status=EXPERIMENTAL_CORRECTIONS_TESTED_NOT_APPROVED
 ```
 
-First correction CI failure is recorded deliberately: tests were **not** weakened; the inspector privilege path was fixed so the mandatory lock-wait assertion can observe reality.
+Interim CI failures are recorded deliberately: tests were **not** weakened; proof-bound attestations and assertion text were tightened until green.
 
 ---
 
@@ -248,6 +253,6 @@ First correction CI failure is recorded deliberately: tests were **not** weakene
 
 ## 10. Final outcome
 
-`N01–N09 EXPERIMENTAL CORRECTIONS IMPLEMENTED + PG15-TESTED + CI-VERIFIED (89+3=92 / required=21 on run 43761147557 @ 0b5bb6a) / PRIOR 87-PASS + AUDIT 43759658695 EVIDENCE PRESERVED / P1 REMAINS PROPOSED CANDIDATE (NOT APPROVED) / P2 RETAINED AS DOCUMENTED ALTERNATIVE / NO TP0008+ / NO PACKAGE-1 / NO ACR OR GATE DECLARATION / MAIN UNCHANGED`
+`N01–N09 EXPERIMENTAL CORRECTIONS IMPLEMENTED + N05 PROOF-BOUND + PG15-TESTED + CI-VERIFIED (89+4=93 / required=22 on run 43763052360 @ 7f7ac60) / PRIOR 87-PASS + AUDIT 43759658695 + N05-BYPASS 43762037750 EVIDENCE PRESERVED / P1 REMAINS PROPOSED CANDIDATE (NOT APPROVED) / P2 RETAINED AS DOCUMENTED ALTERNATIVE / DEPLOYABLE MIGRATION GATE STILL BLOCKED / NO TP0008+ / NO PACKAGE-1 / NO ACR OR GATE DECLARATION / MAIN UNCHANGED`
 
 **End of corrected report.**
