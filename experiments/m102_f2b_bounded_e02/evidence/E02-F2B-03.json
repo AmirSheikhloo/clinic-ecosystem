@@ -1,0 +1,11 @@
+{
+  "result": "PASS",
+  "forbidden": [
+    "head",
+    "heads",
+    "blank",
+    "unknown"
+  ],
+  "utc": "2026-11-16T20:41:23.109599+00:00",
+  "test_id": "E02-F2B-03"
+}

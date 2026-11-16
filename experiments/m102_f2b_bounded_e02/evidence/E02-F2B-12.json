@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "note": "synthetic dual-DB model only; production Sync/app UNVERIFIED",
+  "states": {
+    "cloud_catalog": [
+      "exp_f2b_cat2"
+    ],
+    "local_base": [
+      "exp_f2b_base"
+    ]
+  },
+  "main_db": "exp_f2b",
+  "utc": "2026-11-16T20:41:24.435252+00:00",
+  "test_id": "E02-F2B-12"
+}

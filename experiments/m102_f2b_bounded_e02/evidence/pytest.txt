@@ -1,0 +1,36 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.12.16/x64/bin/python
+cachedir: .pytest_cache
+rootdir: /home/runner/work/clinic-ecosystem/clinic-ecosystem
+configfile: pyproject.toml
+collecting ... collected 14 items
+
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_01_synthetic_graph_audit PASSED [  7%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_02_explicit_head_targeting PASSED [ 14%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_03_dangerous_target_negatives PASSED [ 21%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_04_version_table_state_machine PASSED [ 28%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_05_catalog_only_independence PASSED [ 35%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_06_hmac_only_independence PASSED [ 42%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_07_phase6_transaction_boundary PASSED [ 50%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_08_concurrent_index_failure_retry PASSED [ 57%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_09_phase8_guarded_cutover PASSED [ 64%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_10_dual_write_active_uniqueness PASSED [ 71%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_11_role_privilege_negatives PASSED [ 78%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_12_cloud_local_mixed_state_simulation PASSED [ 85%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_13_interrupted_upgrade_semantics PASSED [ 92%]
+experiments/m102_f2b_bounded_e02/tests/test_e02_f2b_suite.py::test_e02_f2b_14_scope_clock_resource_closure PASSED [100%]
+
+=============================== warnings summary ===============================
+../../../../../opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636
+  /opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../../../../opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636
+  /opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636: PytestConfigWarning: Unknown config option: asyncio_mode
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e02/evidence/junit.xml -
+======================== 14 passed, 2 warnings in 2.16s ========================

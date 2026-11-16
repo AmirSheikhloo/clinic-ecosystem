@@ -1,0 +1,10 @@
+{
+  "result": "PASS",
+  "now_utc": "2026-11-16T20:41:24.580354+00:00",
+  "now_berlin": "2026-11-16T21:41:24.580354+01:00",
+  "pg_proof": "server_version_num=150020; db=exp_f2b; addr=172.18.0.2; version=PostgreSQL 15.20 (Debian 15.20-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "offenders": [],
+  "allowed_targets_count": 11,
+  "utc": "2026-11-16T20:41:24.587474+00:00",
+  "test_id": "E02-F2B-14"
+}
