@@ -265,37 +265,39 @@ def test_e02_f2b_07_phase6_transaction_boundary(clean_db: str, admin_dsn: str):
         row = cur.fetchone()
         assert row is not None
         assert row[0] is True and row[1] is True and row[2] is True
-        # Negative: CONCURRENTLY inside explicit transaction must fail
-        conn.autocommit = False
-        try:
+    finally:
+        conn.close()
+    # Negative: CONCURRENTLY inside an explicit transaction must fail.
+    neg = psycopg2.connect(admin_dsn)
+    neg.autocommit = False
+    try:
+        cur = neg.cursor()
+        cur.execute("SELECT 1")  # open a transaction block
+        with pytest.raises(psycopg2.Error) as ei:
             cur.execute(
                 """
                 CREATE UNIQUE INDEX CONCURRENTLY uq_exp_f2b_should_fail
                 ON exp_f2b_identifiers (tenant_id, canonical_value)
                 """
             )
-            conn.commit()
-            pytest.fail("CONCURRENTLY inside transaction should have failed")
-        except psycopg2.Error as exc:
-            conn.rollback()
-            assert "concur" in str(exc).lower() or "transaction" in str(exc).lower()
+            neg.commit()
+        neg.rollback()
+        msg = str(ei.value).lower()
+        assert "concur" in msg or "transaction" in msg
     finally:
-        conn.close()
-    # version stamped only for successful h6
-    assert "exp_f2b_h6" in _versions(admin_dsn) or _versions(admin_dsn) == {"exp_f2b_h6"}
+        neg.close()
+    assert _versions(admin_dsn) == {"exp_f2b_h6"}
     _record("E02-F2B-07", {"result": "PASS", "versions": sorted(_versions(admin_dsn))})
 
 
 def test_e02_f2b_08_concurrent_index_failure_retry(clean_db: str, admin_dsn: str):
     safe_upgrade(clean_db, "exp_f2b_base")
-    # Two rows with same next digest to force unique violation during build
-    t1, _ = seed_tenant_identifier(admin_dsn, with_next=False)
+    # Same tenant, two rows, identical next digest => unique (tenant_id, next) collision.
+    t1, i1 = seed_tenant_identifier(admin_dsn, with_next=False)
     collision = synthetic_hmac("collision-next")
     conn = psycopg2.connect(admin_dsn)
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id FROM exp_f2b_identifiers WHERE tenant_id=%s::uuid", (t1,))
-        i1 = cur.fetchone()[0]
         cur.execute(
             """
             UPDATE exp_f2b_identifiers
@@ -303,13 +305,7 @@ def test_e02_f2b_08_concurrent_index_failure_retry(clean_db: str, admin_dsn: str
             """,
             (psycopg2.Binary(collision), i1),
         )
-        # second tenant same next digest
-        t2 = str(uuid4())
         i2 = str(uuid4())
-        cur.execute(
-            "INSERT INTO exp_f2b_tenants(tenant_id, label) VALUES (%s::uuid, 'x')",
-            (t2,),
-        )
         cur.execute(
             """
             INSERT INTO exp_f2b_identifiers(
@@ -319,7 +315,7 @@ def test_e02_f2b_08_concurrent_index_failure_retry(clean_db: str, admin_dsn: str
             """,
             (
                 i2,
-                t2,
+                t1,
                 psycopg2.Binary(synthetic_hmac("other-active")),
                 psycopg2.Binary(collision),
             ),
@@ -329,7 +325,6 @@ def test_e02_f2b_08_concurrent_index_failure_retry(clean_db: str, admin_dsn: str
         conn.close()
     with pytest.raises(Exception):
         safe_upgrade(clean_db, "exp_f2b_h6")
-    # Ensure we did not stamp h6 if failed — alembic may leave partial; check versions
     versions = _versions(admin_dsn)
     assert "exp_f2b_h6" not in versions
     conn = psycopg2.connect(admin_dsn)
@@ -345,10 +340,8 @@ def test_e02_f2b_08_concurrent_index_failure_retry(clean_db: str, admin_dsn: str
         )
         row = cur.fetchone()
         if row is not None:
-            # invalid index must not be treated as success
             assert row[0] is False
             cur.execute("DROP INDEX CONCURRENTLY IF EXISTS uq_exp_f2b_next_lookup")
-        # remediate collision
         cur.execute(
             """
             UPDATE exp_f2b_identifiers SET lookup_hmac_next=%s
@@ -514,17 +507,19 @@ def test_e02_f2b_11_role_privilege_negatives(clean_db: str, admin_dsn: str):
         )
         cur.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON exp_f2b_identifiers TO exp_f2b_app")
         cur.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON exp_f2b_tenants TO exp_f2b_app")
-        cur.execute("REVOKE ALL ON public.exp_f2b_alembic_version FROM exp_f2b_app")
+        cur.execute("REVOKE ALL ON TABLE public.exp_f2b_alembic_version FROM PUBLIC")
+        cur.execute("REVOKE ALL ON TABLE public.exp_f2b_alembic_version FROM exp_f2b_app")
+        cur.execute("REVOKE ALL ON TABLE public.exp_f2b_meta FROM exp_f2b_app")
     finally:
         conn.close()
+
     adsn = app_dsn()
     aconn = psycopg2.connect(adsn)
     try:
         cur = aconn.cursor()
-        with pytest.raises(psycopg2.Error):
-            cur.execute("SELECT count(*) FROM exp_f2b_identifiers")
-            assert cur.fetchone()[0] == 0 or True
-            # FORCE RLS with USING false => 0 rows, not necessarily error; check mutation denied
+        # RLS USING false => zero rows (not necessarily an error).
+        cur.execute("SELECT count(*) FROM exp_f2b_identifiers")
+        assert cur.fetchone()[0] == 0
         aconn.rollback()
         with pytest.raises(psycopg2.Error):
             cur.execute("DELETE FROM exp_f2b_alembic_version")
@@ -537,8 +532,10 @@ def test_e02_f2b_11_role_privilege_negatives(clean_db: str, admin_dsn: str):
                 (str(uuid4()), str(uuid4()), psycopg2.Binary(synthetic_hmac("x"))),
             )
             aconn.commit()
+        aconn.rollback()
     finally:
         aconn.close()
+
     # bypassrls denied
     conn = psycopg2.connect(admin_dsn)
     try:
@@ -612,30 +609,35 @@ def test_e02_f2b_12_cloud_local_mixed_state_simulation(clean_db: str, admin_dsn:
 
 def test_e02_f2b_13_interrupted_upgrade_semantics(clean_db: str, admin_dsn: str):
     safe_upgrade(clean_db, "exp_f2b_base")
-    seed_tenant_identifier(admin_dsn, with_next=True)
-    # Force failure mid Phase-6 by creating colliding pre-index then partial
-    # Simulate: create invalid index artifact then ensure wrapper won't auto-continue to h8
+    # Incomplete next digests: Alembic may apply h6 then fail h8 — partial stamp must not be h8.
+    seed_tenant_identifier(admin_dsn, with_next=False)
+    assert _versions(admin_dsn) == {"exp_f2b_base"}
+    with pytest.raises(Exception):
+        safe_upgrade(clean_db, "exp_f2b_h8")
+    versions = _versions(admin_dsn)
+    assert "exp_f2b_h8" not in versions
+    assert versions == {"exp_f2b_h6"}
+    assert _meta(admin_dsn, "hmac_phase8") is None
+    assert _meta(admin_dsn, "active_authority") == "gen1"
+    # Explicit remediation + retry required (no unsafe automatic onward cutover).
     conn = psycopg2.connect(admin_dsn)
-    conn.autocommit = True
     try:
         cur = conn.cursor()
-        # Pretend crash left invalid index name reserved — drop if any then create invalid via fail
-        cur.execute("DROP INDEX IF EXISTS uq_exp_f2b_next_lookup")
+        cur.execute("SELECT id, tenant_id, canonical_value FROM exp_f2b_identifiers")
+        for iid, tid, canon in cur.fetchall():
+            cur.execute(
+                """
+                UPDATE exp_f2b_identifiers
+                SET lookup_hmac_next=%s, hmac_key_version_next=2 WHERE id=%s
+                """,
+                (psycopg2.Binary(synthetic_hmac(f"{tid}:{canon}:2")), iid),
+            )
+        conn.commit()
     finally:
         conn.close()
-    # Induce fail then remediate path already covered in 08; here assert no auto onward
-    versions_before = _versions(admin_dsn)
-    assert versions_before == {"exp_f2b_base"}
-    # Manual partial: stamp must not jump to h8 without h6
-    with pytest.raises(Exception):
-        # upgrading directly to h8 without h6 should fail lineage
-        safe_upgrade(clean_db, "exp_f2b_h8")
-    assert _versions(admin_dsn) == {"exp_f2b_base"}
-    safe_upgrade(clean_db, "exp_f2b_h6")
-    assert _versions(admin_dsn) == {"exp_f2b_h6"}
-    # Without completing validation, refuse treating as cutover
-    assert _meta(admin_dsn, "hmac_phase8") is None
-    _record("E02-F2B-13", {"result": "PASS", "versions": sorted(_versions(admin_dsn))})
+    safe_upgrade(clean_db, "exp_f2b_h8")
+    assert _versions(admin_dsn) == {"exp_f2b_h8"}
+    _record("E02-F2B-13", {"result": "PASS", "partial_then_final": ["exp_f2b_h6", "exp_f2b_h8"]})
 
 
 def test_e02_f2b_14_scope_clock_resource_closure(admin_dsn: str, pg_proof: str):
