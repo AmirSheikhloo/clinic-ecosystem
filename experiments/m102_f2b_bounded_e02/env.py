@@ -14,7 +14,12 @@ from sqlalchemy import engine_from_config, pool, text
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Best-effort logging config; never block migrations on logging.ini shape.
+    try:
+        fileConfig(config.config_file_name)
+    except Exception:
+        pass
+
 
 target_metadata = None
 VERSION_TABLE = "exp_f2b_alembic_version"
