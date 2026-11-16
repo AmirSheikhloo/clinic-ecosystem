@@ -1,0 +1,114 @@
+name: M102 F2-B E0.2 bounded experiment
+
+on:
+  push:
+    branches:
+      - "experiment/m102-f2b-e02-*"
+  pull_request:
+    branches:
+      - "experiment/m102-f2b-e02-*"
+
+permissions:
+  contents: read
+
+jobs:
+  f2b-bounded:
+    name: Disposable PG15 F2-B synthetic suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synth-ci-only
+          POSTGRES_DB: exp_f2b
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d exp_f2b"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Authorization clock gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+          now = datetime.now(timezone.utc)
+          bound = datetime(2026, 11, 23, 22, 59, 0, tzinfo=timezone.utc)
+          print("now_utc=", now.isoformat())
+          if now >= bound:
+              raise SystemExit("E0.2 authorization expired")
+          PY
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify allowlisted paths only
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            experiment/m102-f2b-e02-*) ;;
+            *) echo "unexpected branch $GITHUB_REF_NAME"; exit 1 ;;
+          esac
+          test -d experiments/m102_f2b_bounded_e02
+          test ! -e migrations/tenant_plane/versions/tp0008_dummy.py
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install experiment dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "psycopg2-binary>=2.9" "alembic>=1.13" "SQLAlchemy>=2.0" "pytest>=8.0"
+
+      - name: Run E0.2 synthetic suite
+        env:
+          EXP_F2B_ADMIN_DSN: postgresql://postgres:synth-ci-only@localhost:5432/exp_f2b
+          EXP_F2B_DATABASE_URL: postgresql://postgres:synth-ci-only@localhost:5432/exp_f2b
+        run: |
+          set -euo pipefail
+          python -m pytest experiments/m102_f2b_bounded_e02/tests \
+            -v --tb=short -rs \
+            --junitxml=experiments/m102_f2b_bounded_e02/evidence/junit.xml \
+            | tee experiments/m102_f2b_bounded_e02/evidence/pytest.txt
+
+      - name: Summarize outcomes
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          junit = Path("experiments/m102_f2b_bounded_e02/evidence/junit.xml")
+          if not junit.exists():
+              raise SystemExit("missing junit")
+          cases = ET.parse(junit).getroot().findall(".//testcase")
+          failed = sum(1 for c in cases if c.find("failure") is not None or c.find("error") is not None)
+          skipped = sum(1 for c in cases if c.find("skipped") is not None)
+          print(f"total={len(cases)} failed={failed} skipped={skipped}")
+          Path("experiments/m102_f2b_bounded_e02/evidence/summary.txt").write_text(
+              f"total={len(cases)}\nfailed={failed}\nskipped={skipped}\n"
+              f"acceptance_status=EXPERIMENTAL_FEASIBILITY_ONLY_NOT_APPROVED\n",
+              encoding="utf-8",
+          )
+          if failed or skipped:
+              raise SystemExit("suite not clean")
+          PY
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m102-f2b-e02-evidence
+          path: experiments/m102_f2b_bounded_e02/evidence/**
+          if-no-files-found: warn
