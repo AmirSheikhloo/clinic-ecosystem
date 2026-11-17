@@ -86,7 +86,10 @@ def run_migrations_online() -> None:
                 f"STOP_SECURITY: SET ROLE {REQUIRED_ROLE} failed; "
                 f"no fallback to privileged identity: {exc}"
             ) from exc
+        # Identity check then commit again so SQLAlchemy 2 autobegin does not
+        # leave an orphan transaction that breaks Alembic autocommit_block().
         _assert_restricted_migrator(connection)
+        connection.commit()
         context.configure(
             connection=connection,
             version_table=VERSION_TABLE,

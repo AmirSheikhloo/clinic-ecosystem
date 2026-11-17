@@ -15,14 +15,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    before = conn.execute(
-        text("SELECT current_user, session_user, txid_current()")
-    ).one()
+    before = conn.execute(text("SELECT current_user, session_user")).one()
+    if before[0] != "exp_e03_migrator":
+        raise RuntimeError(
+            f"STOP_SECURITY: unexpected current_user before Phase-6: {before}"
+        )
+
     # Dedicated autocommit boundary for CONCURRENTLY (clause 771 phase-6 analogue).
     with op.get_context().autocommit_block():
-        inside = conn.execute(
-            text("SELECT current_user, session_user")
-        ).one()
+        inside = conn.execute(text("SELECT current_user, session_user")).one()
         if inside[0] != "exp_e03_migrator":
             raise RuntimeError(
                 f"STOP_SECURITY: unexpected current_user inside autocommit_block: {inside}"
@@ -34,14 +35,13 @@ def upgrade() -> None:
             WHERE lookup_hmac_next IS NOT NULL
             """
         )
-    after = conn.execute(
-        text("SELECT current_user, session_user")
-    ).one()
+
+    after = conn.execute(text("SELECT current_user, session_user")).one()
     if after[0] != "exp_e03_migrator":
         raise RuntimeError(
-            f"STOP_SECURITY: role not restored after autocommit_block: {after} (before={before})"
+            f"STOP_SECURITY: role not restored after autocommit_block: {after}"
         )
-    # Refuse stamp advancement if index invalid
+
     row = conn.execute(
         text(
             """
@@ -56,6 +56,7 @@ def upgrade() -> None:
         raise RuntimeError(
             f"STOP_SECURITY: refusing Phase-6 stamp; index state={row}"
         )
+
     op.execute(
         """
         INSERT INTO exp_e03_meta(key, value) VALUES ('hmac_phase6', 'index_built')

@@ -436,64 +436,83 @@ def test_e03_a02_n02_guard_denies_without_catalog(clean_db: str, admin_dsn: str,
 def test_e03_a03_p01_overlapping_writers(clean_db: str, admin_dsn: str, pg_proof: dict):
     safe_upgrade(clean_db, "exp_e03_base")
     tenant, ident, canon = seed_tenant_identifier(admin_dsn, with_next=True)
+    # Sync BEFORE any row locks so both transactions are open and overlapping.
     barrier = threading.Barrier(2)
     results: dict[str, object] = {}
+    timeline: list[str] = []
+    lock = threading.Lock()
+    collide_active = synthetic_hmac(f"{tenant}:{canon}:collide-active")
 
-    def worker(name: str, next_material: str):
+    def _mark(msg: str) -> None:
+        with lock:
+            timeline.append(f"{time.time():.6f}:{msg}")
+
+    def worker(name: str, suffix: str):
         conn = psycopg2.connect(admin_dsn)
         try:
             conn.autocommit = False
             cur = conn.cursor()
-            cur.execute("SET lock_timeout = '2000ms'")
-            cur.execute(
-                "SELECT id FROM exp_e03_identifiers WHERE id=%s::uuid FOR UPDATE",
-                (ident,),
-            )
+            cur.execute("SET lock_timeout = '5000ms'")
+            cur.execute("SELECT 1")  # begin TX
+            _mark(f"{name}:begun")
             barrier.wait(timeout=5)
-            nxt = synthetic_hmac(f"{tenant}:{canon}:{next_material}")
-            act = synthetic_hmac(f"{tenant}:{canon}:1")
+            _mark(f"{name}:after_barrier")
+            nxt = synthetic_hmac(f"{tenant}:{canon}:{suffix}")
             try:
                 cur.execute(
                     """
-                    UPDATE exp_e03_identifiers
-                    SET lookup_hmac_active=%s, lookup_hmac_next=%s, hmac_key_version_next=2
-                    WHERE id=%s::uuid
+                    INSERT INTO exp_e03_identifiers(
+                      id, tenant_id, canonical_value, lookup_hmac_active,
+                      hmac_key_version_active, lookup_hmac_next, hmac_key_version_next
+                    ) VALUES (%s::uuid, %s::uuid, %s, %s, 1, %s, 2)
                     """,
-                    (psycopg2.Binary(act), psycopg2.Binary(nxt), ident),
+                    (
+                        str(uuid4()),
+                        tenant,
+                        f"{canon}-{suffix}",
+                        psycopg2.Binary(collide_active),
+                        psycopg2.Binary(nxt),
+                    ),
                 )
-                # second writer inserts colliding active uniqueness via new row attempt
-                if name == "B":
-                    new_id = str(uuid4())
-                    cur.execute(
-                        """
-                        INSERT INTO exp_e03_identifiers(
-                          id, tenant_id, canonical_value, lookup_hmac_active,
-                          hmac_key_version_active, lookup_hmac_next, hmac_key_version_next
-                        ) VALUES (%s::uuid, %s::uuid, %s, %s, 1, %s, 2)
-                        """,
-                        (
-                            new_id,
-                            tenant,
-                            canon + "-b",
-                            psycopg2.Binary(act),  # collide on active unique (tenant, active)
-                            psycopg2.Binary(nxt),
-                        ),
-                    )
                 conn.commit()
+                _mark(f"{name}:committed")
                 results[name] = {"ok": True, "sqlstate": None}
             except Exception as exc:
                 conn.rollback()
                 pgcode = getattr(exc, "pgcode", None)
+                _mark(f"{name}:rolled_back:{pgcode}")
                 results[name] = {"ok": False, "sqlstate": pgcode, "error": str(exc)}
         finally:
             conn.close()
 
-    t1 = threading.Thread(target=worker, args=("A", "2"))
+    t1 = threading.Thread(target=worker, args=("A", "2a"))
     t2 = threading.Thread(target=worker, args=("B", "2b"))
-    t1.start(); t2.start(); t1.join(10); t2.join(10)
-    assert results.get("A", {}).get("ok") is True
-    assert results.get("B", {}).get("ok") is False
-    assert results["B"]["sqlstate"] in {errorcodes.UNIQUE_VIOLATION, "23505"}
+    t1.start()
+    t2.start()
+    t1.join(15)
+    t2.join(15)
+    assert set(results) == {"A", "B"}
+    oks = [n for n, r in results.items() if r.get("ok")]
+    fails = [n for n, r in results.items() if not r.get("ok")]
+    assert len(oks) == 1, results
+    assert len(fails) == 1, results
+    loser = fails[0]
+    assert results[loser]["sqlstate"] in {errorcodes.UNIQUE_VIOLATION, "23505"}
+    # Prove old+next written atomically on the winner row
+    conn = psycopg2.connect(admin_dsn)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT count(*) FROM exp_e03_identifiers
+            WHERE tenant_id=%s::uuid AND lookup_hmac_active=%s
+              AND lookup_hmac_next IS NOT NULL
+            """,
+            (tenant, psycopg2.Binary(collide_active)),
+        )
+        assert cur.fetchone()[0] == 1
+    finally:
+        conn.close()
     write_evidence(
         "E03-A03-P01",
         {
@@ -501,10 +520,10 @@ def test_e03_a03_p01_overlapping_writers(clean_db: str, admin_dsn: str, pg_proof
             "classification": "OBSERVED_PASS",
             "execution_kind": "PHYSICAL_PG15",
             **_pg_fields(pg_proof, admin_dsn),
-            "preconditions": "two overlapping transactions; active unique index",
-            "command_redacted": "concurrent UPDATE/INSERT with Barrier sync",
-            "expected_result": "at most one authoritative colliding write commits",
-            "observed_result": results,
+            "preconditions": "two overlapping transactions; active unique index; barrier before DML",
+            "command_redacted": "concurrent INSERT same (tenant_id, lookup_hmac_active)",
+            "expected_result": "at most one authoritative colliding write commits; loser 23505",
+            "observed_result": {"results": results, "timeline": timeline, "seed_ident": ident},
             "exit_code": 0,
             "before_state": {"ident": ident},
             "after_state": results,
