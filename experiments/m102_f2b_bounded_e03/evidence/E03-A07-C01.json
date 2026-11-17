@@ -1,0 +1,102 @@
+{
+  "case_id": "E03-A07-C01",
+  "contract_sha256": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427",
+  "run_id": "44112675849",
+  "timestamp_utc": "2026-11-17T15:18:24.030813+00:00",
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e03/evidence/E03-A07-C01.json"
+  ],
+  "limitations": [
+    "Synthetic experiment only; not real Cloud/Local Sync proof."
+  ],
+  "finding_id": "A07",
+  "classification": "OBSERVED_FAIL",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "postgres_server_version_num": 150020,
+  "database_label": "NOT_APPLICABLE_schema_validation",
+  "session_user": "NOT_APPLICABLE_schema_validation",
+  "current_user": "NOT_APPLICABLE_schema_validation",
+  "preconditions": "per-case evidence JSON written by suite",
+  "command_redacted": "validate_evidence_file for all 19 case IDs",
+  "expected_result": "no missing required fields; digests later in EVIDENCE_SHA256SUMS",
+  "observed_result": {
+    "present": [
+      "E03-A01-P01",
+      "E03-A01-N01",
+      "E03-A02-N01",
+      "E03-A02-P01",
+      "E03-A02-N02",
+      "E03-A03-P01",
+      "E03-A03-N01",
+      "E03-A04-P01",
+      "E03-A04-N01",
+      "E03-A05-C01",
+      "E03-A06-P01",
+      "E03-A06-N01",
+      "E03-A06-N02",
+      "E03-A07-C02",
+      "E03-A08-N01",
+      "E03-A08-P01",
+      "E03-REG-P01",
+      "E03-CLOSE-C01"
+    ],
+    "errors": [
+      "missing E03-A07-C01"
+    ],
+    "required_fields": [
+      "case_id",
+      "finding_id",
+      "classification",
+      "execution_kind",
+      "contract_sha256",
+      "parent_e02_final_commit_sha",
+      "tested_commit_sha",
+      "run_id",
+      "timestamp_utc",
+      "postgres_server_version_num",
+      "database_label",
+      "session_user",
+      "current_user",
+      "preconditions",
+      "command_redacted",
+      "expected_result",
+      "observed_result",
+      "exit_code",
+      "before_state",
+      "after_state",
+      "evidence_files",
+      "limitations"
+    ]
+  },
+  "exit_code": 1,
+  "before_state": {
+    "required": [
+      "E03-A01-P01",
+      "E03-A01-N01",
+      "E03-A02-N01",
+      "E03-A02-P01",
+      "E03-A02-N02",
+      "E03-A03-P01",
+      "E03-A03-N01",
+      "E03-A04-P01",
+      "E03-A04-N01",
+      "E03-A05-C01",
+      "E03-A06-P01",
+      "E03-A06-N01",
+      "E03-A06-N02",
+      "E03-A07-C01",
+      "E03-A07-C02",
+      "E03-A08-N01",
+      "E03-A08-P01",
+      "E03-REG-P01",
+      "E03-CLOSE-C01"
+    ]
+  },
+  "after_state": {
+    "errors": [
+      "missing E03-A07-C01"
+    ]
+  }
+}

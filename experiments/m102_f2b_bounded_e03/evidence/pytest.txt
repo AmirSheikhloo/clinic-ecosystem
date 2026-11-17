@@ -1,0 +1,46 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.12.16/x64/bin/python
+cachedir: .pytest_cache
+rootdir: /home/runner/work/clinic-ecosystem/clinic-ecosystem
+configfile: pyproject.toml
+collecting ... collected 18 items
+
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a01_p01_fail_closed_migrator PASSED [  5%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a01_n01_set_role_denial PASSED [ 11%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a02_n01_incomplete_backfill PASSED [ 16%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a02_p01_notnull_and_check PASSED [ 22%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a02_n02_guard_denies_without_catalog PASSED [ 27%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a03_p01_overlapping_writers PASSED [ 33%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a03_n01_stale_writer_fence PASSED [ 38%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a04_p01_admission_allow PASSED [ 44%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a04_n01_admission_deny PASSED [ 50%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a05_c01_ci_governance PASSED [ 55%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a06_p01_autocommit_role PASSED [ 61%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a06_n01_invalid_index_recovery PASSED [ 66%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a06_n02_privilege_negatives PASSED [ 72%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a08_n01_injected_path_denials PASSED [ 77%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a08_p01_full_range_diff PASSED [ 83%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_reg_p01_topology PASSED [ 88%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_a07_c02_preflight_manifest PASSED [ 94%]
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py::test_e03_zz_a07_c01_evidence_schema FAILED [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_e03_zz_a07_c01_evidence_schema ______________________
+experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py:1186: in test_e03_zz_a07_c01_evidence_schema
+    assert not errors, errors
+E   AssertionError: ['missing E03-A07-C01']
+E   assert not ['missing E03-A07-C01']
+=============================== warnings summary ===============================
+../../../../../opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636
+  /opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../../../../opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636
+  /opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636: PytestConfigWarning: Unknown config option: asyncio_mode
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e03/evidence/junit.xml -
+=================== 1 failed, 17 passed, 2 warnings in 1.95s ===================

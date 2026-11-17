@@ -1,0 +1,37 @@
+{
+  "case_id": "E03-A01-N01",
+  "contract_sha256": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427",
+  "run_id": "44112675849",
+  "timestamp_utc": "2026-11-17T15:18:23.024817+00:00",
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e03/evidence/E03-A01-N01.json"
+  ],
+  "limitations": [
+    "Synthetic experiment only; not real Cloud/Local Sync proof."
+  ],
+  "finding_id": "A01",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "PHYSICAL_PG15",
+  "postgres_server_version_num": 150020,
+  "database_label": "postgres",
+  "session_user": "postgres",
+  "current_user": "postgres",
+  "preconditions": "login as exp_e03_norole without migrator membership",
+  "command_redacted": "safe_upgrade(norole_url, exp_e03_base)",
+  "expected_result": "immediate abort; no DDL/stamp/fallback",
+  "observed_result": {
+    "error": "STOP_SECURITY: SET ROLE exp_e03_migrator failed; no fallback to privileged identity: (psycopg2.errors.InsufficientPrivilege) permission denied to set role \"exp_e03_migrator\"\n\n[SQL: SET ROLE exp_e03_migrator]\n(Background on this error at: https://sqlalche.me/e/21/f405)",
+    "identifiers_exist": false,
+    "versions": []
+  },
+  "exit_code": "NONZERO_EXPECTED",
+  "before_state": {
+    "versions": []
+  },
+  "after_state": {
+    "versions": [],
+    "identifiers_exist": false
+  }
+}

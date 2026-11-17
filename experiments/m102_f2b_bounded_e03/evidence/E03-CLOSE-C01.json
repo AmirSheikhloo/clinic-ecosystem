@@ -1,0 +1,33 @@
+{
+  "case_id": "E03-CLOSE-C01",
+  "contract_sha256": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427",
+  "run_id": "44112675849",
+  "timestamp_utc": "2026-11-17T15:18:24.030147+00:00",
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e03/evidence/E03-CLOSE-C01.json"
+  ],
+  "limitations": [
+    "Hosted Actions service teardown is platform-owned; experiment claims only owned SQL objects disposed per job end."
+  ],
+  "finding_id": "CLOSE",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "postgres_server_version_num": 150020,
+  "database_label": "postgres",
+  "session_user": "NOT_APPLICABLE_closure_control",
+  "current_user": "NOT_APPLICABLE_closure_control",
+  "preconditions": "CI ephemeral resources; immutable E0.2 refs retained",
+  "command_redacted": "closure checklist prior to final report",
+  "expected_result": "cleanup facts + grant cutoff recorded",
+  "observed_result": {
+    "parent_e02": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+    "contract": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+    "expiry": "2026-11-27T22:59:00Z",
+    "ci_event": "push"
+  },
+  "exit_code": 0,
+  "before_state": "suite executing",
+  "after_state": "closure_control_recorded"
+}

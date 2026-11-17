@@ -1,0 +1,141 @@
+{
+  "document": "POST_HOC_EVIDENCE_SCHEMA_RECHECK",
+  "timestamp_utc": "2026-11-17T15:20:05.730480+00:00",
+  "note": "Offline recheck after CI attempt 2; not a new authorized test execution. A07-C01 remains OBSERVED_FAIL per CI-written record.",
+  "schema_errors": [],
+  "cases": [
+    {
+      "case_id": "E03-A01-P01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A01-N01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A02-N01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A02-P01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A02-N02",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A03-P01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A03-N01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A04-P01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A04-N01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A05-C01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "GOVERNANCE_CONTROL",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A06-P01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A06-N01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A06-N02",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A07-C01",
+      "classification": "OBSERVED_FAIL",
+      "execution_kind": "GOVERNANCE_CONTROL",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A07-C02",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "GOVERNANCE_CONTROL",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A08-N01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "GOVERNANCE_CONTROL",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-A08-P01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "GOVERNANCE_CONTROL",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-REG-P01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "PHYSICAL_PG15",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    },
+    {
+      "case_id": "E03-CLOSE-C01",
+      "classification": "OBSERVED_PASS",
+      "execution_kind": "GOVERNANCE_CONTROL",
+      "run_id": "44112675849",
+      "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427"
+    }
+  ]
+}

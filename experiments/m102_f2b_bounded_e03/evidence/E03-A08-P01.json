@@ -1,0 +1,60 @@
+{
+  "case_id": "E03-A08-P01",
+  "contract_sha256": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427",
+  "run_id": "44112675849",
+  "timestamp_utc": "2026-11-17T15:18:23.941664+00:00",
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e03/evidence/E03-A08-P01.json"
+  ],
+  "limitations": [
+    "Synthetic experiment only; not real Cloud/Local Sync proof."
+  ],
+  "finding_id": "A08",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "postgres_server_version_num": 150020,
+  "database_label": "NOT_APPLICABLE_diff_guard",
+  "session_user": "NOT_APPLICABLE_diff_guard",
+  "current_user": "NOT_APPLICABLE_diff_guard",
+  "preconditions": "parent=471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "command_redacted": "git diff --name-status parent...HEAD + allowlist",
+  "expected_result": "only allowlisted paths",
+  "observed_result": {
+    "paths": [
+      ".github/workflows/m102-f2b-bounded-e03.yml",
+      "experiments/m102_f2b_bounded_e03/README.md",
+      "experiments/m102_f2b_bounded_e03/alembic.ini",
+      "experiments/m102_f2b_bounded_e03/env.py",
+      "experiments/m102_f2b_bounded_e03/evidence/CI_ATTEMPT_1_FAILURE.md",
+      "experiments/m102_f2b_bounded_e03/evidence/E03_5_1_SAFETY_MANIFEST.json",
+      "experiments/m102_f2b_bounded_e03/evidence/E03_5_1_SAFETY_MANIFEST.md",
+      "experiments/m102_f2b_bounded_e03/evidence/M102_F2B_CORRECTIVE_EVIDENCE_AND_GOVERNANCE_CONTRACT_E0.3_PROPOSED.md",
+      "experiments/m102_f2b_bounded_e03/evidence/M102_F2B_E0.2_INDEPENDENT_AUDIT_A0.1.md",
+      "experiments/m102_f2b_bounded_e03/evidence/M102_F2B_E0.3_PO_APPROVAL_RECORD.md",
+      "experiments/m102_f2b_bounded_e03/evidence/M102_F2B_E03_SEPARATE_PO_EXECUTION_AUTHORIZATION_D0.1_PROPOSED.md",
+      "experiments/m102_f2b_bounded_e03/harness/__init__.py",
+      "experiments/m102_f2b_bounded_e03/harness/admission.py",
+      "experiments/m102_f2b_bounded_e03/harness/bootstrap.py",
+      "experiments/m102_f2b_bounded_e03/harness/evidence.py",
+      "experiments/m102_f2b_bounded_e03/harness/path_guard.py",
+      "experiments/m102_f2b_bounded_e03/harness/upgrade_wrapper.py",
+      "experiments/m102_f2b_bounded_e03/harness/writer_fence.py",
+      "experiments/m102_f2b_bounded_e03/tests/conftest.py",
+      "experiments/m102_f2b_bounded_e03/tests/test_e03_corrective_suite.py",
+      "experiments/m102_f2b_bounded_e03/versions/exp_e03_base.py",
+      "experiments/m102_f2b_bounded_e03/versions/exp_e03_cat1.py",
+      "experiments/m102_f2b_bounded_e03/versions/exp_e03_cat2.py",
+      "experiments/m102_f2b_bounded_e03/versions/exp_e03_h6.py",
+      "experiments/m102_f2b_bounded_e03/versions/exp_e03_h8.py"
+    ]
+  },
+  "exit_code": 0,
+  "before_state": {
+    "parent": "471f88417bfcf69ce864b333114e7fb0f777ede0"
+  },
+  "after_state": {
+    "path_count": 25
+  }
+}

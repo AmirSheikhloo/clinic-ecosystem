@@ -1,0 +1,58 @@
+{
+  "case_id": "E03-A08-N01",
+  "contract_sha256": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427",
+  "run_id": "44112675849",
+  "timestamp_utc": "2026-11-17T15:18:23.938925+00:00",
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e03/evidence/E03-A08-N01.json"
+  ],
+  "limitations": [
+    "Synthetic experiment only; not real Cloud/Local Sync proof."
+  ],
+  "finding_id": "A08",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "postgres_server_version_num": 150020,
+  "database_label": "NOT_APPLICABLE_path_guard_unit",
+  "session_user": "NOT_APPLICABLE_path_guard_unit",
+  "current_user": "NOT_APPLICABLE_path_guard_unit",
+  "preconditions": "synthetic injected paths only; no repo mutation",
+  "command_redacted": "classify_paths/assert_paths_allowed on injected list",
+  "expected_result": "fail-closed listing offenders",
+  "observed_result": {
+    "bad": [
+      "migrations/tenant_plane/versions/tp0008_dummy.py",
+      "src/app/main.py",
+      ".github/workflows/m0-postgres-integration.yml",
+      "docs/FINAL_MASTER_SPECIFICATION_v3.0.1_FINAL.txt",
+      "Experiments/m102_f2b_bounded_e03/escape.py"
+    ],
+    "error": "STOP_SECURITY: out-of-allowlist paths: .github/workflows/m0-postgres-integration.yml, Experiments/m102_f2b_bounded_e03/escape.py, docs/FINAL_MASTER_SPECIFICATION_v3.0.1_FINAL.txt, migrations/tenant_plane/versions/tp0008_dummy.py, src/app/main.py",
+    "ok": [
+      "experiments/m102_f2b_bounded_e03/harness/x.py",
+      ".github/workflows/m102-f2b-bounded-e03.yml"
+    ]
+  },
+  "exit_code": 0,
+  "before_state": {
+    "injected": [
+      "migrations/tenant_plane/versions/tp0008_dummy.py",
+      "src/app/main.py",
+      ".github/workflows/m0-postgres-integration.yml",
+      "docs/FINAL_MASTER_SPECIFICATION_v3.0.1_FINAL.txt",
+      "../secret",
+      "Experiments/m102_f2b_bounded_e03/escape.py"
+    ]
+  },
+  "after_state": {
+    "bad": [
+      "migrations/tenant_plane/versions/tp0008_dummy.py",
+      "src/app/main.py",
+      ".github/workflows/m0-postgres-integration.yml",
+      "docs/FINAL_MASTER_SPECIFICATION_v3.0.1_FINAL.txt",
+      "Experiments/m102_f2b_bounded_e03/escape.py"
+    ]
+  }
+}

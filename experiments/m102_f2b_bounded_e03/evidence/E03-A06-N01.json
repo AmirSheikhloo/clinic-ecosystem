@@ -1,0 +1,55 @@
+{
+  "case_id": "E03-A06-N01",
+  "contract_sha256": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "tested_commit_sha": "3c63e93846e7a79e6700414ab891fc5e3d983427",
+  "run_id": "44112675849",
+  "timestamp_utc": "2026-11-17T15:18:23.873947+00:00",
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e03/evidence/E03-A06-N01.json"
+  ],
+  "limitations": [
+    "Synthetic experiment only; not real Cloud/Local Sync proof."
+  ],
+  "finding_id": "A06",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "PHYSICAL_PG15",
+  "postgres_server_version_num": 150020,
+  "database_label": "postgres",
+  "session_user": "postgres",
+  "current_user": "postgres",
+  "preconditions": "duplicate next digests engineered",
+  "command_redacted": "CREATE UNIQUE INDEX CONCURRENTLY; DROP; repair; retry h6",
+  "expected_result": "indisvalid=false recorded; stamp forbidden; repair yields valid",
+  "observed_result": {
+    "create_error": "could not create unique index \"uq_exp_e03_next_lookup\"\nDETAIL:  Key (tenant_id, lookup_hmac_next)=(733baee2-3f49-4837-9d55-1b61c30b1adc, \\xb1c38dad0a72bcf992c6c03a82effd310bdf3b0017c05e8bf0947312d8f442f9) is duplicated.\n",
+    "invalid_state": {
+      "relname": "uq_exp_e03_next_lookup",
+      "indisvalid": false,
+      "indisready": false,
+      "indisunique": true
+    },
+    "repaired": {
+      "indisvalid": true,
+      "indisready": true
+    },
+    "versions_after_fail": [
+      "exp_e03_base"
+    ]
+  },
+  "exit_code": 0,
+  "before_state": {
+    "versions": [
+      "exp_e03_base"
+    ]
+  },
+  "after_state": {
+    "versions": [
+      "exp_e03_h6"
+    ],
+    "index": [
+      true,
+      true
+    ]
+  }
+}
