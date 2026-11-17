@@ -1,0 +1,140 @@
+name: M102 F2-B E0.3 corrective experiment
+
+on:
+  push:
+    branches:
+      - "experiment/m102-f2b-e03-*"
+    paths:
+      - "experiments/m102_f2b_bounded_e03/**"
+      - ".github/workflows/m102-f2b-bounded-e03.yml"
+      - "!experiments/m102_f2b_bounded_e03/evidence/**"
+
+permissions:
+  contents: read
+
+jobs:
+  f2b-e03-corrective:
+    name: Disposable PG15 E0.3 corrective suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synth-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Authorization clock gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+          now = datetime.now(timezone.utc)
+          bound = datetime(2026, 11, 27, 22, 59, 0, tzinfo=timezone.utc)
+          print("now_utc=", now.isoformat())
+          if now >= bound:
+              raise SystemExit("E0.3 authorization expired")
+          PY
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify event/branch and full-range allowlist BEFORE SQL
+        shell: bash
+        env:
+          E03_PARENT_COMMIT_SHA: 471f88417bfcf69ce864b333114e7fb0f777ede0
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = "push"
+          case "$GITHUB_REF_NAME" in
+            experiment/m102-f2b-e03-*) ;;
+            *) echo "unexpected branch $GITHUB_REF_NAME"; exit 1 ;;
+          esac
+          test -d experiments/m102_f2b_bounded_e03
+          test -f .github/workflows/m102-f2b-bounded-e03.yml
+          python3 - <<'PY'
+          import os, sys
+          sys.path.insert(0, "experiments/m102_f2b_bounded_e03")
+          from harness.path_guard import assert_repo_range_allowlisted, PathAllowlistError
+          parent = os.environ["E03_PARENT_COMMIT_SHA"]
+          head = os.environ["GITHUB_SHA"]
+          try:
+              paths = assert_repo_range_allowlisted(parent=parent, head=head)
+          except PathAllowlistError as exc:
+              raise SystemExit(str(exc))
+          print("allowlisted_paths=")
+          for p in paths:
+              print(p)
+          if not paths:
+              raise SystemExit("empty diff unexpectedly")
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install experiment dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "psycopg2-binary>=2.9" "alembic>=1.13" "SQLAlchemy>=2.0" "pytest>=8.0"
+
+      - name: Run E0.3 corrective suite
+        env:
+          EXP_E03_ADMIN_DSN: postgresql://postgres:synth-ci-only@localhost:5432/postgres
+          EXP_E03_DATABASE_URL: postgresql://postgres:synth-ci-only@localhost:5432/exp_e03
+          E03_PARENT_COMMIT_SHA: 471f88417bfcf69ce864b333114e7fb0f777ede0
+          E03_TESTED_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p experiments/m102_f2b_bounded_e03/evidence
+          python -m pytest experiments/m102_f2b_bounded_e03/tests \
+            -v --tb=short -rs \
+            --junitxml=experiments/m102_f2b_bounded_e03/evidence/junit.xml \
+            | tee experiments/m102_f2b_bounded_e03/evidence/pytest.txt
+
+      - name: Summarize outcomes and refuse skips
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          junit = Path("experiments/m102_f2b_bounded_e03/evidence/junit.xml")
+          if not junit.exists():
+              raise SystemExit("missing junit")
+          cases = ET.parse(junit).getroot().findall(".//testcase")
+          failed = sum(1 for c in cases if c.find("failure") is not None or c.find("error") is not None)
+          skipped = sum(1 for c in cases if c.find("skipped") is not None)
+          print(f"total={len(cases)} failed={failed} skipped={skipped}")
+          Path("experiments/m102_f2b_bounded_e03/evidence/summary.txt").write_text(
+              f"total={len(cases)}\nfailed={failed}\nskipped={skipped}\n"
+              f"acceptance_status=CORRECTIVE_EVIDENCE_PENDING_INDEPENDENT_AUDIT\n",
+              encoding="utf-8",
+          )
+          if failed or skipped:
+              raise SystemExit("suite not clean")
+          if len(cases) < 1:
+              raise SystemExit("no tests collected")
+          PY
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m102-f2b-e03-evidence
+          path: experiments/m102_f2b_bounded_e03/evidence/**
+          if-no-files-found: warn
