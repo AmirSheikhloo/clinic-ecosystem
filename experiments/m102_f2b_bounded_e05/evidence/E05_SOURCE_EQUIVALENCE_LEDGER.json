@@ -1,0 +1,194 @@
+{
+  "document": "E05_SOURCE_EQUIVALENCE_LEDGER",
+  "created_utc": "2026-11-18T14:19:04.303565+00:00",
+  "base_commit": "f1b11731590fe29a294f86cf7cf5b64878d8ec7d",
+  "parent_e04_tested_commit_sha": "8d015959ec6b2570da74d63d8f7ee0e88d1cff64",
+  "frozen_spec_blob": "befde437b6f951e1da71fdb4f0e61d043049c168",
+  "adaptation_policy": "Copy e04 harness/migrations/tests into e05 paths; rename EXP_E04\u2192EXP_E05 and package paths; keep exp_e03_* SQL role/table identifiers for semantic equivalence of physical proofs; forensic acceptance (FC01-FC10), real-gate fixtures, auxiliary seal, and workflow are intentional E0.5 deltas. No official src/migrations changes.",
+  "files": [
+    {
+      "e05_rel": "README.md",
+      "e05_sha256": "e30d7f9d6b9cd8786f2a751bb98e518f1f751c7b4dea2cc5f288c2bac83482a3",
+      "e04_rel": "README.md",
+      "e04_sha256": "e30d7f9d6b9cd8786f2a751bb98e518f1f751c7b4dea2cc5f288c2bac83482a3",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "alembic.ini",
+      "e05_sha256": "0767ff120f3bb3384314a9879e77e3679d714fe730f77ce7c2b391c59b578706",
+      "e04_rel": "alembic.ini",
+      "e04_sha256": "0767ff120f3bb3384314a9879e77e3679d714fe730f77ce7c2b391c59b578706",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "env.py",
+      "e05_sha256": "fbf1dab44755f9a19c17a0cf529b0361565ef8ca884110975e15bff90ad6950c",
+      "e04_rel": "env.py",
+      "e04_sha256": "d5eaefe27710fa401d3cc50740de16ba2dc4eef3e157023292a2e5837eabb94a",
+      "byte_identical_to_e04": false,
+      "note": "path_or_env_rename"
+    },
+    {
+      "e05_rel": "evidence/E03_5_1_SAFETY_MANIFEST.json",
+      "e05_sha256": "d0690eb1c3d57840e9be71417127d3ecd93bb26325f9785952700a0b66a81306",
+      "e04_rel": "evidence/E03_5_1_SAFETY_MANIFEST.json",
+      "e04_sha256": "e01b695c8c4e1881b9fd5cafcf3dbec1ea805a24032659a29fd5a62c046883d4",
+      "byte_identical_to_e04": false,
+      "note": "path_or_env_rename"
+    },
+    {
+      "e05_rel": "evidence/E05_G2_PRE_EXECUTION_SAFETY_MANIFEST.json",
+      "e05_sha256": "7eb2faf705f8b8fb021159451b5c7740e4f47e1a9842c77a55510541eca11074",
+      "e04_rel": null,
+      "e04_sha256": null,
+      "byte_identical_to_e04": false,
+      "note": "e05_new_or_renamed"
+    },
+    {
+      "e05_rel": "harness/__init__.py",
+      "e05_sha256": "330ef5639dcc2e65cd62a57fa5dcb1dd0baa60e8cc57acb4118ff01c4ff157f6",
+      "e04_rel": "harness/__init__.py",
+      "e04_sha256": "330ef5639dcc2e65cd62a57fa5dcb1dd0baa60e8cc57acb4118ff01c4ff157f6",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "harness/admission.py",
+      "e05_sha256": "e520c4616b55c81a660014d07d041f24c38c110badb0401228330c8056ebccae",
+      "e04_rel": "harness/admission.py",
+      "e04_sha256": "e520c4616b55c81a660014d07d041f24c38c110badb0401228330c8056ebccae",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "harness/bootstrap.py",
+      "e05_sha256": "7b65ab74c75465ae3b4d03d8fcfcb631cc0a9dfff053cfdc0d6cd75d1c6d2cde",
+      "e04_rel": "harness/bootstrap.py",
+      "e04_sha256": "484ff87bc82c369c661e2c5acd10244f0e6946e500cb5bae14c0b554f3ce6410",
+      "byte_identical_to_e04": false,
+      "note": "path_or_env_rename"
+    },
+    {
+      "e05_rel": "harness/evidence.py",
+      "e05_sha256": "49b2c5d9b12c2da329f527f928badeea37fdc29227ca99fbe5cd87b4aa8e459b",
+      "e04_rel": "harness/evidence.py",
+      "e04_sha256": "74961fa637040fdd1394cc0adb15fb96e0f31f420c89aebc3f8e01fd7639ae3f",
+      "byte_identical_to_e04": false,
+      "note": "intentional_E05_forensic_hardening"
+    },
+    {
+      "e05_rel": "harness/path_guard.py",
+      "e05_sha256": "164e7f98e69984fbc459d402405d4ad6de51832fa85a2a2f6bcec08126c43b54",
+      "e04_rel": "harness/path_guard.py",
+      "e04_sha256": "8dad02ff8ae319b47288a1d5350ce7e38d329635f6516fe5555dce739b5052ef",
+      "byte_identical_to_e04": false,
+      "note": "path_rename_parent_to_e04_final"
+    },
+    {
+      "e05_rel": "harness/upgrade_wrapper.py",
+      "e05_sha256": "4970cd2345e3beaa81d09d4c925d0d91d14e777d939632277a860e6c57b43883",
+      "e04_rel": "harness/upgrade_wrapper.py",
+      "e04_sha256": "4970cd2345e3beaa81d09d4c925d0d91d14e777d939632277a860e6c57b43883",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "harness/writer_fence.py",
+      "e05_sha256": "f20e13c247f68032321841bd52eced8adf769551148c21e4410c3a32ffa49e6a",
+      "e04_rel": "harness/writer_fence.py",
+      "e04_sha256": "f20e13c247f68032321841bd52eced8adf769551148c21e4410c3a32ffa49e6a",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "scripts/ci_gate_sequence.py",
+      "e05_sha256": "009962fee3e7db0be1dbb9ff701d8105c87e7c51944fb6109ee62b840c631b07",
+      "e04_rel": null,
+      "e04_sha256": null,
+      "byte_identical_to_e04": false,
+      "note": "intentional_E05_validator_gate_hardening"
+    },
+    {
+      "e05_rel": "scripts/post_pytest_forensic_verify.py",
+      "e05_sha256": "ca2d9bf067d8c0e54b0d4c1c9803d8e00af5941b493dc6078ebe1a79fb7e94f4",
+      "e04_rel": "scripts/post_pytest_forensic_verify.py",
+      "e04_sha256": "563985413f25fa154c2c972b1da77c1549f085215f29c2f7e44f33a1a7e1b73c",
+      "byte_identical_to_e04": false,
+      "note": "intentional_E05_validator_gate_hardening"
+    },
+    {
+      "e05_rel": "scripts/post_seal_verify.py",
+      "e05_sha256": "883e30f6d5aa876821c4f03c6ffab84078c5fda594bcb3c7967856e9eb6dfc17",
+      "e04_rel": null,
+      "e04_sha256": null,
+      "byte_identical_to_e04": false,
+      "note": "intentional_E05_validator_gate_hardening"
+    },
+    {
+      "e05_rel": "tests/conftest.py",
+      "e05_sha256": "e17b5b7f45a31445b5509fdd57c446bde7a576baaeeb8bbaba146d5a3eab2d17",
+      "e04_rel": "tests/conftest.py",
+      "e04_sha256": "80fac4dd905685087d280a31f3cced05a95c60cc55c73fd1b6878d3b2ff955fb",
+      "byte_identical_to_e04": false,
+      "note": "path_or_env_rename"
+    },
+    {
+      "e05_rel": "tests/test_e03_corrective_suite.py",
+      "e05_sha256": "217bc786a6cdecc81a7825512185ce02fd627c07272abe7baf28e41048de1c36",
+      "e04_rel": "tests/test_e03_corrective_suite.py",
+      "e04_sha256": "18e4014336c298f1b3463484ea41b8effb67aada808259b8e7f4793f67e05f7b",
+      "byte_identical_to_e04": false,
+      "note": "env_path_clock_parent_renames_only_plus_C01_fields; physical SQL semantics retained"
+    },
+    {
+      "e05_rel": "tests/test_z_e04_validator_fixtures.py",
+      "e05_sha256": "40d0d090e12b25c9ecc6a31d288da0a50330c7c8985eca09a41eabe25c7a2a78",
+      "e04_rel": "tests/test_z_e04_validator_fixtures.py",
+      "e04_sha256": "42fc96ff5d899689c2e044edfa56b49bd246508d6633b56cdc4e6af1c8b78dfc",
+      "byte_identical_to_e04": false,
+      "note": "intentional_E05_validator_gate_hardening"
+    },
+    {
+      "e05_rel": "versions/exp_e03_base.py",
+      "e05_sha256": "ba3730c42f7da3e05dfd3633b309b91c1ea37799adae2ab6098c53fb2b6c4a28",
+      "e04_rel": "versions/exp_e03_base.py",
+      "e04_sha256": "ba3730c42f7da3e05dfd3633b309b91c1ea37799adae2ab6098c53fb2b6c4a28",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "versions/exp_e03_cat1.py",
+      "e05_sha256": "16a000347316eadb4cc253cb335a463558bc887072ac64bbb14ad59f61133bfd",
+      "e04_rel": "versions/exp_e03_cat1.py",
+      "e04_sha256": "16a000347316eadb4cc253cb335a463558bc887072ac64bbb14ad59f61133bfd",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "versions/exp_e03_cat2.py",
+      "e05_sha256": "2fcf90ffd2cdd741b5bcd9beef960ba86ec0b5db81895b196eb503098df540d4",
+      "e04_rel": "versions/exp_e03_cat2.py",
+      "e04_sha256": "2fcf90ffd2cdd741b5bcd9beef960ba86ec0b5db81895b196eb503098df540d4",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "versions/exp_e03_h6.py",
+      "e05_sha256": "c889cf8db74a5d8abd6d121c635be73d4dd5a53d1e45a4474d713416f112a60b",
+      "e04_rel": "versions/exp_e03_h6.py",
+      "e04_sha256": "c889cf8db74a5d8abd6d121c635be73d4dd5a53d1e45a4474d713416f112a60b",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    },
+    {
+      "e05_rel": "versions/exp_e03_h8.py",
+      "e05_sha256": "ea7cfd16a0b37996e24b1cc0336f42d8fbce819f27a6f5158e44b35b06b3e8d2",
+      "e04_rel": "versions/exp_e03_h8.py",
+      "e04_sha256": "ea7cfd16a0b37996e24b1cc0336f42d8fbce819f27a6f5158e44b35b06b3e8d2",
+      "byte_identical_to_e04": true,
+      "note": "byte_identical"
+    }
+  ]
+}
