@@ -185,8 +185,9 @@ def test_e04_v04_byte_tamper_fails_manifest(tmp_path: Path):
     victim.write_bytes(raw[:-1] + (b"X" if raw[-1:] != b"X" else b"Y"))
     proc = _run_primary(dst, man)
     assert proc.returncode != 0
-    assert "hash mismatch" in (proc.stdout + proc.stderr)
-    _record_fixture("E04-V04", observed_result={"verifier_exit": proc.returncode}, command_redacted="primary_verify_cli(byte tamper)", source_test="test_e04_v04_byte_tamper_fails_manifest")
+    out = proc.stdout + proc.stderr
+    assert "PRIMARY_HASH_MISMATCH" in out or "hash mismatch" in out
+    _record_fixture("E04-V04", observed_result={"verifier_exit": proc.returncode, "detector": "PRIMARY_HASH_MISMATCH"}, command_redacted="primary_verify_cli(byte tamper)", source_test="test_e04_v04_byte_tamper_fails_manifest")
 
 
 def test_e04_v05_stale_sha_rejected(tmp_path: Path):

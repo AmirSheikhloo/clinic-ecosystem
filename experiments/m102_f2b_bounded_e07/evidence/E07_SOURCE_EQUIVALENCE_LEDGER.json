@@ -1,6 +1,6 @@
 {
   "document": "E07_SOURCE_EQUIVALENCE_LEDGER",
-  "created_utc": "2026-11-18T21:09:10.446465Z",
+  "created_utc": "2026-11-18T21:11:05.833174Z",
   "base_commit": "36a0cebc67bda89e0942b0491d5bb2eff9745b04",
   "parent_e06_tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
   "parent_e06_final_commit_sha": "36a0cebc67bda89e0942b0491d5bb2eff9745b04",
@@ -375,5 +375,6 @@
       "byte_identical_to_e06": true,
       "note": "byte_identical"
     }
-  ]
+  ],
+  "corrective_note": "CI1 run 44398524613 failed solely on E04-V04 assertion looking for legacy \"hash mismatch\" text; CLI correctly returned nonzero with PRIMARY_HASH_MISMATCH. Non-security fixture harness defect."
 }
