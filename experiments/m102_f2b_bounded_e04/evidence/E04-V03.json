@@ -1,0 +1,53 @@
+{
+  "case_id": "E04-V03",
+  "finding_id": "E04V",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "contract_sha256": "8dbb6b774e7baa532fb424aa7260b0439f3fed10c0575061b546757199ca04e3",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "tested_commit_sha": "8d015959ec6b2570da74d63d8f7ee0e88d1cff64",
+  "run_id": "44294184379",
+  "timestamp_utc": "2026-11-18T11:23:37.884899+00:00",
+  "postgres_server_version_num": 150000,
+  "database_label": "NOT_APPLICABLE_validator_fixture",
+  "session_user": "NOT_APPLICABLE_validator_fixture",
+  "current_user": "NOT_APPLICABLE_validator_fixture",
+  "preconditions": "disposable evidence copy",
+  "command_redacted": "E04-V03",
+  "expected_result": "reject missing/duplicate/wrong ID",
+  "observed_result": {
+    "missing": [
+      "E03-A01-P01"
+    ],
+    "ids": [
+      "E03-A07-C01",
+      "E03-A06-N02",
+      "E03-A02-N01",
+      "E03-REG-P01",
+      "E03-A08-P01",
+      "E03-A02-P01",
+      "E03-A02-N02",
+      "E03-CLOSE-C01",
+      "E03-A03-P01",
+      "E03-A08-N01",
+      "E03-A02-P01",
+      "E03-A04-P01",
+      "E03-A03-N01",
+      "E03-A06-P01",
+      "E03-A06-N01",
+      "E03-A07-C02",
+      "E03-A05-C01",
+      "E03-A04-N01"
+    ]
+  },
+  "exit_code": 0,
+  "before_state": {},
+  "after_state": {},
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e04/evidence/E04-V03.json"
+  ],
+  "limitations": [
+    "Validator fixture on disposable copies; not a physical PG15 case."
+  ]
+}

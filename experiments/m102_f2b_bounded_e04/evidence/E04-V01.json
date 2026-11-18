@@ -1,0 +1,32 @@
+{
+  "case_id": "E04-V01",
+  "finding_id": "E04V",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "contract_sha256": "8dbb6b774e7baa532fb424aa7260b0439f3fed10c0575061b546757199ca04e3",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "tested_commit_sha": "8d015959ec6b2570da74d63d8f7ee0e88d1cff64",
+  "run_id": "44294184379",
+  "timestamp_utc": "2026-11-18T11:23:37.878577+00:00",
+  "postgres_server_version_num": 150000,
+  "database_label": "NOT_APPLICABLE_validator_fixture",
+  "session_user": "NOT_APPLICABLE_validator_fixture",
+  "current_user": "NOT_APPLICABLE_validator_fixture",
+  "preconditions": "fresh protocol, C01 not written",
+  "command_redacted": "validate_evidence_record(provisional C01)",
+  "expected_result": "no circular missing-self; no premature PASS",
+  "observed_result": {
+    "errors": [],
+    "classification": "UNVERIFIED"
+  },
+  "exit_code": 0,
+  "before_state": {},
+  "after_state": {},
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e04/evidence/E04-V01.json"
+  ],
+  "limitations": [
+    "Validator fixture on disposable copies; not a physical PG15 case."
+  ]
+}

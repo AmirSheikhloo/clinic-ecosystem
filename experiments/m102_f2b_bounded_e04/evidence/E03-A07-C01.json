@@ -1,0 +1,78 @@
+{
+  "case_id": "E03-A07-C01",
+  "contract_sha256": "8dbb6b774e7baa532fb424aa7260b0439f3fed10c0575061b546757199ca04e3",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "e03_contract_sha256_historical": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "tested_commit_sha": "8d015959ec6b2570da74d63d8f7ee0e88d1cff64",
+  "run_id": "44294184379",
+  "run_attempt": "1",
+  "timestamp_utc": "2026-11-18T11:23:37.876380+00:00",
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e04/evidence/E03-A07-C01.json"
+  ],
+  "limitations": [
+    "Synthetic experiment only; not real Cloud/Local Sync proof.",
+    "E0.4 forensic re-proof; not F2-B/Package 1/ACR/Gate approval."
+  ],
+  "finding_id": "A07",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "postgres_server_version_num": 150020,
+  "database_label": "NOT_APPLICABLE_schema_validation",
+  "session_user": "NOT_APPLICABLE_schema_validation",
+  "current_user": "NOT_APPLICABLE_schema_validation",
+  "preconditions": "18 peer evidence JSON present; candidate C01 validated in memory",
+  "command_redacted": "validate 18 peers + candidate C01; write C01; write_case_manifest",
+  "expected_result": "19 stable JSONs; external digest manifest; no circular missing-self",
+  "observed_result": {
+    "peers_validated": [
+      "E03-A01-P01",
+      "E03-A01-N01",
+      "E03-A02-N01",
+      "E03-A02-P01",
+      "E03-A02-N02",
+      "E03-A03-P01",
+      "E03-A03-N01",
+      "E03-A04-P01",
+      "E03-A04-N01",
+      "E03-A05-C01",
+      "E03-A06-P01",
+      "E03-A06-N01",
+      "E03-A06-N02",
+      "E03-A07-C02",
+      "E03-A08-N01",
+      "E03-A08-P01",
+      "E03-REG-P01",
+      "E03-CLOSE-C01"
+    ],
+    "peer_errors": [],
+    "protocol": "E0.4 \u00a75.1 staged C01"
+  },
+  "exit_code": 0,
+  "before_state": {
+    "peers": [
+      "E03-A01-P01",
+      "E03-A01-N01",
+      "E03-A02-N01",
+      "E03-A02-P01",
+      "E03-A02-N02",
+      "E03-A03-P01",
+      "E03-A03-N01",
+      "E03-A04-P01",
+      "E03-A04-N01",
+      "E03-A05-C01",
+      "E03-A06-P01",
+      "E03-A06-N01",
+      "E03-A06-N02",
+      "E03-A07-C02",
+      "E03-A08-N01",
+      "E03-A08-P01",
+      "E03-REG-P01",
+      "E03-CLOSE-C01"
+    ]
+  },
+  "after_state": {
+    "c01_finalized": true
+  }
+}

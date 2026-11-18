@@ -1,0 +1,54 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.12.16/x64/bin/python
+cachedir: .pytest_cache
+rootdir: /home/runner/work/clinic-ecosystem/clinic-ecosystem
+configfile: pyproject.toml
+collecting ... collected 32 items
+
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a01_p01_fail_closed_migrator PASSED [  3%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a01_n01_set_role_denial PASSED [  6%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a02_n01_incomplete_backfill PASSED [  9%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a02_p01_notnull_and_check PASSED [ 12%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a02_n02_guard_denies_without_catalog PASSED [ 15%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a03_p01_overlapping_writers PASSED [ 18%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a03_n01_stale_writer_fence PASSED [ 21%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a04_p01_admission_allow PASSED [ 25%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a04_n01_admission_deny PASSED [ 28%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a05_c01_ci_governance PASSED [ 31%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a06_p01_autocommit_role PASSED [ 34%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a06_n01_invalid_index_recovery PASSED [ 37%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a06_n02_privilege_negatives PASSED [ 40%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a08_n01_injected_path_denials PASSED [ 43%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a08_p01_full_range_diff PASSED [ 46%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_reg_p01_topology PASSED [ 50%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_a07_c02_preflight_manifest PASSED [ 53%]
+experiments/m102_f2b_bounded_e04/tests/test_e03_corrective_suite.py::test_e03_zz_a07_c01_evidence_schema PASSED [ 56%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v01_no_circular_missing_c01 PASSED [ 59%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v02_complete_19_and_manifest PASSED [ 62%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v03_missing_or_duplicate_id PASSED [ 65%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v04_byte_tamper_fails_manifest PASSED [ 68%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v05_stale_sha_rejected PASSED [ 71%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v06_stale_run_id_rejected PASSED [ 75%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v07_invalid_field_rejected PASSED [ 78%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v08_skipped_as_pass_rejected PASSED [ 81%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v09_unsafe_paths_rejected PASSED [ 84%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v10_secret_redaction PASSED [ 87%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v11_bad_manifest_rejected PASSED [ 90%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v12_physical_nota_rejected PASSED [ 93%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v13_forensic_gate_independent PASSED [ 96%]
+experiments/m102_f2b_bounded_e04/tests/test_z_e04_validator_fixtures.py::test_e04_v14_clean_validator_pending_audit PASSED [100%]
+
+=============================== warnings summary ===============================
+../../../../../opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636
+  /opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636: PytestConfigWarning: Unknown config option: asyncio_default_fixture_loop_scope
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../../../../opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636
+  /opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/_pytest/config/__init__.py:1636: PytestConfigWarning: Unknown config option: asyncio_mode
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e04/evidence/junit.xml -
+======================== 32 passed, 2 warnings in 2.02s ========================

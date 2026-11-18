@@ -1,0 +1,36 @@
+{
+  "case_id": "E04-V06",
+  "finding_id": "E04V",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "contract_sha256": "8dbb6b774e7baa532fb424aa7260b0439f3fed10c0575061b546757199ca04e3",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "tested_commit_sha": "8d015959ec6b2570da74d63d8f7ee0e88d1cff64",
+  "run_id": "44294184379",
+  "timestamp_utc": "2026-11-18T11:23:37.888891+00:00",
+  "postgres_server_version_num": 150000,
+  "database_label": "NOT_APPLICABLE_validator_fixture",
+  "session_user": "NOT_APPLICABLE_validator_fixture",
+  "current_user": "NOT_APPLICABLE_validator_fixture",
+  "preconditions": "disposable evidence copy",
+  "command_redacted": "E04-V06",
+  "expected_result": "fail-closed denial or positive verify",
+  "observed_result": {
+    "errors": [
+      "E03-A05-C01: tested_commit_sha != GITHUB_SHA",
+      "E03-A05-C01: run_id must be numeric GITHUB_RUN_ID in CI",
+      "E03-A05-C01: LOCAL_NOT_CI rejected in CI",
+      "E03-A05-C01: run_id != GITHUB_RUN_ID"
+    ]
+  },
+  "exit_code": 0,
+  "before_state": {},
+  "after_state": {},
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e04/evidence/E04-V06.json"
+  ],
+  "limitations": [
+    "Validator fixture on disposable copies; not a physical PG15 case."
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "case_id": "E03-A03-P01",
+  "contract_sha256": "8dbb6b774e7baa532fb424aa7260b0439f3fed10c0575061b546757199ca04e3",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "e03_contract_sha256_historical": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "tested_commit_sha": "8d015959ec6b2570da74d63d8f7ee0e88d1cff64",
+  "run_id": "44294184379",
+  "run_attempt": "1",
+  "timestamp_utc": "2026-11-18T11:23:37.147139+00:00",
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e04/evidence/E03-A03-P01.json"
+  ],
+  "limitations": [
+    "Synthetic overlapping TX proof only; not Zero-Race-Window production claim."
+  ],
+  "finding_id": "A03",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "PHYSICAL_PG15",
+  "postgres_server_version_num": 150020,
+  "database_label": "postgres",
+  "session_user": "postgres",
+  "current_user": "postgres",
+  "preconditions": "two overlapping transactions; active unique index; barrier before DML",
+  "command_redacted": "concurrent INSERT same (tenant_id, lookup_hmac_active)",
+  "expected_result": "at most one authoritative colliding write commits; loser 23505",
+  "observed_result": {
+    "results": {
+      "B": {
+        "ok": true,
+        "sqlstate": null
+      },
+      "A": {
+        "ok": false,
+        "sqlstate": "23505",
+        "error": "duplicate key value violates unique constraint \"uq_exp_e03_active_lookup\"\nDETAIL:  Key (tenant_id, lookup_hmac_active)=(9ee4ca90-e95b-4f62-96cf-0e3df34dff3b, \\xb523056036fd6e1830783c2357b0ddb141a90a494060dd5045bf74723ef30f24) already exists.\n"
+      }
+    },
+    "timeline": [
+      "1795001017.130624:A:begun",
+      "1795001017.131086:B:begun",
+      "1795001017.131107:B:after_barrier",
+      "1795001017.131176:A:after_barrier",
+      "1795001017.132066:B:committed",
+      "1795001017.132302:A:rolled_back:23505"
+    ],
+    "seed_ident": "6f4d704b-f4df-4064-9ba6-7f0f2e51514c"
+  },
+  "exit_code": 0,
+  "before_state": {
+    "ident": "6f4d704b-f4df-4064-9ba6-7f0f2e51514c"
+  },
+  "after_state": {
+    "B": {
+      "ok": true,
+      "sqlstate": null
+    },
+    "A": {
+      "ok": false,
+      "sqlstate": "23505",
+      "error": "duplicate key value violates unique constraint \"uq_exp_e03_active_lookup\"\nDETAIL:  Key (tenant_id, lookup_hmac_active)=(9ee4ca90-e95b-4f62-96cf-0e3df34dff3b, \\xb523056036fd6e1830783c2357b0ddb141a90a494060dd5045bf74723ef30f24) already exists.\n"
+    }
+  }
+}

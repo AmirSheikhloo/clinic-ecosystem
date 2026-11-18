@@ -1,0 +1,37 @@
+{
+  "case_id": "E04-V11",
+  "finding_id": "E04V",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "contract_sha256": "8dbb6b774e7baa532fb424aa7260b0439f3fed10c0575061b546757199ca04e3",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "tested_commit_sha": "8d015959ec6b2570da74d63d8f7ee0e88d1cff64",
+  "run_id": "44294184379",
+  "timestamp_utc": "2026-11-18T11:23:37.892548+00:00",
+  "postgres_server_version_num": 150000,
+  "database_label": "NOT_APPLICABLE_validator_fixture",
+  "session_user": "NOT_APPLICABLE_validator_fixture",
+  "current_user": "NOT_APPLICABLE_validator_fixture",
+  "preconditions": "disposable evidence copy",
+  "command_redacted": "E04-V11",
+  "expected_result": "fail-closed denial or positive verify",
+  "observed_result": {
+    "errors": [
+      "bad digest: deadbeef",
+      "manifest must not include itself",
+      "manifest path set mismatch: missing=['experiments/m102_f2b_bounded_e04/evidence/E03-A01-N01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A02-N01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A02-N02.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A02-P01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A03-N01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A03-P01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A04-N01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A04-P01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A05-C01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A06-N01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A06-N02.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A06-P01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A07-C01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A07-C02.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A08-N01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-A08-P01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-CLOSE-C01.json', 'experiments/m102_f2b_bounded_e04/evidence/E03-REG-P01.json'] extra=['EVIDENCE_CASE_SHA256SUMS.txt']",
+      "hash mismatch for experiments/m102_f2b_bounded_e04/evidence/E03-A01-P01.json",
+      "missing file for manifest entry: EVIDENCE_CASE_SHA256SUMS.txt"
+    ]
+  },
+  "exit_code": 0,
+  "before_state": {},
+  "after_state": {},
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e04/evidence/E04-V11.json"
+  ],
+  "limitations": [
+    "Validator fixture on disposable copies; not a physical PG15 case."
+  ]
+}
