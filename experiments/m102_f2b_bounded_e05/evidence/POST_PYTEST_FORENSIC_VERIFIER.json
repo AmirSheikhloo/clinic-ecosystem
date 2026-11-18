@@ -1,0 +1,12 @@
+{
+  "gate": "E05_POST_PYTEST_FORENSIC_VERIFIER",
+  "manifest": "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e05/evidence/EVIDENCE_CASE_SHA256SUMS.txt",
+  "manifest_sha256": "2f735ce09bd84f2edf69b2b9cee8f621479390982c7f1794449951e8cab33423",
+  "errors": [],
+  "run_id": "44372870212",
+  "sha": "8652686f41f6420a7afe97e84b5f8f151c2a15bb",
+  "run_attempt": "1",
+  "require_acceptance_pass": true,
+  "ok": true,
+  "independent_external_verification": "PENDING"
+}

@@ -1,0 +1,12 @@
+{
+  "gate": "E05_ROOT_DIGESTS",
+  "primary_manifest": "EVIDENCE_CASE_SHA256SUMS.txt",
+  "primary_manifest_sha256": "2f735ce09bd84f2edf69b2b9cee8f621479390982c7f1794449951e8cab33423",
+  "auxiliary_manifest": "EVIDENCE_AUX_SHA256SUMS.txt",
+  "auxiliary_manifest_sha256": "ef2c69eed3832a70a5b5fcbfc9a7b2b49ca1e4c1ff5abf359694db9647e61e49",
+  "self_hashed": false,
+  "independent_external_verification": "PENDING",
+  "run_id": "44372870212",
+  "tested_commit_sha": "8652686f41f6420a7afe97e84b5f8f151c2a15bb",
+  "run_attempt": "1"
+}

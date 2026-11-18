@@ -1,0 +1,44 @@
+{
+  "case_id": "E04-V11",
+  "finding_id": "E04V",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "contract_sha256": "6cc9be44ded30170266427f669c1b159bee0d8b27c7ab2fcfecd8735271df783",
+  "authorization_sha256": "15712f73fa02cb589109645ade6be700c5bd0ab9832d23e2286dba1fc86b4ec3",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "parent_e04_final_commit_sha": "f1b11731590fe29a294f86cf7cf5b64878d8ec7d",
+  "tested_commit_sha": "8652686f41f6420a7afe97e84b5f8f151c2a15bb",
+  "run_id": "44372870212",
+  "run_attempt": "1",
+  "timestamp_utc": "2026-11-18T18:44:30.873526+00:00",
+  "postgres_server_version_num": 150000,
+  "database_label": "NOT_APPLICABLE_validator_fixture",
+  "session_user": "NOT_APPLICABLE_validator_fixture",
+  "current_user": "NOT_APPLICABLE_validator_fixture",
+  "preconditions": "disposable evidence copy",
+  "command_redacted": "E04-V11",
+  "expected_result": "fail-closed denial or positive verify",
+  "observed_result": {
+    "errors": [
+      "bad digest: deadbeef",
+      "manifest must not include itself",
+      "manifest path outside prefix: EVIDENCE_CASE_SHA256SUMS.txt",
+      "manifest path set mismatch: missing=['experiments/m102_f2b_bounded_e05/evidence/E03-A01-N01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A02-N01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A02-N02.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A02-P01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A03-N01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A03-P01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A04-N01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A04-P01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A05-C01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A06-N01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A06-N02.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A06-P01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A07-C01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A07-C02.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A08-N01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-A08-P01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-CLOSE-C01.json', 'experiments/m102_f2b_bounded_e05/evidence/E03-REG-P01.json'] extra=['EVIDENCE_CASE_SHA256SUMS.txt']",
+      "manifest entry count 2 != 19",
+      "hash mismatch for experiments/m102_f2b_bounded_e05/evidence/E03-A01-P01.json",
+      "missing file for manifest entry: EVIDENCE_CASE_SHA256SUMS.txt"
+    ]
+  },
+  "exit_code": 0,
+  "before_state": {},
+  "after_state": {},
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e05/evidence/E04-V11.json"
+  ],
+  "source_test": "test_e04_v11",
+  "limitations": [
+    "Validator fixture on disposable copies; not a physical PG15 case.",
+    "E5-E independent external verification PENDING."
+  ]
+}

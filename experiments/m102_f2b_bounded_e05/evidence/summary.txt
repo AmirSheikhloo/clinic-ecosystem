@@ -1,0 +1,4 @@
+total=32
+failed=0
+skipped=0
+acceptance_status=E05_CI_GREEN_SELF_REPORTED_PENDING_SEAL
