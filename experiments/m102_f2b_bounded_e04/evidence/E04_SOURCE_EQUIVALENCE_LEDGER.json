@@ -1,0 +1,235 @@
+{
+  "document": "E04_SOURCE_EQUIVALENCE_LEDGER",
+  "created_utc": "2026-11-18T11:17:54.731631+00:00",
+  "base_commit": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "e03_test_git_blob": "686f1411f3c9ec3f894dce74f022b408101a6e45",
+  "e03_evidence_git_blob": "95c6c8608944903550c0638eda18c6fbc5f993e1",
+  "frozen_spec_blob": "befde437b6f951e1da71fdb4f0e61d043049c168",
+  "adaptation_policy": "Copy e03 harness/migrations/tests into e04 paths; rename EXP_E03\u2192EXP_E04 and package paths; keep exp_e03_* SQL role/table identifiers for semantic equivalence of physical proofs; forensic/C01/validator/workflow are intentional E0.4 deltas.",
+  "files": [
+    {
+      "e04_rel": "README.md",
+      "e04_sha256_at_copy": "78310216b166fe48f0a2ca8ca5c15e09a44dec416876c72c14cddfde7e891545",
+      "e03_rel": "README.md",
+      "e03_sha256": "78310216b166fe48f0a2ca8ca5c15e09a44dec416876c72c14cddfde7e891545",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "__pycache__/env.cpython-312.pyc",
+      "e04_sha256_at_copy": "d908a9d578acbb99156c8d5505b99435ddcd3c5f894b93af5d226b7460753fdf",
+      "e03_rel": "__pycache__/env.cpython-312.pyc",
+      "e03_sha256": "d908a9d578acbb99156c8d5505b99435ddcd3c5f894b93af5d226b7460753fdf",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "alembic.ini",
+      "e04_sha256_at_copy": "0767ff120f3bb3384314a9879e77e3679d714fe730f77ce7c2b391c59b578706",
+      "e03_rel": "alembic.ini",
+      "e03_sha256": "0767ff120f3bb3384314a9879e77e3679d714fe730f77ce7c2b391c59b578706",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "env.py",
+      "e04_sha256_at_copy": "31a76ebb24e7cef4cd74186cb50e7d30f7a511f989e36660751f43f57c55683f",
+      "e03_rel": "env.py",
+      "e03_sha256": "31a76ebb24e7cef4cd74186cb50e7d30f7a511f989e36660751f43f57c55683f",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/__init__.py",
+      "e04_sha256_at_copy": "330ef5639dcc2e65cd62a57fa5dcb1dd0baa60e8cc57acb4118ff01c4ff157f6",
+      "e03_rel": "harness/__init__.py",
+      "e03_sha256": "330ef5639dcc2e65cd62a57fa5dcb1dd0baa60e8cc57acb4118ff01c4ff157f6",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/__pycache__/__init__.cpython-312.pyc",
+      "e04_sha256_at_copy": "56143a2d42d8b57f55a83554da95ec87079878d9fe363f7ecf5c64590aaadeaf",
+      "e03_rel": "harness/__pycache__/__init__.cpython-312.pyc",
+      "e03_sha256": "56143a2d42d8b57f55a83554da95ec87079878d9fe363f7ecf5c64590aaadeaf",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/__pycache__/admission.cpython-312.pyc",
+      "e04_sha256_at_copy": "af93be724e5895e289ffa5cbbaab6536778604375aabfc579100b0fbfe9f8aa1",
+      "e03_rel": "harness/__pycache__/admission.cpython-312.pyc",
+      "e03_sha256": "af93be724e5895e289ffa5cbbaab6536778604375aabfc579100b0fbfe9f8aa1",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/__pycache__/bootstrap.cpython-312.pyc",
+      "e04_sha256_at_copy": "a2cfbcaaaf9a34fd4d2e57a010b17369406d1cb6bf8593a73ecd807242da5acc",
+      "e03_rel": "harness/__pycache__/bootstrap.cpython-312.pyc",
+      "e03_sha256": "a2cfbcaaaf9a34fd4d2e57a010b17369406d1cb6bf8593a73ecd807242da5acc",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/__pycache__/evidence.cpython-312.pyc",
+      "e04_sha256_at_copy": "047c391001e4ad13e5ddbe5f2a296f99097a2f1fde9295737ed3682c44cf9bca",
+      "e03_rel": "harness/__pycache__/evidence.cpython-312.pyc",
+      "e03_sha256": "047c391001e4ad13e5ddbe5f2a296f99097a2f1fde9295737ed3682c44cf9bca",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/__pycache__/path_guard.cpython-312.pyc",
+      "e04_sha256_at_copy": "0e7c61a84c01650d022fe18b084d44de499cc5fecfe3b186f9b941f2d6434665",
+      "e03_rel": "harness/__pycache__/path_guard.cpython-312.pyc",
+      "e03_sha256": "0e7c61a84c01650d022fe18b084d44de499cc5fecfe3b186f9b941f2d6434665",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/__pycache__/upgrade_wrapper.cpython-312.pyc",
+      "e04_sha256_at_copy": "b9ff2dab4b37bf8fa7a52a394f0f9b06e033b25cc105cc6837259d93382fcaa0",
+      "e03_rel": "harness/__pycache__/upgrade_wrapper.cpython-312.pyc",
+      "e03_sha256": "b9ff2dab4b37bf8fa7a52a394f0f9b06e033b25cc105cc6837259d93382fcaa0",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/__pycache__/writer_fence.cpython-312.pyc",
+      "e04_sha256_at_copy": "ef147efdd1ba5767e27b97386e476d5f57ad3a8fe3f073fe0dfb5378d74dd88f",
+      "e03_rel": "harness/__pycache__/writer_fence.cpython-312.pyc",
+      "e03_sha256": "ef147efdd1ba5767e27b97386e476d5f57ad3a8fe3f073fe0dfb5378d74dd88f",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/admission.py",
+      "e04_sha256_at_copy": "e520c4616b55c81a660014d07d041f24c38c110badb0401228330c8056ebccae",
+      "e03_rel": "harness/admission.py",
+      "e03_sha256": "e520c4616b55c81a660014d07d041f24c38c110badb0401228330c8056ebccae",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/bootstrap.py",
+      "e04_sha256_at_copy": "9499fdb0279a732cb13cf79d9a7e7135bec934c220a9c8095a36bd9084b24178",
+      "e03_rel": "harness/bootstrap.py",
+      "e03_sha256": "9499fdb0279a732cb13cf79d9a7e7135bec934c220a9c8095a36bd9084b24178",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/evidence.py",
+      "e04_sha256_at_copy": "baa251207a21b87c735a6efac9d85815674bd40d0eb792d54f76848f4a3c05af",
+      "e03_rel": "harness/evidence.py",
+      "e03_sha256": "baa251207a21b87c735a6efac9d85815674bd40d0eb792d54f76848f4a3c05af",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/path_guard.py",
+      "e04_sha256_at_copy": "5ae9563862356a9694a25d5dbe6d4f41db2e7047c12a8d7e7834667a290e43b0",
+      "e03_rel": "harness/path_guard.py",
+      "e03_sha256": "5ae9563862356a9694a25d5dbe6d4f41db2e7047c12a8d7e7834667a290e43b0",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/upgrade_wrapper.py",
+      "e04_sha256_at_copy": "4970cd2345e3beaa81d09d4c925d0d91d14e777d939632277a860e6c57b43883",
+      "e03_rel": "harness/upgrade_wrapper.py",
+      "e03_sha256": "4970cd2345e3beaa81d09d4c925d0d91d14e777d939632277a860e6c57b43883",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "harness/writer_fence.py",
+      "e04_sha256_at_copy": "f20e13c247f68032321841bd52eced8adf769551148c21e4410c3a32ffa49e6a",
+      "e03_rel": "harness/writer_fence.py",
+      "e03_sha256": "f20e13c247f68032321841bd52eced8adf769551148c21e4410c3a32ffa49e6a",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "tests/__pycache__/conftest.cpython-312.pyc",
+      "e04_sha256_at_copy": "b4fd67c123a0b0617db0d7c44a3b5bdba15b7824fdb5ec177dd7e8dc28efa933",
+      "e03_rel": "tests/__pycache__/conftest.cpython-312.pyc",
+      "e03_sha256": "b4fd67c123a0b0617db0d7c44a3b5bdba15b7824fdb5ec177dd7e8dc28efa933",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "tests/__pycache__/test_e03_corrective_suite.cpython-312.pyc",
+      "e04_sha256_at_copy": "8eecf8e11cf5b6ca488b8414e38d0c8697f64bfb2f8c18ed171cc321c2022f3a",
+      "e03_rel": "tests/__pycache__/test_e03_corrective_suite.cpython-312.pyc",
+      "e03_sha256": "8eecf8e11cf5b6ca488b8414e38d0c8697f64bfb2f8c18ed171cc321c2022f3a",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "tests/conftest.py",
+      "e04_sha256_at_copy": "cbbc1cc20cf1560edbecd441c2b6b5a7a623f6c5bad8d57ae20efa3480fa2cd1",
+      "e03_rel": "tests/conftest.py",
+      "e03_sha256": "cbbc1cc20cf1560edbecd441c2b6b5a7a623f6c5bad8d57ae20efa3480fa2cd1",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "tests/test_e03_corrective_suite.py",
+      "e04_sha256_at_copy": "54af9112232b4f29cc2688710c8c5ca13cc0529d109ffaa0b5b0b78a98b96c7c",
+      "e03_rel": "tests/test_e03_corrective_suite.py",
+      "e03_sha256": "54af9112232b4f29cc2688710c8c5ca13cc0529d109ffaa0b5b0b78a98b96c7c",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/__pycache__/exp_e03_base.cpython-312.pyc",
+      "e04_sha256_at_copy": "6071dbcc5ff07dd3e37311241940eb8cfdc39c3273246026ed9502ff0af571c5",
+      "e03_rel": "versions/__pycache__/exp_e03_base.cpython-312.pyc",
+      "e03_sha256": "6071dbcc5ff07dd3e37311241940eb8cfdc39c3273246026ed9502ff0af571c5",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/__pycache__/exp_e03_cat1.cpython-312.pyc",
+      "e04_sha256_at_copy": "bb51975dcb4ff0324e3147a835632bd6b992108f83c9c766fbf44df9f49f2777",
+      "e03_rel": "versions/__pycache__/exp_e03_cat1.cpython-312.pyc",
+      "e03_sha256": "bb51975dcb4ff0324e3147a835632bd6b992108f83c9c766fbf44df9f49f2777",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/__pycache__/exp_e03_cat2.cpython-312.pyc",
+      "e04_sha256_at_copy": "36c600144e0cce81c41bcdbe193a30cef73cee044ce43de8bddb816aa669c733",
+      "e03_rel": "versions/__pycache__/exp_e03_cat2.cpython-312.pyc",
+      "e03_sha256": "36c600144e0cce81c41bcdbe193a30cef73cee044ce43de8bddb816aa669c733",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/__pycache__/exp_e03_h6.cpython-312.pyc",
+      "e04_sha256_at_copy": "a9b07a36a326fb9ba8c5a54ba682219d1de688287e124f01c79f2d04a986b2d2",
+      "e03_rel": "versions/__pycache__/exp_e03_h6.cpython-312.pyc",
+      "e03_sha256": "a9b07a36a326fb9ba8c5a54ba682219d1de688287e124f01c79f2d04a986b2d2",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/__pycache__/exp_e03_h8.cpython-312.pyc",
+      "e04_sha256_at_copy": "709d01ecccd900e42ac945a2b637c29671750a8b60408ebbcef4b55e5acfcaae",
+      "e03_rel": "versions/__pycache__/exp_e03_h8.cpython-312.pyc",
+      "e03_sha256": "709d01ecccd900e42ac945a2b637c29671750a8b60408ebbcef4b55e5acfcaae",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/exp_e03_base.py",
+      "e04_sha256_at_copy": "ba3730c42f7da3e05dfd3633b309b91c1ea37799adae2ab6098c53fb2b6c4a28",
+      "e03_rel": "versions/exp_e03_base.py",
+      "e03_sha256": "ba3730c42f7da3e05dfd3633b309b91c1ea37799adae2ab6098c53fb2b6c4a28",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/exp_e03_cat1.py",
+      "e04_sha256_at_copy": "16a000347316eadb4cc253cb335a463558bc887072ac64bbb14ad59f61133bfd",
+      "e03_rel": "versions/exp_e03_cat1.py",
+      "e03_sha256": "16a000347316eadb4cc253cb335a463558bc887072ac64bbb14ad59f61133bfd",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/exp_e03_cat2.py",
+      "e04_sha256_at_copy": "2fcf90ffd2cdd741b5bcd9beef960ba86ec0b5db81895b196eb503098df540d4",
+      "e03_rel": "versions/exp_e03_cat2.py",
+      "e03_sha256": "2fcf90ffd2cdd741b5bcd9beef960ba86ec0b5db81895b196eb503098df540d4",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/exp_e03_h6.py",
+      "e04_sha256_at_copy": "c889cf8db74a5d8abd6d121c635be73d4dd5a53d1e45a4474d713416f112a60b",
+      "e03_rel": "versions/exp_e03_h6.py",
+      "e03_sha256": "c889cf8db74a5d8abd6d121c635be73d4dd5a53d1e45a4474d713416f112a60b",
+      "byte_identical_at_copy": true
+    },
+    {
+      "e04_rel": "versions/exp_e03_h8.py",
+      "e04_sha256_at_copy": "ea7cfd16a0b37996e24b1cc0336f42d8fbce819f27a6f5158e44b35b06b3e8d2",
+      "e03_rel": "versions/exp_e03_h8.py",
+      "e03_sha256": "ea7cfd16a0b37996e24b1cc0336f42d8fbce819f27a6f5158e44b35b06b3e8d2",
+      "byte_identical_at_copy": true
+    }
+  ]
+}

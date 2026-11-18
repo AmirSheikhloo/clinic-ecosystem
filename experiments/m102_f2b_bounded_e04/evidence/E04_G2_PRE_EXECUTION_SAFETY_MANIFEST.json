@@ -1,0 +1,56 @@
+{
+  "document": "E04_G2_PRE_EXECUTION_SAFETY_MANIFEST",
+  "phase": "G2_PRE_EXECUTION",
+  "created_utc": "2026-11-18T11:19:13.124563+00:00",
+  "contract_sha256": "8dbb6b774e7baa532fb424aa7260b0439f3fed10c0575061b546757199ca04e3",
+  "d01_sha256": "27e576be6f297691c59150c44b97d04829a8117a622ba5c56d51e8bc8c1d53a9",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "inherited_case_ids": [
+    "E03-A01-P01",
+    "E03-A01-N01",
+    "E03-A02-N01",
+    "E03-A02-P01",
+    "E03-A02-N02",
+    "E03-A03-P01",
+    "E03-A03-N01",
+    "E03-A04-P01",
+    "E03-A04-N01",
+    "E03-A05-C01",
+    "E03-A06-P01",
+    "E03-A06-N01",
+    "E03-A06-N02",
+    "E03-A07-C01",
+    "E03-A07-C02",
+    "E03-A08-N01",
+    "E03-A08-P01",
+    "E03-REG-P01",
+    "E03-CLOSE-C01"
+  ],
+  "validator_fixture_ids": [
+    "E04-V01",
+    "E04-V02",
+    "E04-V03",
+    "E04-V04",
+    "E04-V05",
+    "E04-V06",
+    "E04-V07",
+    "E04-V08",
+    "E04-V09",
+    "E04-V10",
+    "E04-V11",
+    "E04-V12",
+    "E04-V13",
+    "E04-V14"
+  ],
+  "counts": {
+    "inherited_cases": 19,
+    "validator_fixtures": 14
+  },
+  "ci_mode": "push_only_experiment_branch_path_filtered",
+  "expiry_utc": "2026-11-30T22:59:00Z",
+  "allowed_write_paths": [
+    "experiments/m102_f2b_bounded_e04/**",
+    ".github/workflows/m102-f2b-bounded-e04.yml"
+  ],
+  "notes": "Pre-execution only; not observed results. E0.3 green/red history retained as HISTORICAL."
+}
