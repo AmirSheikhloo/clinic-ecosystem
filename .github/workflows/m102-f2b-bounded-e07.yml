@@ -1,0 +1,216 @@
+name: M102 F2-B E0.7 consolidated forensic harness closure
+
+on:
+  push:
+    branches:
+      - "experiment/m102-f2b-e07-*"
+    paths:
+      - "experiments/m102_f2b_bounded_e07/**"
+      - ".github/workflows/m102-f2b-bounded-e07.yml"
+      - "!experiments/m102_f2b_bounded_e07/evidence/**"
+
+permissions:
+  contents: read
+
+jobs:
+  f2b-e07-forensic:
+    name: Disposable PG15 E0.7 forensic suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synth-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Authorization clock and attempt gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME}" = "push"
+          test "${GITHUB_RUN_ATTEMPT}" = "1"
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+          now = datetime.now(timezone.utc)
+          bound = datetime(2026, 12, 20, 22, 59, 0, tzinfo=timezone.utc)
+          print("now_utc=", now.isoformat())
+          if now >= bound:
+              raise SystemExit("E0.7 authorization expired")
+          PY
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify branch and full-range allowlist BEFORE SQL
+        shell: bash
+        env:
+          E07_PARENT_COMMIT_SHA: 36a0cebc67bda89e0942b0491d5bb2eff9745b04
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            experiment/m102-f2b-e07-*) ;;
+            *) echo "unexpected branch $GITHUB_REF_NAME"; exit 1 ;;
+          esac
+          test -d experiments/m102_f2b_bounded_e07
+          test -f .github/workflows/m102-f2b-bounded-e07.yml
+          python3 - <<'PY'
+          import os, sys
+          sys.path.insert(0, "experiments/m102_f2b_bounded_e07")
+          from harness.path_guard import assert_repo_range_allowlisted, PathAllowlistError
+          parent = os.environ["E07_PARENT_COMMIT_SHA"]
+          head = os.environ["GITHUB_SHA"]
+          try:
+              paths = assert_repo_range_allowlisted(parent=parent, head=head)
+          except PathAllowlistError as exc:
+              raise SystemExit(str(exc))
+          print("allowlisted_paths=")
+          for p in paths:
+              print(p)
+          if not paths:
+              raise SystemExit("empty diff unexpectedly")
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install experiment dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "psycopg2-binary>=2.9" "alembic>=1.13" "SQLAlchemy>=2.0" "pytest>=8.0"
+
+      - name: Run E0.7 inherited + validator suite (Step 1)
+        env:
+          EXP_E07_ADMIN_DSN: postgresql://postgres:synth-ci-only@localhost:5432/postgres
+          EXP_E07_DATABASE_URL: postgresql://postgres:synth-ci-only@localhost:5432/exp_e03
+          E07_PARENT_COMMIT_SHA: 36a0cebc67bda89e0942b0491d5bb2eff9745b04
+          E07_TESTED_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p experiments/m102_f2b_bounded_e07/evidence
+          python -m pytest experiments/m102_f2b_bounded_e07/tests \
+            -v --tb=short -rs \
+            --junitxml=experiments/m102_f2b_bounded_e07/evidence/junit.xml \
+            | tee experiments/m102_f2b_bounded_e07/evidence/pytest.txt
+
+      - name: Primary seal writer + zero-write primary verify (Step 2)
+        env:
+          E07_TESTED_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python experiments/m102_f2b_bounded_e07/scripts/post_pytest_forensic_verify.py \
+            | tee experiments/m102_f2b_bounded_e07/evidence/forensic_verifier.txt
+
+      - name: Summarize outcomes and refuse skips
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          junit = Path("experiments/m102_f2b_bounded_e07/evidence/junit.xml")
+          cases = ET.parse(junit).getroot().findall(".//testcase")
+          failed = sum(1 for c in cases if c.find("failure") is not None or c.find("error") is not None)
+          skipped = sum(1 for c in cases if c.find("skipped") is not None)
+          print(f"total={len(cases)} failed={failed} skipped={skipped}")
+          Path("experiments/m102_f2b_bounded_e07/evidence/summary.txt").write_text(
+              f"total={len(cases)}\nfailed={failed}\nskipped={skipped}\n"
+              f"acceptance_status=E07_CI_GREEN_SELF_REPORTED_PENDING_SEAL\n",
+              encoding="utf-8",
+          )
+          if failed or skipped:
+              raise SystemExit("suite not clean")
+          if len(cases) != 32:
+              raise SystemExit(f"expected 32 pytest functions, got {len(cases)}")
+          PY
+
+      - name: Build FC 12-vector proof matrix (Step 3)
+        env:
+          E07_TESTED_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python experiments/m102_f2b_bounded_e07/scripts/build_fc_proof_matrix.py \
+            | tee -a experiments/m102_f2b_bounded_e07/evidence/fc_matrix_builder.txt
+
+      - name: Build E07-C01..C07 closure proofs + provisional judgments (Step 4)
+        env:
+          E07_TESTED_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python experiments/m102_f2b_bounded_e07/scripts/build_closure_proofs.py \
+            | tee experiments/m102_f2b_bounded_e07/evidence/closure_builder.txt
+
+      - name: Seal writer aux+root (Step 6)
+        env:
+          E07_TESTED_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python experiments/m102_f2b_bounded_e07/scripts/seal_writer_cli.py \
+            --evidence-dir experiments/m102_f2b_bounded_e07/evidence \
+            | tee experiments/m102_f2b_bounded_e07/evidence/seal_writer.txt
+
+      - name: Zero-write post-seal verify with external snapshots (Step 7)
+        env:
+          E07_TESTED_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, "experiments/m102_f2b_bounded_e07")
+          from harness.evidence import tree_sha256_manifest, EVIDENCE
+          pre = tree_sha256_manifest(EVIDENCE)
+          Path("/tmp/e07_pre_seal_tree.sha256").write_text(pre)
+          proc = subprocess.run(
+              [sys.executable, "experiments/m102_f2b_bounded_e07/scripts/post_seal_verify_cli.py",
+               "--evidence-dir", str(EVIDENCE)],
+              capture_output=True, text=True,
+          )
+          Path("/tmp/e07_post_seal_verifier.stdout.json").write_text(proc.stdout or "")
+          Path("/tmp/e07_post_seal_verifier.stderr.txt").write_text(proc.stderr or "")
+          post = tree_sha256_manifest(EVIDENCE)
+          Path("/tmp/e07_post_seal_tree.sha256").write_text(post)
+          print(proc.stdout)
+          if pre != post:
+              raise SystemExit("STOP: evidence/ tree mutated during zero-write post-seal verify")
+          print("pre_post_snapshot_equal=true")
+          print("pre_sha256=", hashlib.sha256(pre.encode()).hexdigest())
+          if proc.returncode != 0:
+              raise SystemExit(f"post_seal_verify failed rc={proc.returncode}")
+          # stage unsealed summary OUTSIDE evidence for artifact packaging only
+          unsealed = Path("/tmp/e07_unsealed_staging")
+          unsealed.mkdir(exist_ok=True)
+          (unsealed / "POST_SEAL_VERIFIER_STDOUT.json").write_text(proc.stdout or "")
+          (unsealed / "PRE_SEAL_TREE.sha256").write_text(pre)
+          (unsealed / "POST_SEAL_TREE.sha256").write_text(post)
+          (unsealed / "SNAPSHOT_EQUAL.txt").write_text("equal=true\n")
+          PY
+
+      - name: Upload sealed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m102-f2b-e07-evidence
+          path: experiments/m102_f2b_bounded_e07/evidence/**
+          if-no-files-found: warn
+
+      - name: Upload unsealed post-seal staging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m102-f2b-e07-unsealed-postseal
+          path: /tmp/e07_unsealed_staging/**
+          if-no-files-found: warn

@@ -1,0 +1,119 @@
+{
+  "document": "E07_G1_DESIGN_DAG_LEDGER",
+  "created_utc": "2026-11-18T21:08:21.573310Z",
+  "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+  "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+  "base_commit": "36a0cebc67bda89e0942b0491d5bb2eff9745b04",
+  "acyclic": true,
+  "stages": [
+    {
+      "id": "S1",
+      "writes": [
+        "19 E03 JSON",
+        "14 E04 JSON",
+        "junit.xml",
+        "pytest.txt"
+      ],
+      "reads": [
+        "disposable copies for E04 fixtures"
+      ],
+      "notes": "E04 never depends on real primary manifest"
+    },
+    {
+      "id": "S2",
+      "writes": [
+        "EVIDENCE_CASE_SHA256SUMS.txt",
+        "EVIDENCE_CASE_MANIFEST_DIGEST.txt",
+        "POST_PYTEST_FORENSIC_VERIFIER.json",
+        "forensic_verifier.txt"
+      ],
+      "tools": [
+        "write_case_manifest",
+        "primary_verify_cli(zero-write)"
+      ]
+    },
+    {
+      "id": "S3",
+      "writes": [
+        "fc_receipts/*",
+        "E07_FC_PROOF_MATRIX.json",
+        "fc_matrix_builder.txt"
+      ],
+      "tools": [
+        "12 gate-vector CLI pairs on disposable presealed roots"
+      ],
+      "cardinality": {
+        "rows": 10,
+        "vectors": 12,
+        "outcomes": 24
+      }
+    },
+    {
+      "id": "S4",
+      "writes": [
+        "closure_receipts/E07-C*.json|.stdout.txt",
+        "E07_EV_CLOSURE_JUDGMENTS.json"
+      ],
+      "tools": [
+        "matrix_validator_cli",
+        "junit_and_fixture_identity_readback_cli",
+        "post_seal_verify_cli",
+        "closure_judgments_validator_cli",
+        "aux_integrity_readback_cli"
+      ],
+      "c05": "full-gate clean disposable presealed root then post-tamper; /tmp snapshots; zero-write",
+      "c06": "independent disposable judgment inputs; not future real file"
+    },
+    {
+      "id": "S5",
+      "writes": [],
+      "notes": "frozen policy inventory FROZEN_AUX_INVENTORY count fixed before seal"
+    },
+    {
+      "id": "S6",
+      "writes": [
+        "EVIDENCE_AUX_SHA256SUMS.txt",
+        "EVIDENCE_ROOT_DIGESTS.json"
+      ],
+      "tools": [
+        "seal_writer_cli ONLY"
+      ]
+    },
+    {
+      "id": "S7",
+      "writes": [
+        "/tmp/e07_pre_seal_tree.sha256",
+        "/tmp/e07_post_seal_verifier.stdout.json",
+        "/tmp/e07_post_seal_tree.sha256"
+      ],
+      "tools": [
+        "post_seal_verify_cli ZERO-WRITE into evidence/"
+      ],
+      "evidence_immutable": true
+    },
+    {
+      "id": "S8",
+      "writes": [
+        "provider artifact",
+        "optional evidence-only report commit"
+      ],
+      "notes": "no sealed byte mutation"
+    }
+  ],
+  "forbidden_edges": [
+    "post_seal_verify_cli -> write evidence/",
+    "C05/C06 -> require future real sealed receipts as sole bootstrap",
+    "matrix observed_detector copied from expected without stdout parse"
+  ],
+  "subgates_composed_by_post_seal": [
+    "primary_verify_cli",
+    "aux_integrity_readback_cli",
+    "aux_redaction_readback_cli",
+    "junit_and_fixture_identity_readback_cli",
+    "matrix_validator_cli",
+    "closure_judgments_validator_cli",
+    "root_identity_readback_cli"
+  ],
+  "c05_c06_design_status": "PROVABLE_NONCIRCULAR",
+  "blocked_design": false
+}

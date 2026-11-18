@@ -1,0 +1,379 @@
+{
+  "document": "E07_SOURCE_EQUIVALENCE_LEDGER",
+  "created_utc": "2026-11-18T21:09:10.446465Z",
+  "base_commit": "36a0cebc67bda89e0942b0491d5bb2eff9745b04",
+  "parent_e06_tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+  "parent_e06_final_commit_sha": "36a0cebc67bda89e0942b0491d5bb2eff9745b04",
+  "frozen_spec_blob": "befde437b6f951e1da71fdb4f0e61d043049c168",
+  "adaptation_policy": "Copy e06 physical SQL/tests; rename EXP_E06\u2192EXP_E07; keep exp_e03_* versions byte-identical; E0.7 adds gate-specific 12-vector FC matrix, authentic detectors, frozen aux inventory, distinct seal_writer vs zero-write post_seal, seven E07-C closures, C05/C06 noncircular design.",
+  "files": [
+    {
+      "e07_rel": "README.md",
+      "e07_sha256": "28725911d7caf0f403a1ef6033a2756febd81ceb4a75faf0c3d26380dc82e077",
+      "e06_rel": "README.md",
+      "e06_sha256": "53b402e2ca4b700a38be61129594cc8a3f074ba20781deb6d59fa0df9acc8bd6",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "__init__.py",
+      "e07_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "e06_rel": "__init__.py",
+      "e06_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "alembic.ini",
+      "e07_sha256": "0767ff120f3bb3384314a9879e77e3679d714fe730f77ce7c2b391c59b578706",
+      "e06_rel": "alembic.ini",
+      "e06_sha256": "0767ff120f3bb3384314a9879e77e3679d714fe730f77ce7c2b391c59b578706",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "env.py",
+      "e07_sha256": "36dd1a06c0169f232c2eae4d8398b1fa50e5349a16d44068ed3cde7c22ac62ae",
+      "e06_rel": "env.py",
+      "e06_sha256": "015dd285c87c180f1867784230a6a0eadb362d826f8d4dd83c3a2d6e0842d133",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "evidence/E03_5_1_SAFETY_MANIFEST.json",
+      "e07_sha256": "33849fa05d77d056bbd69585f8c4c7f0437c11a6e328f9025e127d5b38a1550f",
+      "e06_rel": "evidence/E03_5_1_SAFETY_MANIFEST.json",
+      "e06_sha256": "915ba0767d9ba2dce4a36f5d13107feddf0f3fc27ab72c88fab9d614f3bff1e4",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "evidence/E07_G1_DESIGN_DAG_LEDGER.json",
+      "e07_sha256": "8079feb945bd589a1ecda73d33cafe3855b78e03a4155f4c8488cf8272461e1b",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "evidence/E07_G2_PRE_EXECUTION_SAFETY_MANIFEST.json",
+      "e07_sha256": "e60b79baebd0a6417a155ea97f1f5fd66253dcd9eaba8e5bda17d2a637b3e22c",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "evidence/M102_F2B_E0.5_INDEPENDENT_SOURCE_CI_AND_ARTIFACT_AUDIT_A0.1.md",
+      "e07_sha256": "0fc3081e5e1cf18c07050837cff60590b3d5497750efe1be8e828830143e479a",
+      "e06_rel": "evidence/M102_F2B_E0.5_INDEPENDENT_SOURCE_CI_AND_ARTIFACT_AUDIT_A0.1.md",
+      "e06_sha256": "5bd98ad76f7719aa0271956fdb377c04000d3c2eb6df48e56789a1ef30c301e0",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "evidence/M102_F2B_E0.6_COMPLETE_FORENSIC_CLOSURE_CONTRACT_R0.1_PROPOSED.md",
+      "e07_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "e06_rel": "evidence/M102_F2B_E0.6_COMPLETE_FORENSIC_CLOSURE_CONTRACT_R0.1_PROPOSED.md",
+      "e06_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "evidence/M102_F2B_E0.6_INDEPENDENT_E6E_SOURCE_CI_ARTIFACT_AUDIT_A0.1.md",
+      "e07_sha256": "aa6fb57d0438c9ee825d443eb2d3979348aa212e160aecea87d4408e380535f4",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "evidence/M102_F2B_E0.6_PO_APPROVAL_RECORD.md",
+      "e07_sha256": "e65edf721c97c0101da03d0dec942a6150aa0a4ba3c2a458888a316ae322c1d4",
+      "e06_rel": "evidence/M102_F2B_E0.6_PO_APPROVAL_RECORD.md",
+      "e06_sha256": "e65edf721c97c0101da03d0dec942a6150aa0a4ba3c2a458888a316ae322c1d4",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "evidence/M102_F2B_E0.7_CONSOLIDATED_FORENSIC_HARNESS_CLOSURE_CONTRACT_R0.3_PROPOSED.md",
+      "e07_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "evidence/M102_F2B_E0.7_PO_APPROVAL_RECORD.md",
+      "e07_sha256": "ff083b1ad427bbaacb93cf01fd1ffc4bca843923160469121e4070d945c28bc1",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "evidence/M102_F2B_E06_FINAL_CONSOLIDATED_REPORT.md",
+      "e07_sha256": "bf68de63c369eec86cdce6a071f64b0d937e215629c25ce705311edff6464afb",
+      "e06_rel": "evidence/M102_F2B_E06_FINAL_CONSOLIDATED_REPORT.md",
+      "e06_sha256": "bf68de63c369eec86cdce6a071f64b0d937e215629c25ce705311edff6464afb",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "evidence/M102_F2B_E06_SEPARATE_BOUNDED_EXECUTION_AUTHORIZATION_D0.1_PROPOSED.md",
+      "e07_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "e06_rel": "evidence/M102_F2B_E06_SEPARATE_BOUNDED_EXECUTION_AUTHORIZATION_D0.1_PROPOSED.md",
+      "e06_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "evidence/M102_F2B_E07_SEPARATE_BOUNDED_EXECUTION_AUTHORIZATION_D0.3_PROPOSED.md",
+      "e07_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "harness/__init__.py",
+      "e07_sha256": "bcb54df676a945c02a232021c55a22b470376d7ca15f9fc8521cff65d3a84806",
+      "e06_rel": "harness/__init__.py",
+      "e06_sha256": "bcb54df676a945c02a232021c55a22b470376d7ca15f9fc8521cff65d3a84806",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "harness/admission.py",
+      "e07_sha256": "e520c4616b55c81a660014d07d041f24c38c110badb0401228330c8056ebccae",
+      "e06_rel": "harness/admission.py",
+      "e06_sha256": "e520c4616b55c81a660014d07d041f24c38c110badb0401228330c8056ebccae",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "harness/bootstrap.py",
+      "e07_sha256": "621868ccc70838f0449c714ac5eae561eabe11d6591cc431d9a754c43d045da1",
+      "e06_rel": "harness/bootstrap.py",
+      "e06_sha256": "c86b9b56ad6eb6e28ae0a1b8e08496fb284e10386273149ee1610881d887a264",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "harness/evidence.py",
+      "e07_sha256": "a11ecc67c6a6270cab7feca33c4aaeb25ea093023c8b9f0cd5efd5247ddb771f",
+      "e06_rel": "harness/evidence.py",
+      "e06_sha256": "126b9bc023f1a8e2500942d997c7634425a66bcd8d851ed0cd49313ec1867f9c",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "harness/path_guard.py",
+      "e07_sha256": "282e4b87e012824f6d8894de0b6731baecff0f06418fbbee763299f6d41b011e",
+      "e06_rel": "harness/path_guard.py",
+      "e06_sha256": "0cceaae008f54f57023d7dd8d1150dafc01945dd35e597688f9da846f1895f40",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "harness/upgrade_wrapper.py",
+      "e07_sha256": "4970cd2345e3beaa81d09d4c925d0d91d14e777d939632277a860e6c57b43883",
+      "e06_rel": "harness/upgrade_wrapper.py",
+      "e06_sha256": "4970cd2345e3beaa81d09d4c925d0d91d14e777d939632277a860e6c57b43883",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "harness/writer_fence.py",
+      "e07_sha256": "f20e13c247f68032321841bd52eced8adf769551148c21e4410c3a32ffa49e6a",
+      "e06_rel": "harness/writer_fence.py",
+      "e06_sha256": "f20e13c247f68032321841bd52eced8adf769551148c21e4410c3a32ffa49e6a",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "scripts/aux_integrity_readback_cli.py",
+      "e07_sha256": "29fd0c6c02f10aa27e5e454c6b31ce0f2d9109bb51b0fe3c44980cf457cd6426",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "scripts/aux_redaction_readback_cli.py",
+      "e07_sha256": "e24430db5f4888f4156b10579066f0cfe3149174ddc0ca7ebaa58aa4922bfd79",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "scripts/build_closure_proofs.py",
+      "e07_sha256": "8a387682c4d8f080fbb4072c06ed16f5d505777336780b415a93dfc875d20f9c",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "scripts/build_fc_proof_matrix.py",
+      "e07_sha256": "a3f54e6605702d9afdca61ce991dd015684dc85c3f6df6709b0a272c29a3491b",
+      "e06_rel": "scripts/build_fc_proof_matrix.py",
+      "e06_sha256": "ea5adc6a29151e94f647735add354493ee27dabce6700f75848b72458aab3295",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "scripts/ci_gate_sequence.py",
+      "e07_sha256": "2ed29ffebd8a0f49650f19777683934c8543e091d8a907d38f265d2e1befd684",
+      "e06_rel": "scripts/ci_gate_sequence.py",
+      "e06_sha256": "23563e11741cbba53f255c9360e340caf11eb633c6eee9ab831152e6f5742a17",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "scripts/closure_judgments_validator_cli.py",
+      "e07_sha256": "57c30a9971329023554e155551804671b20634173118bc6b27311e0f2740dea9",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "scripts/junit_and_fixture_identity_readback_cli.py",
+      "e07_sha256": "25116bec1f8986ecf325647f6d39f8a6e487661c43c1c00f7786536fde1cae24",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "scripts/matrix_validator_cli.py",
+      "e07_sha256": "73f231be73e286e374759c97f755e7a2475f62a079902b1c3d5cece0f6979507",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "scripts/post_pytest_forensic_verify.py",
+      "e07_sha256": "64f149f128a36636f79ac80ea587f69e3bb38b198f34777aecfda382dfb9c9dc",
+      "e06_rel": "scripts/post_pytest_forensic_verify.py",
+      "e06_sha256": "e84aadfa9942a6fc6cf428cdbcd19192c726b93b1ac3542893d40f6d6ae6ada9",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "scripts/post_seal_verify.py",
+      "e07_sha256": "0945cfea89a4971e838522385b25895cd8679c5b37fab979bdaf03ef1f68d1f3",
+      "e06_rel": "scripts/post_seal_verify.py",
+      "e06_sha256": "e2339a3701a774f2f58dc4ba5088eb365653492219b5721c947bb4fa8cdba209",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "scripts/post_seal_verify_cli.py",
+      "e07_sha256": "1bd1eeb1a33b5735eacae437f2f270539ad32387655d95a1514fe6d0c9f1cc52",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "scripts/primary_verify_cli.py",
+      "e07_sha256": "6abf6bf805b9be4e0262d24328185d0e601e3fe36d37ce6981462e29d3982d20",
+      "e06_rel": "scripts/primary_verify_cli.py",
+      "e06_sha256": "c3ae86b2c531315f31e1a8fcb21d5c13b33bc790eafd69a73181b83ae2c87172",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "scripts/root_identity_readback_cli.py",
+      "e07_sha256": "88f850bf129b8af4a5238abf6175783eabea317efb97ce09833c4e020ebf7b9e",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "scripts/seal_writer_cli.py",
+      "e07_sha256": "03ae6616d9fffca39195dc439e272bad761aaa207e7fb3c40f35657b250bf789",
+      "e06_rel": null,
+      "e06_sha256": null,
+      "byte_identical_to_e06": false,
+      "note": "e07_new_or_renamed"
+    },
+    {
+      "e07_rel": "tests/__init__.py",
+      "e07_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "e06_rel": "tests/__init__.py",
+      "e06_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "tests/conftest.py",
+      "e07_sha256": "80182c4ad897c72420cc42109ce32edf8de851422ab501efb23ba03557ccec63",
+      "e06_rel": "tests/conftest.py",
+      "e06_sha256": "4de069adeb91bb70217a1e802710b6103e117eece129b7ef5a1cfcc77db839e7",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "tests/test_e03_corrective_suite.py",
+      "e07_sha256": "b7f34ef64a29ffea06f3387a98dc646c6cf5ab103b708bcfed3182edcc625e41",
+      "e06_rel": "tests/test_e03_corrective_suite.py",
+      "e06_sha256": "728448683cc4e13663aabe25f046aed0c0ceb0235e0f5bb25cd90a5f2d4ca10d",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "tests/test_z_e04_validator_fixtures.py",
+      "e07_sha256": "2deac816a8e333da2b64d146084353a9b4120fbd8d31c68b1ea69f8c0842e232",
+      "e06_rel": "tests/test_z_e04_validator_fixtures.py",
+      "e06_sha256": "1ed76276a3a6ea830a745e11fd76344ab457ed9789bcb10d50cf9178d1028d41",
+      "byte_identical_to_e06": false,
+      "note": "intentional_E07_forensic_hardening"
+    },
+    {
+      "e07_rel": "versions/exp_e03_base.py",
+      "e07_sha256": "ba3730c42f7da3e05dfd3633b309b91c1ea37799adae2ab6098c53fb2b6c4a28",
+      "e06_rel": "versions/exp_e03_base.py",
+      "e06_sha256": "ba3730c42f7da3e05dfd3633b309b91c1ea37799adae2ab6098c53fb2b6c4a28",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "versions/exp_e03_cat1.py",
+      "e07_sha256": "16a000347316eadb4cc253cb335a463558bc887072ac64bbb14ad59f61133bfd",
+      "e06_rel": "versions/exp_e03_cat1.py",
+      "e06_sha256": "16a000347316eadb4cc253cb335a463558bc887072ac64bbb14ad59f61133bfd",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "versions/exp_e03_cat2.py",
+      "e07_sha256": "2fcf90ffd2cdd741b5bcd9beef960ba86ec0b5db81895b196eb503098df540d4",
+      "e06_rel": "versions/exp_e03_cat2.py",
+      "e06_sha256": "2fcf90ffd2cdd741b5bcd9beef960ba86ec0b5db81895b196eb503098df540d4",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "versions/exp_e03_h6.py",
+      "e07_sha256": "c889cf8db74a5d8abd6d121c635be73d4dd5a53d1e45a4474d713416f112a60b",
+      "e06_rel": "versions/exp_e03_h6.py",
+      "e06_sha256": "c889cf8db74a5d8abd6d121c635be73d4dd5a53d1e45a4474d713416f112a60b",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    },
+    {
+      "e07_rel": "versions/exp_e03_h8.py",
+      "e07_sha256": "ea7cfd16a0b37996e24b1cc0336f42d8fbce819f27a6f5158e44b35b06b3e8d2",
+      "e06_rel": "versions/exp_e03_h8.py",
+      "e06_sha256": "ea7cfd16a0b37996e24b1cc0336f42d8fbce819f27a6f5158e44b35b06b3e8d2",
+      "byte_identical_to_e06": true,
+      "note": "byte_identical"
+    }
+  ]
+}

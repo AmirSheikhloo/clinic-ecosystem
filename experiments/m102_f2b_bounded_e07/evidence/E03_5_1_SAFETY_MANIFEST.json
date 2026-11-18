@@ -1,0 +1,108 @@
+{
+  "document": "E03_5_1_SAFETY_MANIFEST",
+  "created_utc": "2026-11-18T21:08:21.573310Z",
+  "phase": "G2_PRE_EXECUTION",
+  "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+  "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "parent_e06_final_commit_sha": "36a0cebc67bda89e0942b0491d5bb2eff9745b04",
+  "experiment": "m102_f2b_bounded_e07",
+  "cases": [
+    {
+      "case_id": "E03-A01-P01",
+      "finding_id": "A01",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A01-N01",
+      "finding_id": "A01",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A02-N01",
+      "finding_id": "A02",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A02-P01",
+      "finding_id": "A02",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A02-N02",
+      "finding_id": "A02",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A03-P01",
+      "finding_id": "A03",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A03-N01",
+      "finding_id": "A03",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A04-P01",
+      "finding_id": "A04",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A04-N01",
+      "finding_id": "A04",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A05-C01",
+      "finding_id": "A05",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A06-P01",
+      "finding_id": "A06",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A06-N01",
+      "finding_id": "A06",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A06-N02",
+      "finding_id": "A06",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A07-C01",
+      "finding_id": "A07",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A07-C02",
+      "finding_id": "A07",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A08-N01",
+      "finding_id": "A08",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-A08-P01",
+      "finding_id": "A08",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-REG-P01",
+      "finding_id": "REG",
+      "run_eligibility": "E07_REPROOF"
+    },
+    {
+      "case_id": "E03-CLOSE-C01",
+      "finding_id": "CLOSE",
+      "run_eligibility": "E07_REPROOF"
+    }
+  ]
+}
