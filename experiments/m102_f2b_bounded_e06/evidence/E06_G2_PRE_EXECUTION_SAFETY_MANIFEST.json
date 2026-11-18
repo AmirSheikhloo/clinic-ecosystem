@@ -1,0 +1,82 @@
+{
+  "document": "E06_G2_PRE_EXECUTION_SAFETY_MANIFEST",
+  "created_utc": "2026-11-18T19:35:24.104427Z",
+  "phase": "G2_PRE_EXECUTION",
+  "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+  "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+  "handoff_zip_sha256": "975f1fa8d0a53c425968677974d9c00c47480965cc26ffdbcbf1409395076d42",
+  "base_commit": "92b240d7ef2da0b33ed9c50ed841ffb5e194fd83",
+  "parent_e05_tested_commit_sha": "8652686f41f6420a7afe97e84b5f8f151c2a15bb",
+  "parent_e05_final_commit_sha": "92b240d7ef2da0b33ed9c50ed841ffb5e194fd83",
+  "branch_pattern": "experiment/m102-f2b-e06-*",
+  "allowed_paths": [
+    "experiments/m102_f2b_bounded_e06/**",
+    ".github/workflows/m102-f2b-bounded-e06.yml"
+  ],
+  "inherited_case_ids": [
+    "E03-A01-P01",
+    "E03-A01-N01",
+    "E03-A02-N01",
+    "E03-A02-P01",
+    "E03-A02-N02",
+    "E03-A03-P01",
+    "E03-A03-N01",
+    "E03-A04-P01",
+    "E03-A04-N01",
+    "E03-A05-C01",
+    "E03-A06-P01",
+    "E03-A06-N01",
+    "E03-A06-N02",
+    "E03-A07-C01",
+    "E03-A07-C02",
+    "E03-A08-N01",
+    "E03-A08-P01",
+    "E03-REG-P01",
+    "E03-CLOSE-C01"
+  ],
+  "retained_fixture_ids": [
+    "E04-V01",
+    "E04-V02",
+    "E04-V03",
+    "E04-V04",
+    "E04-V05",
+    "E04-V06",
+    "E04-V07",
+    "E04-V08",
+    "E04-V09",
+    "E04-V10",
+    "E04-V11",
+    "E04-V12",
+    "E04-V13",
+    "E04-V14"
+  ],
+  "predicates": [
+    "E05-FC01",
+    "E05-FC02",
+    "E05-FC03",
+    "E05-FC04",
+    "E05-FC05",
+    "E05-FC06",
+    "E05-FC07",
+    "E05-FC08",
+    "E05-FC09",
+    "E05-FC10"
+  ],
+  "e5a_findings_to_close": [
+    "E5A-01",
+    "E5A-02",
+    "E5A-03",
+    "E5A-04",
+    "E5A-05",
+    "E5A-06"
+  ],
+  "ci_budget": "1_initial_plus_1_nonsecurity_corrective",
+  "cutoff_utc": "2026-12-12T22:59:00Z",
+  "database": "disposable_postgresql_15_synthetic_only",
+  "prohibited": [
+    "official_src_or_migrations",
+    "production_or_patient_data",
+    "PR_merge",
+    "Package1_F2B_ACR_GatesAD"
+  ]
+}
