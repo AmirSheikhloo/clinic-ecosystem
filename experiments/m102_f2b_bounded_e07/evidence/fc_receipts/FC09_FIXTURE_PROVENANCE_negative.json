@@ -1,0 +1,20 @@
+{
+  "vector_id": "FC09_FIXTURE_PROVENANCE",
+  "side": "negative",
+  "entrypoint": "junit_and_fixture_identity_readback_cli",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/junit_and_fixture_identity_readback_cli.py",
+    "--evidence-dir",
+    "/tmp/tmp9f47t0xw/fc09b",
+    "--mode",
+    "fixture"
+  ],
+  "evidence_root_kind": "disposable",
+  "expected_exit_code": "NONZERO",
+  "observed_exit_code": 1,
+  "observed_detector": "FIXTURE_PROVENANCE_MISMATCH",
+  "stdout_stderr_redacted_sha256": "9ef1ed68d14ee7fcd66a8115309c32c07b056a097d6e43c325e08904da9ae9d7",
+  "receipt_path": "fc_receipts/FC09_FIXTURE_PROVENANCE_negative.json",
+  "stdout_path": "fc_receipts/FC09_FIXTURE_PROVENANCE_negative.stdout.txt"
+}

@@ -1,0 +1,18 @@
+{
+  "vector_id": "FC06_AUX_REDACTION",
+  "side": "negative",
+  "entrypoint": "aux_redaction_readback_cli",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/aux_redaction_readback_cli.py",
+    "--evidence-dir",
+    "/tmp/tmp9f47t0xw/fc06b"
+  ],
+  "evidence_root_kind": "disposable",
+  "expected_exit_code": "NONZERO",
+  "observed_exit_code": 1,
+  "observed_detector": "SECRET_PATTERN",
+  "stdout_stderr_redacted_sha256": "d5f2570c2029a6645c09dc42d55ef91b8aa1a299909cfff30de9167f8bda7630",
+  "receipt_path": "fc_receipts/FC06_AUX_REDACTION_negative.json",
+  "stdout_path": "fc_receipts/FC06_AUX_REDACTION_negative.stdout.txt"
+}

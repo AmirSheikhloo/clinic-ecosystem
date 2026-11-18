@@ -1,0 +1,20 @@
+{
+  "vector_id": "FC09_JUNIT",
+  "side": "negative",
+  "entrypoint": "junit_and_fixture_identity_readback_cli",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/junit_and_fixture_identity_readback_cli.py",
+    "--evidence-dir",
+    "/tmp/tmp9f47t0xw/fc09a",
+    "--mode",
+    "junit"
+  ],
+  "evidence_root_kind": "disposable",
+  "expected_exit_code": "NONZERO",
+  "observed_exit_code": 1,
+  "observed_detector": "JUNIT_ALLOWLIST",
+  "stdout_stderr_redacted_sha256": "f40cb1fa34174c6cc2c8fdc0245c4d97eb50f9f9ec3421f77d7f731f5ed33d92",
+  "receipt_path": "fc_receipts/FC09_JUNIT_negative.json",
+  "stdout_path": "fc_receipts/FC09_JUNIT_negative.stdout.txt"
+}

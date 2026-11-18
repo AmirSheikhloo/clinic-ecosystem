@@ -1,0 +1,22 @@
+{
+  "vector_id": "FC07_CI_GATE",
+  "side": "negative",
+  "entrypoint": "ci_gate_sequence",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/ci_gate_sequence.py",
+    "--pytest-rc",
+    "0",
+    "--manifest",
+    "/tmp/tmp9f47t0xw/fc07/EVIDENCE_CASE_SHA256SUMS.txt",
+    "--evidence-dir",
+    "/tmp/tmp9f47t0xw/fc07"
+  ],
+  "evidence_root_kind": "disposable",
+  "expected_exit_code": "NONZERO",
+  "observed_exit_code": 1,
+  "observed_detector": "JOB_EQ_NONZERO",
+  "stdout_stderr_redacted_sha256": "f6909b6d1016953d69c3ba6b2ff79f55df709ab251a744d3bfb352ebaf9a1847",
+  "receipt_path": "fc_receipts/FC07_CI_GATE_negative.json",
+  "stdout_path": "fc_receipts/FC07_CI_GATE_negative.stdout.txt"
+}

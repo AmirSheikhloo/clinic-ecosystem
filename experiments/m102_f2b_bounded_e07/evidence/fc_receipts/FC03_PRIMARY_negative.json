@@ -1,0 +1,20 @@
+{
+  "vector_id": "FC03_PRIMARY",
+  "side": "negative",
+  "entrypoint": "primary_verify_cli",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+    "--evidence-dir",
+    "/tmp/tmp9f47t0xw/fc03",
+    "--manifest",
+    "/tmp/tmp9f47t0xw/fc03/EVIDENCE_CASE_SHA256SUMS.txt"
+  ],
+  "evidence_root_kind": "disposable",
+  "expected_exit_code": "NONZERO",
+  "observed_exit_code": 1,
+  "observed_detector": "LINEAGE_MISMATCH",
+  "stdout_stderr_redacted_sha256": "4f3f49079d200813ea41f48ce1bac3442230278363f94603bd275f9478f7e7db",
+  "receipt_path": "fc_receipts/FC03_PRIMARY_negative.json",
+  "stdout_path": "fc_receipts/FC03_PRIMARY_negative.stdout.txt"
+}

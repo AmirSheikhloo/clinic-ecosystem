@@ -1,0 +1,12 @@
+{
+  "document": "E07_TERMINAL_FAILURE_NOTE",
+  "classification": "E07_EVIDENCE_INCOMPLETE",
+  "task_status": "FAILED",
+  "ci1_run": "44398524613",
+  "ci2_run": "44398800080",
+  "ci2_artifact": 14470918160,
+  "tested_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+  "root_cause": "verify_case_manifest TYPE_OR_UTC branch used bare truthy string \"must be structured\" instead of \"must be structured\" in e; mislabeled EVIDENCE_OWNERSHIP and SECRET_PATTERN as TYPE_OR_UTC",
+  "budget": "1+1_exhausted_no_third_attempt",
+  "independent_external_verification": "PENDING_NOT_PERFORMED"
+}

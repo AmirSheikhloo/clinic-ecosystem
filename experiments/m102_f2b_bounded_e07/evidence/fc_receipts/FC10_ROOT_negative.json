@@ -1,0 +1,18 @@
+{
+  "vector_id": "FC10_ROOT",
+  "side": "negative",
+  "entrypoint": "root_identity_readback_cli",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/root_identity_readback_cli.py",
+    "--evidence-dir",
+    "/tmp/tmp9f47t0xw/fc10"
+  ],
+  "evidence_root_kind": "disposable",
+  "expected_exit_code": "NONZERO",
+  "observed_exit_code": 1,
+  "observed_detector": "ROOT_IDENTITY",
+  "stdout_stderr_redacted_sha256": "0687d53f07bc7706d8c853cc528f97aa6b3e23f130be7f73eda4596615bcfeb4",
+  "receipt_path": "fc_receipts/FC10_ROOT_negative.json",
+  "stdout_path": "fc_receipts/FC10_ROOT_negative.stdout.txt"
+}

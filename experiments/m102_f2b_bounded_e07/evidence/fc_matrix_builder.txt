@@ -1,0 +1,2 @@
+ok=true vectors=12 outcomes=24 path=/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/evidence/E07_FC_PROOF_MATRIX.json
+STOP: matrix schema ['DETECTOR_OR_RECEIPT_MISMATCH: E05-FC05.negative detector not in stdout', 'DETECTOR_OR_RECEIPT_MISMATCH: E05-FC06.negative detector not in stdout']

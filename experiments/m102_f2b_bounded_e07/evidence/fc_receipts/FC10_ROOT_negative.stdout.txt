@@ -1,0 +1,1 @@
+{"error_codes": ["ROOT_IDENTITY"], "error_count": 3, "errors": ["ROOT_IDENTITY: must not self-certify independent verification", "ROOT_IDENTITY: independently_verified must be false", "ROOT_IDENTITY: root run_id != trusted provider"], "ok": false, "run_attempt": "1", "run_id": "44398800080", "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff"}

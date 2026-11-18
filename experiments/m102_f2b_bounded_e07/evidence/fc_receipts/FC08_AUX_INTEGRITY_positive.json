@@ -1,0 +1,18 @@
+{
+  "vector_id": "FC08_AUX_INTEGRITY",
+  "side": "positive",
+  "entrypoint": "aux_integrity_readback_cli",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/aux_integrity_readback_cli.py",
+    "--evidence-dir",
+    "/tmp/tmp9f47t0xw/sealed_clean"
+  ],
+  "evidence_root_kind": "disposable",
+  "expected_exit_code": 0,
+  "observed_exit_code": 0,
+  "observed_detector": "CLEAN",
+  "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+  "receipt_path": "fc_receipts/FC08_AUX_INTEGRITY_positive.json",
+  "stdout_path": "fc_receipts/FC08_AUX_INTEGRITY_positive.stdout.txt"
+}

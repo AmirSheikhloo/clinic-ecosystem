@@ -1,0 +1,45 @@
+{
+  "case_id": "E04-V12",
+  "finding_id": "E04V",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+  "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "parent_e04_tested_commit_sha": "8d015959ec6b2570da74d63d8f7ee0e88d1cff64",
+  "parent_e04_final_commit_sha": "f1b11731590fe29a294f86cf7cf5b64878d8ec7d",
+  "parent_e05_tested_commit_sha": "8652686f41f6420a7afe97e84b5f8f151c2a15bb",
+  "parent_e05_final_commit_sha": "92b240d7ef2da0b33ed9c50ed841ffb5e194fd83",
+  "parent_e06_tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+  "parent_e06_final_commit_sha": "36a0cebc67bda89e0942b0491d5bb2eff9745b04",
+  "e03_contract_sha256_historical": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "e04_contract_sha256_historical": "8dbb6b774e7baa532fb424aa7260b0439f3fed10c0575061b546757199ca04e3",
+  "e05_contract_sha256_historical": "6cc9be44ded30170266427f669c1b159bee0d8b27c7ab2fcfecd8735271df783",
+  "e06_contract_sha256_historical": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+  "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+  "run_id": "44398800080",
+  "run_attempt": "1",
+  "timestamp_utc": "2026-11-18T21:11:42.593843Z",
+  "postgres_server_version_num": 150000,
+  "database_label": "NOT_APPLICABLE_validator_fixture",
+  "session_user": "NOT_APPLICABLE_validator_fixture",
+  "current_user": "NOT_APPLICABLE_validator_fixture",
+  "preconditions": "disposable evidence copy",
+  "command_redacted": "E04-V12",
+  "expected_result": "fail-closed denial or positive verify",
+  "observed_result": {
+    "verifier_exit": 1
+  },
+  "exit_code": 0,
+  "before_state": {},
+  "after_state": {},
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e07/evidence/E04-V12.json"
+  ],
+  "source_test": "test_e04_v12_physical_nota_rejected",
+  "limitations": [
+    "Validator fixture; not a physical PG15 case.",
+    "E7-F PENDING."
+  ]
+}

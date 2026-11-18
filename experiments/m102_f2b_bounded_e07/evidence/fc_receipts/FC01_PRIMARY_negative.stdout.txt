@@ -1,0 +1,1 @@
+{"error_codes": ["ACCEPTANCE_NOT_OBSERVED_PASS"], "error_count": 1, "errors": ["ACCEPTANCE_NOT_OBSERVED_PASS: E03-CLOSE-C01.json: acceptance requires OBSERVED_PASS, got 'OBSERVED_FAIL'"], "ok": false, "run_attempt": "1", "run_id": "44398800080", "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff"}

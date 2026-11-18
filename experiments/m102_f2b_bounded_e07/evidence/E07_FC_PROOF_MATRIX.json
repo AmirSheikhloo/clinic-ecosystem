@@ -1,0 +1,687 @@
+{
+  "document": "E07_FC_PROOF_MATRIX",
+  "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+  "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+  "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+  "run_id": "44398800080",
+  "run_attempt": "1",
+  "vector_count": 12,
+  "process_outcome_count": 24,
+  "predicates": [
+    {
+      "predicate_id": "E05-FC01",
+      "finding_ids": [
+        "A0.1-01",
+        "E5A-02"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC01_PRIMARY",
+          "entrypoint": "primary_verify_cli",
+          "argv_schema_id": "PRIMARY_VERIFY_V1",
+          "positive": {
+            "vector_id": "FC01_PRIMARY",
+            "side": "positive",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/clean",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC01_PRIMARY_positive.json",
+            "stdout_path": "fc_receipts/FC01_PRIMARY_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC01_PRIMARY",
+            "side": "negative",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc01",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/fc01/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "ACCEPTANCE_NOT_OBSERVED_PASS",
+            "stdout_stderr_redacted_sha256": "b788e847b8c7a8c1ec073dee7bf39faa943462816b8e71641e5a035d5ddca9d5",
+            "receipt_path": "fc_receipts/FC01_PRIMARY_negative.json",
+            "stdout_path": "fc_receipts/FC01_PRIMARY_negative.stdout.txt"
+          }
+        }
+      ]
+    },
+    {
+      "predicate_id": "E05-FC02",
+      "finding_ids": [
+        "E5A-02"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC02_PRIMARY",
+          "entrypoint": "primary_verify_cli",
+          "argv_schema_id": "PRIMARY_VERIFY_V1",
+          "positive": {
+            "vector_id": "FC02_PRIMARY",
+            "side": "positive",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/clean",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC02_PRIMARY_positive.json",
+            "stdout_path": "fc_receipts/FC02_PRIMARY_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC02_PRIMARY",
+            "side": "negative",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc02",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/fc02/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "CASE_MAP_MISMATCH",
+            "stdout_stderr_redacted_sha256": "677802d7f1770fb535323a0891c001af1ca919f3cf36a968211d41fb21bdb924",
+            "receipt_path": "fc_receipts/FC02_PRIMARY_negative.json",
+            "stdout_path": "fc_receipts/FC02_PRIMARY_negative.stdout.txt"
+          }
+        }
+      ]
+    },
+    {
+      "predicate_id": "E05-FC03",
+      "finding_ids": [
+        "E5A-01"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC03_PRIMARY",
+          "entrypoint": "primary_verify_cli",
+          "argv_schema_id": "PRIMARY_VERIFY_V1",
+          "positive": {
+            "vector_id": "FC03_PRIMARY",
+            "side": "positive",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/clean",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC03_PRIMARY_positive.json",
+            "stdout_path": "fc_receipts/FC03_PRIMARY_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC03_PRIMARY",
+            "side": "negative",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc03",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/fc03/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "LINEAGE_MISMATCH",
+            "stdout_stderr_redacted_sha256": "4f3f49079d200813ea41f48ce1bac3442230278363f94603bd275f9478f7e7db",
+            "receipt_path": "fc_receipts/FC03_PRIMARY_negative.json",
+            "stdout_path": "fc_receipts/FC03_PRIMARY_negative.stdout.txt"
+          }
+        }
+      ]
+    },
+    {
+      "predicate_id": "E05-FC04",
+      "finding_ids": [
+        "E5A-02"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC04_PRIMARY",
+          "entrypoint": "primary_verify_cli",
+          "argv_schema_id": "PRIMARY_VERIFY_V1",
+          "positive": {
+            "vector_id": "FC04_PRIMARY",
+            "side": "positive",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/clean",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC04_PRIMARY_positive.json",
+            "stdout_path": "fc_receipts/FC04_PRIMARY_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC04_PRIMARY",
+            "side": "negative",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc04",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/fc04/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "TYPE_OR_UTC",
+            "stdout_stderr_redacted_sha256": "ae5571d030c390de5ccd1a32c1fc4b86d4d183b8174ad822aefc26bb11a346ea",
+            "receipt_path": "fc_receipts/FC04_PRIMARY_negative.json",
+            "stdout_path": "fc_receipts/FC04_PRIMARY_negative.stdout.txt"
+          }
+        }
+      ]
+    },
+    {
+      "predicate_id": "E05-FC05",
+      "finding_ids": [
+        "E5A-02"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC05_PRIMARY",
+          "entrypoint": "primary_verify_cli",
+          "argv_schema_id": "PRIMARY_VERIFY_V1",
+          "positive": {
+            "vector_id": "FC05_PRIMARY",
+            "side": "positive",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/clean",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC05_PRIMARY_positive.json",
+            "stdout_path": "fc_receipts/FC05_PRIMARY_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC05_PRIMARY",
+            "side": "negative",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc05",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/fc05/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "EVIDENCE_OWNERSHIP",
+            "stdout_stderr_redacted_sha256": "26f3730301a55006e305111779e6254a4658a614343652525c0fb9dc58ec6519",
+            "receipt_path": "fc_receipts/FC05_PRIMARY_negative.json",
+            "stdout_path": "fc_receipts/FC05_PRIMARY_negative.stdout.txt"
+          }
+        }
+      ]
+    },
+    {
+      "predicate_id": "E05-FC06",
+      "finding_ids": [
+        "E5A-05"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC06_PRIMARY_SECRET",
+          "entrypoint": "primary_verify_cli",
+          "argv_schema_id": "PRIMARY_VERIFY_V1",
+          "positive": {
+            "vector_id": "FC06_PRIMARY_SECRET",
+            "side": "positive",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/clean",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC06_PRIMARY_SECRET_positive.json",
+            "stdout_path": "fc_receipts/FC06_PRIMARY_SECRET_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC06_PRIMARY_SECRET",
+            "side": "negative",
+            "entrypoint": "primary_verify_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/primary_verify_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc06a",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/fc06a/EVIDENCE_CASE_SHA256SUMS.txt"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "SECRET_PATTERN",
+            "stdout_stderr_redacted_sha256": "d517c7f7d2a81ec2e370d6d70a4e9f0256056e8052f525b6bc3321f4dbebcc33",
+            "receipt_path": "fc_receipts/FC06_PRIMARY_SECRET_negative.json",
+            "stdout_path": "fc_receipts/FC06_PRIMARY_SECRET_negative.stdout.txt"
+          }
+        },
+        {
+          "vector_id": "FC06_AUX_REDACTION",
+          "entrypoint": "aux_redaction_readback_cli",
+          "argv_schema_id": "AUX_REDACTION_V1",
+          "positive": {
+            "vector_id": "FC06_AUX_REDACTION",
+            "side": "positive",
+            "entrypoint": "aux_redaction_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/aux_redaction_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/sealed_clean"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC06_AUX_REDACTION_positive.json",
+            "stdout_path": "fc_receipts/FC06_AUX_REDACTION_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC06_AUX_REDACTION",
+            "side": "negative",
+            "entrypoint": "aux_redaction_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/aux_redaction_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc06b"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "SECRET_PATTERN",
+            "stdout_stderr_redacted_sha256": "d5f2570c2029a6645c09dc42d55ef91b8aa1a299909cfff30de9167f8bda7630",
+            "receipt_path": "fc_receipts/FC06_AUX_REDACTION_negative.json",
+            "stdout_path": "fc_receipts/FC06_AUX_REDACTION_negative.stdout.txt"
+          }
+        }
+      ]
+    },
+    {
+      "predicate_id": "E05-FC07",
+      "finding_ids": [
+        "E5A-03"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC07_CI_GATE",
+          "entrypoint": "ci_gate_sequence",
+          "argv_schema_id": "CI_GATE_V1",
+          "positive": {
+            "vector_id": "FC07_CI_GATE",
+            "side": "positive",
+            "entrypoint": "ci_gate_sequence",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/ci_gate_sequence.py",
+              "--pytest-rc",
+              "0",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/clean/EVIDENCE_CASE_SHA256SUMS.txt",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/clean"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "a77c5d5ed7bd73de4397fd981fdf71269c13efe3706ae2e8034f99df7ce1f733",
+            "receipt_path": "fc_receipts/FC07_CI_GATE_positive.json",
+            "stdout_path": "fc_receipts/FC07_CI_GATE_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC07_CI_GATE",
+            "side": "negative",
+            "entrypoint": "ci_gate_sequence",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/ci_gate_sequence.py",
+              "--pytest-rc",
+              "0",
+              "--manifest",
+              "/tmp/tmp9f47t0xw/fc07/EVIDENCE_CASE_SHA256SUMS.txt",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc07"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "JOB_EQ_NONZERO",
+            "stdout_stderr_redacted_sha256": "f6909b6d1016953d69c3ba6b2ff79f55df709ab251a744d3bfb352ebaf9a1847",
+            "receipt_path": "fc_receipts/FC07_CI_GATE_negative.json",
+            "stdout_path": "fc_receipts/FC07_CI_GATE_negative.stdout.txt"
+          }
+        }
+      ]
+    },
+    {
+      "predicate_id": "E05-FC08",
+      "finding_ids": [
+        "E5A-03",
+        "E5A-04"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC08_AUX_INTEGRITY",
+          "entrypoint": "aux_integrity_readback_cli",
+          "argv_schema_id": "AUX_INTEGRITY_V1",
+          "positive": {
+            "vector_id": "FC08_AUX_INTEGRITY",
+            "side": "positive",
+            "entrypoint": "aux_integrity_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/aux_integrity_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/sealed_clean"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC08_AUX_INTEGRITY_positive.json",
+            "stdout_path": "fc_receipts/FC08_AUX_INTEGRITY_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC08_AUX_INTEGRITY",
+            "side": "negative",
+            "entrypoint": "aux_integrity_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/aux_integrity_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc08"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "AUX_HASH_MISMATCH",
+            "stdout_stderr_redacted_sha256": "f8560f985f650458971185316d2ea100fdacf18b1470b6220ebf3e03515282bb",
+            "receipt_path": "fc_receipts/FC08_AUX_INTEGRITY_negative.json",
+            "stdout_path": "fc_receipts/FC08_AUX_INTEGRITY_negative.stdout.txt"
+          }
+        }
+      ]
+    },
+    {
+      "predicate_id": "E05-FC09",
+      "finding_ids": [
+        "E5A-05",
+        "E6A-04"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC09_JUNIT",
+          "entrypoint": "junit_and_fixture_identity_readback_cli",
+          "argv_schema_id": "JUNIT_FIXTURE_V1",
+          "positive": {
+            "vector_id": "FC09_JUNIT",
+            "side": "positive",
+            "entrypoint": "junit_and_fixture_identity_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/junit_and_fixture_identity_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/sealed_clean",
+              "--mode",
+              "junit"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC09_JUNIT_positive.json",
+            "stdout_path": "fc_receipts/FC09_JUNIT_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC09_JUNIT",
+            "side": "negative",
+            "entrypoint": "junit_and_fixture_identity_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/junit_and_fixture_identity_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc09a",
+              "--mode",
+              "junit"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "JUNIT_ALLOWLIST",
+            "stdout_stderr_redacted_sha256": "f40cb1fa34174c6cc2c8fdc0245c4d97eb50f9f9ec3421f77d7f731f5ed33d92",
+            "receipt_path": "fc_receipts/FC09_JUNIT_negative.json",
+            "stdout_path": "fc_receipts/FC09_JUNIT_negative.stdout.txt"
+          }
+        },
+        {
+          "vector_id": "FC09_FIXTURE_PROVENANCE",
+          "entrypoint": "junit_and_fixture_identity_readback_cli",
+          "argv_schema_id": "JUNIT_FIXTURE_V1",
+          "positive": {
+            "vector_id": "FC09_FIXTURE_PROVENANCE",
+            "side": "positive",
+            "entrypoint": "junit_and_fixture_identity_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/junit_and_fixture_identity_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/sealed_clean",
+              "--mode",
+              "fixture"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC09_FIXTURE_PROVENANCE_positive.json",
+            "stdout_path": "fc_receipts/FC09_FIXTURE_PROVENANCE_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC09_FIXTURE_PROVENANCE",
+            "side": "negative",
+            "entrypoint": "junit_and_fixture_identity_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/junit_and_fixture_identity_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc09b",
+              "--mode",
+              "fixture"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "FIXTURE_PROVENANCE_MISMATCH",
+            "stdout_stderr_redacted_sha256": "9ef1ed68d14ee7fcd66a8115309c32c07b056a097d6e43c325e08904da9ae9d7",
+            "receipt_path": "fc_receipts/FC09_FIXTURE_PROVENANCE_negative.json",
+            "stdout_path": "fc_receipts/FC09_FIXTURE_PROVENANCE_negative.stdout.txt"
+          }
+        }
+      ]
+    },
+    {
+      "predicate_id": "E05-FC10",
+      "finding_ids": [
+        "E5A-06"
+      ],
+      "contract_sha256": "a9fbaf3edba705159d327dc292db71ac0072bd170d6010d868f6bf8690e7b32e",
+      "authorization_sha256": "ba099b0767548d7e32c33f146b4d183600030ff0a71430f66dbb5f308ff2d4a7",
+      "tested_commit_sha": "d0f8a352fdfedee001f2e3a08aa3b7817ab52dff",
+      "run_id": "44398800080",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "vectors": [
+        {
+          "vector_id": "FC10_ROOT",
+          "entrypoint": "root_identity_readback_cli",
+          "argv_schema_id": "ROOT_IDENTITY_V1",
+          "positive": {
+            "vector_id": "FC10_ROOT",
+            "side": "positive",
+            "entrypoint": "root_identity_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/root_identity_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/sealed_clean"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": 0,
+            "observed_exit_code": 0,
+            "observed_detector": "CLEAN",
+            "stdout_stderr_redacted_sha256": "f3901bb54656a972774bfde692bf9f54386f5930dec497fad7d1aa7986ffe68f",
+            "receipt_path": "fc_receipts/FC10_ROOT_positive.json",
+            "stdout_path": "fc_receipts/FC10_ROOT_positive.stdout.txt"
+          },
+          "negative": {
+            "vector_id": "FC10_ROOT",
+            "side": "negative",
+            "entrypoint": "root_identity_readback_cli",
+            "argv_redacted": [
+              "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+              "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e07/scripts/root_identity_readback_cli.py",
+              "--evidence-dir",
+              "/tmp/tmp9f47t0xw/fc10"
+            ],
+            "evidence_root_kind": "disposable",
+            "expected_exit_code": "NONZERO",
+            "observed_exit_code": 1,
+            "observed_detector": "ROOT_IDENTITY",
+            "stdout_stderr_redacted_sha256": "0687d53f07bc7706d8c853cc528f97aa6b3e23f130be7f73eda4596615bcfeb4",
+            "receipt_path": "fc_receipts/FC10_ROOT_negative.json",
+            "stdout_path": "fc_receipts/FC10_ROOT_negative.stdout.txt"
+          }
+        }
+      ]
+    }
+  ]
+}
