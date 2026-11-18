@@ -268,16 +268,19 @@ def main() -> int:
         try:
             aux_path, aux_dig, inv = write_auxiliary_manifest(evidence_dir=bad)
             write_root_digests(dig8, aux_dig, evidence_dir=bad)
-            # tamper a sealed fixture after aux seal
+            # tamper a sealed fixture AFTER aux seal; must reuse seal so rewrite cannot hide fault
             fp = bad / "E04-V01.json"
-            if fp.is_file():
-                fp.write_bytes(fp.read_bytes() + b"\n")
+            if not fp.is_file():
+                raise FileNotFoundError("E04-V01.json missing for FC08 tamper")
+            fp.write_bytes(fp.read_bytes() + b"\n")
             argv = [
                 sys.executable,
                 str(POST_SEAL),
                 "--evidence-dir",
                 str(bad),
                 "--skip-matrix-validate",
+                "1",
+                "--reuse-existing-seal",
                 "1",
             ]
             neg = _run(argv)

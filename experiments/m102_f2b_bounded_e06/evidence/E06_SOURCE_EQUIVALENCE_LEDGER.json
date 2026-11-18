@@ -1,6 +1,6 @@
 {
   "document": "E06_SOURCE_EQUIVALENCE_LEDGER",
-  "created_utc": "2026-11-18T19:37:05.272131Z",
+  "created_utc": "2026-11-18T19:39:07.008502Z",
   "base_commit": "92b240d7ef2da0b33ed9c50ed841ffb5e194fd83",
   "parent_e05_tested_commit_sha": "8652686f41f6420a7afe97e84b5f8f151c2a15bb",
   "parent_e05_final_commit_sha": "92b240d7ef2da0b33ed9c50ed841ffb5e194fd83",
@@ -153,11 +153,11 @@
     },
     {
       "e06_rel": "scripts/build_fc_proof_matrix.py",
-      "e06_sha256": "8d2cdd32f1ad09cf68b8f3315968fc60a11f69f615eba8d6b27db3001467d184",
+      "e06_sha256": "ea5adc6a29151e94f647735add354493ee27dabce6700f75848b72458aab3295",
       "e05_rel": null,
       "e05_sha256": null,
       "byte_identical_to_e05": false,
-      "note": "e06_new_or_renamed"
+      "note": "intentional_E06_forensic_hardening_corrective_FC08_reuse_seal"
     },
     {
       "e06_rel": "scripts/ci_gate_sequence.py",
@@ -263,5 +263,6 @@
       "byte_identical_to_e05": true,
       "note": "byte_identical"
     }
-  ]
+  ],
+  "corrective_note": "CI1 run 44382194983 failed solely because FC08 negative rewrote aux after tamper (exit 0). Corrective uses --reuse-existing-seal=1 so aux hash mismatch is observed. Non-security harness defect; pytest+primary gates were green."
 }
