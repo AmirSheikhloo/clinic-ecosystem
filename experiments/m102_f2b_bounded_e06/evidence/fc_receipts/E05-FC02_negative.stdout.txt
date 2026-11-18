@@ -1,0 +1,9 @@
+{"ok": false, "error_count": 6, "errors": ["E03-A01-N01.json: case_id 'E03-A02-P01' != expected 'E03-A01-N01'", "E03-A01-N01.json: basename 'E03-A01-N01' != case_id 'E03-A02-P01'", "E03-A01-N01.json: source_test mismatch want test_e03_a02_p01_notnull_and_check", "E03-A01-N01.json: evidence_files must include own canonical path", "case_id set mismatch", "duplicate case_id values"]}
+ERROR: E03-A01-N01.json: case_id 'E03-A02-P01' != expected 'E03-A01-N01'
+ERROR: E03-A01-N01.json: basename 'E03-A01-N01' != case_id 'E03-A02-P01'
+ERROR: E03-A01-N01.json: source_test mismatch want test_e03_a02_p01_notnull_and_check
+ERROR: E03-A01-N01.json: evidence_files must include own canonical path
+ERROR: case_id set mismatch
+ERROR: duplicate case_id values
+
+---STDERR---

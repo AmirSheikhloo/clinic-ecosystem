@@ -1,0 +1,456 @@
+{
+  "document": "E06_FC_PROOF_MATRIX",
+  "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+  "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+  "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+  "run_id": "44382487747",
+  "run_attempt": "1",
+  "predicates": [
+    {
+      "predicate_id": "E05-FC01",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_ACCEPT",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc01",
+          "--manifest",
+          "/tmp/tmp7zme1u32/fc01/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "ACCEPTANCE_NOT_OBSERVED_PASS",
+        "stdout_stderr_redacted_sha256": "fd3c2faf1fd6fa4d298b8f1b3a07e7411d06dd8a1b1d1af573046cc9c8532ea6"
+      }
+    },
+    {
+      "predicate_id": "E05-FC02",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_MAP",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc02",
+          "--manifest",
+          "/tmp/tmp7zme1u32/fc02/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "CASE_MAP_MISMATCH",
+        "stdout_stderr_redacted_sha256": "774c49215e39ce481539232e00c463b3697817b02d4c390519214e1de8c7bc85"
+      }
+    },
+    {
+      "predicate_id": "E05-FC03",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_LINEAGE",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc03",
+          "--manifest",
+          "/tmp/tmp7zme1u32/fc03/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "LINEAGE_MISMATCH",
+        "stdout_stderr_redacted_sha256": "e3f8b886f5d747b43379cf28ee00eb9809dd3dce66dd4cf8d1a300c3655a07d8"
+      }
+    },
+    {
+      "predicate_id": "E05-FC04",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_TYPES",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc04",
+          "--manifest",
+          "/tmp/tmp7zme1u32/fc04/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "TYPE_OR_UTC",
+        "stdout_stderr_redacted_sha256": "50168c43d455013547e1bd4bfb1b6c590ed3461507231fa36dc5fd52ed999c1c"
+      }
+    },
+    {
+      "predicate_id": "E05-FC05",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_OWNERSHIP",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc05",
+          "--manifest",
+          "/tmp/tmp7zme1u32/fc05/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "EVIDENCE_OWNERSHIP",
+        "stdout_stderr_redacted_sha256": "4d18409e6abe92e24aad8d22fa92ae0daccb34237aac20ccc45bf0924794f71d"
+      }
+    },
+    {
+      "predicate_id": "E05-FC06",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_REDACTION",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc06",
+          "--manifest",
+          "/tmp/tmp7zme1u32/fc06/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "SECRET_PATTERN",
+        "stdout_stderr_redacted_sha256": "3dbe38a0b0c06abb5ec5465d15d5a4f36816554a7eba61f497e156a8fe9332d4"
+      }
+    },
+    {
+      "predicate_id": "E05-FC07",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_GATE",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "ci_gate_sequence",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/ci_gate_sequence.py",
+          "--pytest-rc",
+          "0",
+          "--manifest",
+          "/tmp/tmp7zme1u32/fc07/EVIDENCE_CASE_SHA256SUMS.txt",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc07"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "JOB_EQ_NONZERO",
+        "stdout_stderr_redacted_sha256": "698b84974b9f2da01af221dc9d7419fb3d5a7db84c6d0e96469d088b2806423b"
+      }
+    },
+    {
+      "predicate_id": "E05-FC08",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_AUX",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "post_seal_verify",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/post_seal_verify.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc08",
+          "--skip-matrix-validate",
+          "1",
+          "--reuse-existing-seal",
+          "1"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "AUX_HASH_MISMATCH",
+        "stdout_stderr_redacted_sha256": "a2134bf10996df552ded508e80c37b7192b0cc71d4de6bd0b095213a3b98fc74"
+      }
+    },
+    {
+      "predicate_id": "E05-FC09",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_JUNIT",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "post_seal_verify",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/post_seal_verify.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc09",
+          "--skip-matrix-validate",
+          "1"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "JUNIT_ALLOWLIST",
+        "stdout_stderr_redacted_sha256": "958cb2e2722930cb68ca0e3cda247b1f692d4f0b3c12efa69b34df0dc116933e"
+      }
+    },
+    {
+      "predicate_id": "E05-FC10",
+      "finding_ids": [
+        "E5A"
+      ],
+      "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+      "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+      "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+      "run_id": "44382487747",
+      "run_attempt": "1",
+      "provider_event": "push",
+      "positive": {
+        "entrypoint": "primary_verify_cli",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/clean",
+          "--manifest",
+          "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+        ],
+        "evidence_root_kind": "real_or_disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 0,
+        "detector_code": "CLEAN_ROOT",
+        "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+      },
+      "negative": {
+        "entrypoint": "post_seal_verify",
+        "argv_redacted": [
+          "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/post_seal_verify.py",
+          "--evidence-dir",
+          "/tmp/tmp7zme1u32/fc10",
+          "--skip-matrix-validate",
+          "1",
+          "--reuse-existing-seal",
+          "1"
+        ],
+        "evidence_root_kind": "disposable",
+        "expected_exit_code": "NONZERO",
+        "observed_exit_code": 1,
+        "detector_code": "ROOT_IDENTITY",
+        "stdout_stderr_redacted_sha256": "fcc94cb3cc3436317c6225bdf525e2e5ca4cd2010534876d318d6b0ba8030b2c"
+      }
+    }
+  ]
+}

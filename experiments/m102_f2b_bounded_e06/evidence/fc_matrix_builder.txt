@@ -1,0 +1,1 @@
+{"ok": true, "predicates": 10, "path": "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/evidence/E06_FC_PROOF_MATRIX.json"}

@@ -1,0 +1,4 @@
+{"ok": false, "error_count": 1, "errors": ["E03-A01-P01.json: evidence_files must include own canonical path"]}
+ERROR: E03-A01-P01.json: evidence_files must include own canonical path
+
+---STDERR---

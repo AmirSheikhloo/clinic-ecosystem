@@ -1,0 +1,4 @@
+{"ok": false, "error_count": 1, "errors": ["E03-A05-C01.json: authorization_sha256 mismatch"]}
+ERROR: E03-A05-C01.json: authorization_sha256 mismatch
+
+---STDERR---

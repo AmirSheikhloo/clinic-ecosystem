@@ -1,0 +1,18 @@
+{
+  "entrypoint": "post_seal_verify",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/post_seal_verify.py",
+    "--evidence-dir",
+    "/tmp/tmp7zme1u32/fc08",
+    "--skip-matrix-validate",
+    "1",
+    "--reuse-existing-seal",
+    "1"
+  ],
+  "evidence_root_kind": "disposable",
+  "expected_exit_code": "NONZERO",
+  "observed_exit_code": 1,
+  "detector_code": "AUX_HASH_MISMATCH",
+  "stdout_stderr_redacted_sha256": "a2134bf10996df552ded508e80c37b7192b0cc71d4de6bd0b095213a3b98fc74"
+}

@@ -1,0 +1,47 @@
+{
+  "document": "E06_EV_CLOSURE_JUDGMENTS",
+  "tested_commit_sha": "56a08278c18659458f625b4b30fa68aa590b0f0b",
+  "run_id": "44382487747",
+  "contract_sha256": "492aa65345a0d6033fb46d858185510f8721afc6435cdce0b8cdddf69861fb5a",
+  "authorization_sha256": "ae542bae0bb7931abc85fab8604d2afbde20b574d80d95bd3914472b260d0549",
+  "judgments": [
+    {
+      "id": "E06-EV01",
+      "finding": "E5A-01",
+      "verdict": "CLOSED_BY_SELF_VERIFIER",
+      "basis": "authorization+contract+parent lineage enforced; FC03 negative CLI nonzero LINEAGE_MISMATCH"
+    },
+    {
+      "id": "E06-EV02",
+      "finding": "E5A-02",
+      "verdict": "CLOSED_BY_SELF_VERIFIER",
+      "basis": "strict int exit/pg version, UTC Z, owned evidence_files; FC04/FC05 negatives nonzero"
+    },
+    {
+      "id": "E06-EV03",
+      "finding": "E5A-03",
+      "verdict": "CLOSED_BY_SELF_VERIFIER",
+      "basis": "V03/V04/V08/V11/V13 assert real CLI returncodes; V14 positive CLI 0; no acceptance bypass"
+    },
+    {
+      "id": "E06-EV04",
+      "finding": "E5A-04",
+      "verdict": "CLOSED_BY_SELF_VERIFIER",
+      "basis": "E06_FC_PROOF_MATRIX 10x pos=0 neg!=0 sealed with receipts"
+    },
+    {
+      "id": "E06-EV05",
+      "finding": "E5A-05",
+      "verdict": "CLOSED_BY_SELF_VERIFIER",
+      "basis": "exact 32 junit identities + secret scan; FC06/FC09 negatives nonzero"
+    },
+    {
+      "id": "E06-EV06",
+      "finding": "E5A-06",
+      "verdict": "CLOSED_BY_SELF_VERIFIER",
+      "basis": "root provider binding; FC10 forged root denied; independent still PENDING"
+    }
+  ],
+  "independent_external_verification": "PENDING",
+  "note": "Self-verifier closures are not E6-E independent acceptance."
+}

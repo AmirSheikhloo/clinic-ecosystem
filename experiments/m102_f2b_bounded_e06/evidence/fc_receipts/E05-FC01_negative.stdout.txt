@@ -1,0 +1,5 @@
+{"ok": false, "error_count": 2, "errors": ["E03-CLOSE-C01.json: acceptance requires OBSERVED_PASS, got 'OBSERVED_FAIL' (E05-FC01)", "E03-CLOSE-C01.json: non-acceptance classification 'OBSERVED_FAIL' denied"]}
+ERROR: E03-CLOSE-C01.json: acceptance requires OBSERVED_PASS, got 'OBSERVED_FAIL' (E05-FC01)
+ERROR: E03-CLOSE-C01.json: non-acceptance classification 'OBSERVED_FAIL' denied
+
+---STDERR---

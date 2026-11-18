@@ -1,0 +1,18 @@
+{
+  "entrypoint": "ci_gate_sequence",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/ci_gate_sequence.py",
+    "--pytest-rc",
+    "0",
+    "--manifest",
+    "/tmp/tmp7zme1u32/fc07/EVIDENCE_CASE_SHA256SUMS.txt",
+    "--evidence-dir",
+    "/tmp/tmp7zme1u32/fc07"
+  ],
+  "evidence_root_kind": "disposable",
+  "expected_exit_code": "NONZERO",
+  "observed_exit_code": 1,
+  "detector_code": "JOB_EQ_NONZERO",
+  "stdout_stderr_redacted_sha256": "698b84974b9f2da01af221dc9d7419fb3d5a7db84c6d0e96469d088b2806423b"
+}

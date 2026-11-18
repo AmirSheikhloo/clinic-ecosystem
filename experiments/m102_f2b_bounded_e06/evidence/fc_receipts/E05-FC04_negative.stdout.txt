@@ -1,0 +1,5 @@
+{"ok": false, "error_count": 2, "errors": ["E03-A05-C01.json: OBSERVED_PASS unexpected exit_code type/value='0'", "E03-A05-C01.json: timestamp_utc must be UTC zero-offset"]}
+ERROR: E03-A05-C01.json: OBSERVED_PASS unexpected exit_code type/value='0'
+ERROR: E03-A05-C01.json: timestamp_utc must be UTC zero-offset
+
+---STDERR---

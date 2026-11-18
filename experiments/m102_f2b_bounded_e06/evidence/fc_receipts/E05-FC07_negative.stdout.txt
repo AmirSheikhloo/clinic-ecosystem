@@ -1,0 +1,6 @@
+{"ok": false, "error_count": 2, "errors": ["hash mismatch for experiments/m102_f2b_bounded_e06/evidence/E03-A01-P01.json", "E03-A01-P01.json: unreadable JSON: Extra data: line 59 column 2 (char 2406)"]}
+ERROR: hash mismatch for experiments/m102_f2b_bounded_e06/evidence/E03-A01-P01.json
+ERROR: E03-A01-P01.json: unreadable JSON: Extra data: line 59 column 2 (char 2406)
+forensic_rc=1
+
+---STDERR---

@@ -1,0 +1,16 @@
+{
+  "entrypoint": "primary_verify_cli",
+  "argv_redacted": [
+    "/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+    "/home/runner/work/clinic-ecosystem/clinic-ecosystem/experiments/m102_f2b_bounded_e06/scripts/primary_verify_cli.py",
+    "--evidence-dir",
+    "/tmp/tmp7zme1u32/clean",
+    "--manifest",
+    "/tmp/tmp7zme1u32/clean/EVIDENCE_CASE_SHA256SUMS.txt"
+  ],
+  "evidence_root_kind": "real_or_disposable",
+  "expected_exit_code": "NONZERO",
+  "observed_exit_code": 0,
+  "detector_code": "CLEAN_ACCEPT",
+  "stdout_stderr_redacted_sha256": "03e08a2370085faedf0e9c691d2627252ab2a4b75ed772fb48de3ecc688764bb"
+}
