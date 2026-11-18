@@ -1,0 +1,42 @@
+{
+  "case_id": "E03-CLOSE-C01",
+  "contract_sha256": "6cc9be44ded30170266427f669c1b159bee0d8b27c7ab2fcfecd8735271df783",
+  "authorization_sha256": "15712f73fa02cb589109645ade6be700c5bd0ab9832d23e2286dba1fc86b4ec3",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "parent_e04_tested_commit_sha": "8d015959ec6b2570da74d63d8f7ee0e88d1cff64",
+  "parent_e04_final_commit_sha": "f1b11731590fe29a294f86cf7cf5b64878d8ec7d",
+  "e03_contract_sha256_historical": "b5f8d33a33ff25e398cb75be76bebfab02a32cf8386e04b1e46f6cecc89ecb28",
+  "e04_contract_sha256_historical": "8dbb6b774e7baa532fb424aa7260b0439f3fed10c0575061b546757199ca04e3",
+  "tested_commit_sha": "db4ce755b8ef9696419855974a0be44edc240dac",
+  "run_id": "44322975094",
+  "run_attempt": "1",
+  "timestamp_utc": "2026-11-18T14:19:56.407992+00:00",
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e05/evidence/E03-CLOSE-C01.json"
+  ],
+  "source_test": "test_e03_zz_a07_c01_evidence_schema",
+  "limitations": [
+    "Hosted Actions service teardown is platform-owned; experiment claims only owned SQL objects disposed per job end."
+  ],
+  "finding_id": "CLOSE",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "postgres_server_version_num": 150020,
+  "database_label": "postgres",
+  "session_user": "NOT_APPLICABLE_closure_control",
+  "current_user": "NOT_APPLICABLE_closure_control",
+  "preconditions": "CI ephemeral resources; immutable E0.2/E0.3 refs retained",
+  "command_redacted": "closure checklist prior to final forensic gate",
+  "expected_result": "cleanup facts + grant cutoff recorded",
+  "observed_result": {
+    "parent_e02": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+    "parent_e03_final": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+    "contract": "6cc9be44ded30170266427f669c1b159bee0d8b27c7ab2fcfecd8735271df783",
+    "expiry": "2026-12-04T22:59:00Z",
+    "ci_event": "push"
+  },
+  "exit_code": 0,
+  "before_state": "suite executing",
+  "after_state": "closure_control_recorded"
+}

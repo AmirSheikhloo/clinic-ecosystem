@@ -1,0 +1,41 @@
+{
+  "case_id": "E04-V05",
+  "finding_id": "E04V",
+  "classification": "OBSERVED_PASS",
+  "execution_kind": "GOVERNANCE_CONTROL",
+  "contract_sha256": "6cc9be44ded30170266427f669c1b159bee0d8b27c7ab2fcfecd8735271df783",
+  "authorization_sha256": "15712f73fa02cb589109645ade6be700c5bd0ab9832d23e2286dba1fc86b4ec3",
+  "parent_e02_final_commit_sha": "471f88417bfcf69ce864b333114e7fb0f777ede0",
+  "parent_e03_final_commit_sha": "0145b3fd114a022dd004a3a36be43a9a0994a9b5",
+  "parent_e04_final_commit_sha": "f1b11731590fe29a294f86cf7cf5b64878d8ec7d",
+  "tested_commit_sha": "db4ce755b8ef9696419855974a0be44edc240dac",
+  "run_id": "44322975094",
+  "run_attempt": "1",
+  "timestamp_utc": "2026-11-18T14:19:56.426388+00:00",
+  "postgres_server_version_num": 150000,
+  "database_label": "NOT_APPLICABLE_validator_fixture",
+  "session_user": "NOT_APPLICABLE_validator_fixture",
+  "current_user": "NOT_APPLICABLE_validator_fixture",
+  "preconditions": "disposable evidence copy",
+  "command_redacted": "E04-V05",
+  "expected_result": "fail-closed denial or positive verify",
+  "observed_result": {
+    "errors": [
+      "E03-A05-C01: tested_commit_sha not full 40-hex in CI",
+      "E03-A05-C01: tested_commit_sha != GITHUB_SHA",
+      "E03-A05-C01: LOCAL identity rejected in CI",
+      "E03-A05-C01: run_id != GITHUB_RUN_ID"
+    ]
+  },
+  "exit_code": 0,
+  "before_state": {},
+  "after_state": {},
+  "evidence_files": [
+    "experiments/m102_f2b_bounded_e05/evidence/E04-V05.json"
+  ],
+  "source_test": "test_e04_v05",
+  "limitations": [
+    "Validator fixture on disposable copies; not a physical PG15 case.",
+    "E5-E independent external verification PENDING."
+  ]
+}
