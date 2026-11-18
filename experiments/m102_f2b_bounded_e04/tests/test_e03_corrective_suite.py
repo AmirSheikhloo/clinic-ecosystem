@@ -679,7 +679,7 @@ def test_e03_a05_c01_ci_governance(pg_proof: dict, admin_dsn: str):
     assert "workflow_dispatch" not in text
     assert "pull_request_target" not in text
     assert "schedule:" not in text
-    assert "experiment/m102-f2b-e03-*" in text
+    assert "experiment/m102-f2b-e04-*" in text
     assert "paths:" in text
     assert "evidence/**" in text
     assert "permissions:" in text and "contents: read" in text
@@ -688,7 +688,7 @@ def test_e03_a05_c01_ci_governance(pg_proof: dict, admin_dsn: str):
         if other.name == "m102-f2b-bounded-e04.yml":
             continue
         ot = other.read_text(encoding="utf-8")
-        assert "m102-f2b-e03" not in ot
+        assert "m102-f2b-e04" not in ot
     event = os.environ.get("GITHUB_EVENT_NAME", "LOCAL_NOT_CI")
     write_evidence(
         "E03-A05-C01",
@@ -700,7 +700,7 @@ def test_e03_a05_c01_ci_governance(pg_proof: dict, admin_dsn: str):
             "database_label": "NOT_APPLICABLE_governance_control",
             "session_user": "NOT_APPLICABLE_governance_control",
             "current_user": "NOT_APPLICABLE_governance_control",
-            "preconditions": "workflow file present; branch filter e03; path filters exclude evidence",
+            "preconditions": "workflow file present; branch filter e04; path filters exclude evidence",
             "command_redacted": "static workflow audit + runtime event name capture",
             "expected_result": "push-only scoped workflow; no PR/dispatch/schedule",
             "observed_result": {

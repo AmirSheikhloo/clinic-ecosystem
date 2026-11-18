@@ -152,30 +152,31 @@ def test_e04_v03_missing_or_duplicate_id(tmp_evidence_tree: Path):
     )
 
 
-def test_e04_v04_byte_tamper_fails_manifest(tmp_evidence_tree: Path):
-    # Build manifest over copy then tamper
-    lines = []
+def test_e04_v04_byte_tamper_fails_manifest(tmp_path: Path):
+    # Always seed a complete disposable 19-file tree from the live evidence dir
     import hashlib
 
+    dst = tmp_path / "tamper_tree"
+    dst.mkdir()
     for case_id in REQUIRED_CASE_IDS:
-        p = tmp_evidence_tree / f"{case_id}.json"
-        if not p.exists():
-            # copy from real if mutation deleted
-            shutil.copy2(EVIDENCE / f"{case_id}.json", p)
+        src = EVIDENCE / f"{case_id}.json"
+        assert src.is_file(), f"prerequisite missing for V04: {case_id}"
+        shutil.copy2(src, dst / f"{case_id}.json")
+    lines = []
+    for case_id in REQUIRED_CASE_IDS:
+        p = dst / f"{case_id}.json"
         digest = hashlib.sha256(p.read_bytes()).hexdigest()
         lines.append(f"{digest}  experiments/m102_f2b_bounded_e04/evidence/{case_id}.json")
-    man = tmp_evidence_tree / "EVIDENCE_CASE_SHA256SUMS.txt"
+    man = dst / "EVIDENCE_CASE_SHA256SUMS.txt"
     man.write_text("\n".join(lines) + "\n")
-    # tamper one byte
-    victim = tmp_evidence_tree / "E03-A01-P01.json"
+    victim = dst / "E03-A01-P01.json"
     raw = victim.read_bytes()
     victim.write_bytes(raw[:-1] + (b"X" if raw[-1:] != b"X" else b"Y"))
-    # verify against real verifier by temporarily pointing — reimplement check locally
     mismatches = []
     for line in man.read_text().splitlines():
         digest, rel = line.split()
         name = Path(rel).name
-        fp = tmp_evidence_tree / name
+        fp = dst / name
         actual = hashlib.sha256(fp.read_bytes()).hexdigest()
         if actual != digest:
             mismatches.append(name)
