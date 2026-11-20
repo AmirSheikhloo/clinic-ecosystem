@@ -1,6 +1,9 @@
 "use client";
 
 import { CSRF_COOKIE } from "./constants";
+import { formatTehran, tehranLocalToUtcIso } from "./tehran";
+
+export { formatTehran, tehranLocalToUtcIso, tehranTodayYmd, tehranDayBoundsUtc } from "./tehran";
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -30,6 +33,35 @@ export type ApiErrorBody = {
   detail?: unknown;
 };
 
+export type OverlapConflict = {
+  appointment_id: string;
+  display_safe_patient_name?: string;
+  booking_channel?: string;
+  scheduled_start_at_utc?: string;
+  scheduled_end_at_utc?: string;
+};
+
+export function extractOverlapConflicts(data: ApiErrorBody): OverlapConflict[] | null {
+  const detail = data.detail;
+  if (!detail || typeof detail !== "object") {
+    if (data.error === "manual_overlap_acknowledgement_required") {
+      return [];
+    }
+    return null;
+  }
+  const d = detail as {
+    error?: string;
+    conflicts?: OverlapConflict[];
+  };
+  if (
+    d.error === "manual_overlap_acknowledgement_required"
+    || data.error === "manual_overlap_acknowledgement_required"
+  ) {
+    return Array.isArray(d.conflicts) ? d.conflicts : [];
+  }
+  return null;
+}
+
 export async function apiFetch(
   path: string,
   init: RequestInit & { csrf?: boolean } = {},
@@ -52,48 +84,32 @@ export async function apiFetch(
 
 export function formatApiError(data: ApiErrorBody, fallback: string): string {
   if (data.message) return data.message;
+  if (typeof data.detail === "object" && data.detail && "message" in data.detail) {
+    const message = (data.detail as { message?: string }).message;
+    if (message) return message;
+  }
   if (data.error) return data.error;
   return fallback;
 }
 
-/** Convert a local datetime-local value (Asia/Tehran wall clock) to ISO UTC. */
-export function tehranLocalToUtcIso(localValue: string): string {
-  // localValue: YYYY-MM-DDTHH:mm from datetime-local input, interpreted as Asia/Tehran.
-  const [datePart, timePart] = localValue.split("T");
-  const [y, m, d] = datePart.split("-").map(Number);
-  const [hh, mm] = timePart.split(":").map(Number);
-  // Build a UTC guess then adjust using Asia/Tehran offset at that instant.
-  const guess = new Date(Date.UTC(y, m - 1, d, hh, mm, 0));
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Tehran",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  const parts = Object.fromEntries(
-    formatter.formatToParts(guess).map((p) => [p.type, p.value]),
-  );
-  const asTehran = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour) % 24,
-    Number(parts.minute),
-    Number(parts.second),
-  );
-  const offsetMs = asTehran - guess.getTime();
-  return new Date(guess.getTime() - offsetMs).toISOString();
-}
-
-export function formatTehran(isoUtc: string): string {
-  const dt = new Date(isoUtc);
-  return new Intl.DateTimeFormat("fa-IR", {
-    timeZone: "Asia/Tehran",
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(dt);
+/** Stable idempotency key for an unchanged booking payload; new payload → new key. */
+export function bookingFingerprint(payload: {
+  patientId: string;
+  serviceId: string;
+  resourceIds: string[];
+  startLocal: string;
+  durationMinutes: number;
+}): string {
+  const normalized = [
+    payload.patientId,
+    payload.serviceId,
+    [...payload.resourceIds].sort().join(","),
+    payload.startLocal,
+    String(payload.durationMinutes),
+  ].join("|");
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(i)) >>> 0;
+  }
+  return `desk-${hash.toString(16)}-${normalized.length}`;
 }

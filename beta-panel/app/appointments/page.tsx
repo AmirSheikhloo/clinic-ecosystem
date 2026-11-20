@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, formatApiError, formatTehran, type ApiErrorBody } from "@/lib/client";
+import {
+  apiFetch,
+  formatApiError,
+  formatTehran,
+  tehranDayBoundsUtc,
+  tehranTodayYmd,
+  type ApiErrorBody,
+} from "@/lib/client";
 
 type AppointmentItem = {
   appointment_id: string;
@@ -14,82 +21,55 @@ type AppointmentItem = {
   scheduled_end_at_utc: string;
 };
 
-function dayBoundsTehran(dateYmd: string): { start: string; end: string } {
-  const startLocal = `${dateYmd}T00:00`;
-  const endLocal = `${dateYmd}T23:59`;
-  // Reuse desk conversion by constructing Date with Tehran offset via Intl.
-  const toUtc = (local: string) => {
-    const [datePart, timePart] = local.split("T");
-    const [y, m, d] = datePart.split("-").map(Number);
-    const [hh, mm] = timePart.split(":").map(Number);
-    const guess = new Date(Date.UTC(y, m - 1, d, hh, mm, 0));
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Tehran",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-    const parts = Object.fromEntries(
-      formatter.formatToParts(guess).map((p) => [p.type, p.value]),
-    );
-    const asTehran = Date.UTC(
-      Number(parts.year),
-      Number(parts.month) - 1,
-      Number(parts.day),
-      Number(parts.hour) % 24,
-      Number(parts.minute),
-      Number(parts.second),
-    );
-    return new Date(guess.getTime() - (asTehran - guess.getTime())).toISOString();
-  };
-  const start = toUtc(startLocal);
-  const endDate = new Date(toUtc(endLocal));
-  endDate.setUTCMinutes(endDate.getUTCMinutes() + 1);
-  return { start, end: endDate.toISOString() };
-}
-
 export default function AppointmentsPage() {
   const router = useRouter();
-  const today = new Date().toISOString().slice(0, 10);
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(() => tehranTodayYmd());
   const [items, setItems] = useState<AppointmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       setLoading(true);
       setError(null);
-      const me = await apiFetch("/api/auth/me");
-      if (me.status === 401) {
-        router.replace("/login?expired=1");
-        return;
+      try {
+        const me = await apiFetch("/api/auth/me");
+        if (me.status === 401) {
+          router.replace("/login?expired=1");
+          return;
+        }
+        const { start, end } = tehranDayBoundsUtc(date);
+        const response = await apiFetch(
+          `/api/appointments?start_at_utc=${encodeURIComponent(start)}&end_at_utc=${encodeURIComponent(end)}`,
+        );
+        if (response.status === 401) {
+          router.replace("/login?expired=1");
+          return;
+        }
+        const data = (await response.json().catch(() => ({}))) as ApiErrorBody & {
+          items?: AppointmentItem[];
+        };
+        if (cancelled) return;
+        if (!response.ok) {
+          setError(formatApiError(data, "بارگذاری نوبت‌ها ناموفق بود"));
+          setItems([]);
+          return;
+        }
+        setItems(data.items || []);
+      } catch {
+        if (!cancelled) {
+          setError("ارتباط برای بارگذاری نوبت‌ها برقرار نشد");
+          setItems([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      const { start, end } = dayBoundsTehran(date);
-      const response = await apiFetch(
-        `/api/appointments?start_at_utc=${encodeURIComponent(start)}&end_at_utc=${encodeURIComponent(end)}`,
-      );
-      if (response.status === 401) {
-        router.replace("/login?expired=1");
-        return;
-      }
-      const data = (await response.json().catch(() => ({}))) as ApiErrorBody & {
-        items?: AppointmentItem[];
-      };
-      if (!response.ok) {
-        setError(formatApiError(data, "بارگذاری نوبت‌ها ناموفق بود"));
-        setItems([]);
-        setLoading(false);
-        return;
-      }
-      setItems(data.items || []);
-      setLoading(false);
     }
     void load();
+    return () => {
+      cancelled = true;
+    };
   }, [date, router]);
 
   return (
@@ -100,7 +80,7 @@ export default function AppointmentsPage() {
           <p className="text-[var(--color-ink)]/70">فهرست واقعی از PostgreSQL — زمان‌ها به وقت تهران</p>
         </div>
         <label className="space-y-1 text-sm">
-          <span className="block">تاریخ</span>
+          <span className="block">تاریخ (تقویم تهران)</span>
           <input
             type="date"
             className="rounded-lg border border-[#c9d5e1] px-3 py-2"

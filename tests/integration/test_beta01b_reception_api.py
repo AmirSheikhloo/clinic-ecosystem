@@ -281,7 +281,8 @@ async def test_beta01b_patients_resources_schedule_list(plane_topology) -> None:
                     "end_at_utc": (slot1_end + timedelta(hours=11)).isoformat(),
                 },
             )
-            assert cross_service.status_code in (400, 409)
+            assert cross_service.status_code == 404
+            assert cross_service.json()["detail"]["error"] == "service_not_found"
 
             cross_resource = client.post(
                 "/api/v1/appointments",
@@ -294,7 +295,101 @@ async def test_beta01b_patients_resources_schedule_list(plane_topology) -> None:
                     "end_at_utc": (slot1_end + timedelta(hours=12)).isoformat(),
                 },
             )
-            assert cross_resource.status_code in (400, 409)
+            assert cross_resource.status_code == 404
+            assert cross_resource.json()["detail"]["error"] == "resource_not_found"
+
+            missing_service = client.post(
+                "/api/v1/appointments",
+                headers={**_auth(token), "Idempotency-Key": "missing-service-1"},
+                json={
+                    "beneficiary_patient_id": new_patient_id,
+                    "service_id": str(uuid4()),
+                    "resource_ids": [str(seed.resource_a_id)],
+                    "start_at_utc": (slot1_start + timedelta(hours=13)).isoformat(),
+                    "end_at_utc": (slot1_end + timedelta(hours=13)).isoformat(),
+                },
+            )
+            assert missing_service.status_code == 404
+
+            inactive_service = client.post(
+                "/api/v1/appointments",
+                headers={**_auth(token), "Idempotency-Key": "inactive-service-1"},
+                json={
+                    "beneficiary_patient_id": new_patient_id,
+                    "service_id": str(seed.service_inactive_id),
+                    "resource_ids": [str(seed.resource_a_id)],
+                    "start_at_utc": (slot1_start + timedelta(hours=14)).isoformat(),
+                    "end_at_utc": (slot1_end + timedelta(hours=14)).isoformat(),
+                },
+            )
+            assert inactive_service.status_code == 400
+            assert inactive_service.json()["detail"]["error"] == "service_inactive"
+
+            inactive_patient = client.post(
+                "/api/v1/appointments",
+                headers={**_auth(token), "Idempotency-Key": "inactive-patient-1"},
+                json={
+                    "beneficiary_patient_id": str(seed.patient_inactive_id),
+                    "service_id": str(seed.service_a_id),
+                    "resource_ids": [str(seed.resource_a_id)],
+                    "start_at_utc": (slot1_start + timedelta(hours=15)).isoformat(),
+                    "end_at_utc": (slot1_end + timedelta(hours=15)).isoformat(),
+                },
+            )
+            assert inactive_patient.status_code == 404
+
+            # Empty requirements are permitted when service is active.
+            no_req = client.post(
+                "/api/v1/appointments",
+                headers={**_auth(token), "Idempotency-Key": "no-req-service-1"},
+                json={
+                    "beneficiary_patient_id": new_patient_id,
+                    "service_id": str(seed.service_no_req_id),
+                    "resource_ids": [str(seed.resource_a_id)],
+                    "start_at_utc": (slot1_start + timedelta(hours=16)).isoformat(),
+                    "end_at_utc": (slot1_end + timedelta(hours=16)).isoformat(),
+                },
+            )
+            assert no_req.status_code == 200, no_req.text
+
+            # Multi-resource requirements: insufficient selection rejected.
+            multi_bad = client.post(
+                "/api/v1/appointments",
+                headers={**_auth(token), "Idempotency-Key": "multi-bad-1"},
+                json={
+                    "beneficiary_patient_id": new_patient_id,
+                    "service_id": str(seed.service_multi_id),
+                    "resource_ids": [str(seed.resource_a_id)],
+                    "start_at_utc": (slot1_start + timedelta(hours=17)).isoformat(),
+                    "end_at_utc": (slot1_end + timedelta(hours=17)).isoformat(),
+                },
+            )
+            assert multi_bad.status_code == 400
+            assert multi_bad.json()["detail"]["error"] == "invalid_resources"
+
+            multi_ok = client.post(
+                "/api/v1/appointments",
+                headers={**_auth(token), "Idempotency-Key": "multi-ok-1"},
+                json={
+                    "beneficiary_patient_id": new_patient_id,
+                    "service_id": str(seed.service_multi_id),
+                    "resource_ids": [
+                        str(seed.resource_a_id),
+                        str(seed.resource_a2_id),
+                    ],
+                    "start_at_utc": (slot1_start + timedelta(hours=18)).isoformat(),
+                    "end_at_utc": (slot1_end + timedelta(hours=18)).isoformat(),
+                },
+            )
+            assert multi_ok.status_code == 200, multi_ok.text
+
+            # Unauthorized search
+            denied_search = client.get(
+                "/api/v1/patients",
+                headers=_auth(unauth),
+                params={"q": "Nima"},
+            )
+            assert denied_search.status_code == 403
 
             # 11/12. Manual overlap without ack → 409 with names for authorized staff
             overlap = client.post(
@@ -348,6 +443,30 @@ async def test_beta01b_patients_resources_schedule_list(plane_topology) -> None:
                 },
             )
             assert ack.status_code == 200, ack.text
+
+            # Unauthorized overlap: schedule permission without ALLOW_MANUAL_OVERBOOKING
+            no_over = _login(
+                client, seed.no_overbook_login, seed.no_overbook_password
+            )
+            overlap_denied = client.post(
+                "/api/v1/appointments",
+                headers={**_auth(no_over), "Idempotency-Key": "overlap-denied-1"},
+                json={
+                    "beneficiary_patient_id": str(seed.patient_a_id),
+                    "service_id": str(seed.service_a_id),
+                    "resource_ids": [str(seed.resource_a_id)],
+                    "start_at_utc": slot1_start.isoformat(),
+                    "end_at_utc": slot1_end.isoformat(),
+                    "acknowledge_overlap": False,
+                },
+            )
+            assert overlap_denied.status_code == 403
+            denied_detail = overlap_denied.json()["detail"]
+            assert denied_detail["error"] == "permission_denied"
+            assert "display_safe_patient_name" not in overlap_denied.text
+            assert "conflicts" not in overlap_denied.text
+            assert "Nima" not in overlap_denied.text
+            assert "Pat Alpha" not in overlap_denied.text
 
             # 15/16. Day-range listing + timezone: persist UTC, display local
             day_start_tehran = datetime.now(TEHRAN).replace(
@@ -553,11 +672,81 @@ async def test_beta01b_concurrent_scheduling_consistency(plane_topology) -> None
                     },
                 )
 
+            # Non-overlapping concurrent slots should all succeed.
             results = await asyncio.gather(*[_schedule(i) for i in range(3)])
             assert all(r.status_code == 200 for r in results), [
                 r.text for r in results
             ]
             ids = {r.json()["appointment_id"] for r in results}
             assert len(ids) == 3
+
+            # Conflicting overlapping requests: authorized path needs acknowledgement.
+            conflict_start = base + timedelta(hours=5)
+            conflict_end = conflict_start + timedelta(minutes=30)
+            first = await client.post(
+                "/api/v1/appointments",
+                headers={
+                    **_auth(token),
+                    "Idempotency-Key": f"conflict-first-{new_uuid7()}",
+                },
+                json={
+                    "beneficiary_patient_id": str(seed.patient_a_id),
+                    "service_id": str(seed.service_a_id),
+                    "resource_ids": [str(seed.resource_a_id)],
+                    "start_at_utc": conflict_start.isoformat(),
+                    "end_at_utc": conflict_end.isoformat(),
+                },
+            )
+            assert first.status_code == 200, first.text
+
+            async def _overlap(i: int):
+                return await client.post(
+                    "/api/v1/appointments",
+                    headers={
+                        **_auth(token),
+                        "Idempotency-Key": f"conflict-overlap-{i}-{new_uuid7()}",
+                    },
+                    json={
+                        "beneficiary_patient_id": str(seed.patient_a_id),
+                        "service_id": str(seed.service_a_id),
+                        "resource_ids": [str(seed.resource_a_id)],
+                        "start_at_utc": conflict_start.isoformat(),
+                        "end_at_utc": conflict_end.isoformat(),
+                    },
+                )
+
+            overlaps = await asyncio.gather(*[_overlap(i) for i in range(2)])
+            assert all(r.status_code == 409 for r in overlaps), [r.text for r in overlaps]
+            for response in overlaps:
+                assert (
+                    response.json()["detail"]["error"]
+                    == "manual_overlap_acknowledgement_required"
+                )
+
+            # Duplicate idempotency: same key + fingerprint replays.
+            dup_start = base + timedelta(hours=8)
+            dup_end = dup_start + timedelta(minutes=30)
+            key = f"dup-{new_uuid7()}"
+            payload = {
+                "beneficiary_patient_id": str(seed.patient_a_id),
+                "service_id": str(seed.service_a_id),
+                "resource_ids": [str(seed.resource_a_id)],
+                "start_at_utc": dup_start.isoformat(),
+                "end_at_utc": dup_end.isoformat(),
+            }
+            created = await client.post(
+                "/api/v1/appointments",
+                headers={**_auth(token), "Idempotency-Key": key},
+                json=payload,
+            )
+            replay = await client.post(
+                "/api/v1/appointments",
+                headers={**_auth(token), "Idempotency-Key": key},
+                json=payload,
+            )
+            assert created.status_code == 200
+            assert replay.status_code == 200
+            assert replay.json()["replayed"] is True
+            assert replay.json()["appointment_id"] == created.json()["appointment_id"]
     finally:
         await engine.dispose()

@@ -50,3 +50,31 @@ class SqlServicesCatalogRepository:
                 )
             )
         return items
+
+    async def get_by_id(
+        self, *, tenant_id: UUID, service_id: UUID
+    ) -> ServiceCatalogItem | None:
+        """Tenant-scoped lookup including inactive rows (for explicit 4xx mapping)."""
+        result = await self._session.execute(
+            text(
+                """
+                SELECT id, service_code, service_name, default_duration_minutes,
+                       default_price_irr, is_active
+                FROM services
+                WHERE tenant_id = :tenant_id AND id = :service_id
+                LIMIT 1
+                """
+            ),
+            {"tenant_id": tenant_id, "service_id": service_id},
+        )
+        row = result.mappings().first()
+        if row is None:
+            return None
+        return ServiceCatalogItem(
+            id=row["id"],
+            service_code=row["service_code"],
+            service_name=row["service_name"],
+            default_duration_minutes=int(row["default_duration_minutes"]),
+            default_price_irr=int(row["default_price_irr"]),
+            is_active=bool(row["is_active"]),
+        )

@@ -28,8 +28,8 @@ export async function POST(request: Request) {
       tenant_id: data.tenant_id,
       expires_in: data.expires_in,
     });
-    setSessionCookies(response, {
-      accessToken: data.access_token,
+    setSessionCookies(response, request, {
+      accessToken: String(data.access_token || ""),
       maxAgeSeconds: Number(data.expires_in) || 900,
     });
     return response;

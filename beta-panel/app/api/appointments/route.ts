@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const data = await upstream.json().catch(() => ({}));
     if (upstream.status === 401) {
       const response = jsonError(401, "session_expired", "Session expired");
-      clearSessionCookies(response);
+      clearSessionCookies(response, request);
       return response;
     }
     if (!upstream.ok) {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const data = await upstream.json().catch(() => ({}));
     if (upstream.status === 401) {
       const response = jsonError(401, "session_expired", "Session expired");
-      clearSessionCookies(response);
+      clearSessionCookies(response, request);
       return response;
     }
     if (!upstream.ok) {

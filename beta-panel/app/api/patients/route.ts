@@ -3,10 +3,10 @@ import { requireBetaPanelEnabled } from "@/lib/config";
 import { handleRouteError, jsonError, mapUpstream } from "@/lib/api-error";
 import { backendFetch, clearSessionCookies, requireCsrf } from "@/lib/session";
 
-async function maybeExpire(upstream: Response, data: unknown) {
+async function maybeExpire(request: Request, upstream: Response, data: unknown) {
   if (upstream.status === 401) {
     const response = jsonError(401, "session_expired", "Session expired");
-    clearSessionCookies(response);
+    clearSessionCookies(response, request);
     return response;
   }
   if (!upstream.ok) {
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       `/api/v1/patients?q=${encodeURIComponent(q)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`,
     );
     const data = await upstream.json().catch(() => ({}));
-    return maybeExpire(upstream, data);
+    return maybeExpire(request, upstream, data);
   } catch (err) {
     return handleRouteError(err);
   }
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       body: JSON.stringify(body),
     });
     const data = await upstream.json().catch(() => ({}));
-    return maybeExpire(upstream, data);
+    return maybeExpire(request, upstream, data);
   } catch (err) {
     return handleRouteError(err);
   }

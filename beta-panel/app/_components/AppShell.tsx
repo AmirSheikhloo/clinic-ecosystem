@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/client";
+import { useState } from "react";
+import { apiFetch, formatApiError, type ApiErrorBody } from "@/lib/client";
 
 const NAV = [
   { href: "/desk", label: "میز پذیرش" },
@@ -13,10 +14,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const hideNav = pathname === "/login" || pathname === "/";
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   async function logout() {
-    await apiFetch("/api/auth/logout", { method: "POST", csrf: true });
-    router.replace("/login");
+    if (loggingOut) return;
+    setLogoutError(null);
+    setLoggingOut(true);
+    try {
+      const response = await apiFetch("/api/auth/logout", {
+        method: "POST",
+        csrf: true,
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as ApiErrorBody;
+        setLogoutError(formatApiError(data, "خروج ناموفق بود — نشست هنوز فعال است"));
+        return;
+      }
+      router.replace("/login");
+    } catch {
+      setLogoutError("ارتباط برای خروج برقرار نشد — نشست هنوز فعال است");
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   return (
@@ -47,13 +67,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 })}
               </nav>
             </div>
-            <button
-              type="button"
-              onClick={logout}
-              className="rounded-md border border-[#c9d5e1] bg-white px-3 py-1.5 text-sm hover:bg-[var(--color-mist)]"
-            >
-              خروج
-            </button>
+            <div className="flex items-center gap-3">
+              {logoutError && (
+                <span className="max-w-xs text-xs text-[var(--color-alert)]" role="alert">
+                  {logoutError}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={logout}
+                disabled={loggingOut}
+                className="rounded-md border border-[#c9d5e1] bg-white px-3 py-1.5 text-sm hover:bg-[var(--color-mist)] disabled:opacity-60"
+              >
+                {loggingOut ? "خروج…" : "خروج"}
+              </button>
+            </div>
           </div>
         </header>
       )}

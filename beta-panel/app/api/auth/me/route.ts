@@ -3,7 +3,7 @@ import { requireBetaPanelEnabled } from "@/lib/config";
 import { handleRouteError, jsonError, mapUpstream } from "@/lib/api-error";
 import { backendFetch, clearSessionCookies, getSessionToken } from "@/lib/session";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     requireBetaPanelEnabled();
     const token = await getSessionToken();
@@ -14,7 +14,7 @@ export async function GET() {
     const data = await upstream.json().catch(() => ({}));
     if (upstream.status === 401) {
       const response = jsonError(401, "session_expired", "Session expired");
-      clearSessionCookies(response);
+      clearSessionCookies(response, request);
       return response;
     }
     if (!upstream.ok) {

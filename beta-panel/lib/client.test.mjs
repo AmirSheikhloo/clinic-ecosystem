@@ -1,6 +1,5 @@
 /**
  * Lightweight frontend helper checks (Node, no browser E2E).
- * Run: node --test lib/client.test.mjs
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -41,6 +40,31 @@ function formatApiError(data, fallback) {
   return fallback;
 }
 
+function bookingFingerprint(payload) {
+  const normalized = [
+    payload.patientId,
+    payload.serviceId,
+    [...payload.resourceIds].sort().join(","),
+    payload.startLocal,
+    String(payload.durationMinutes),
+  ].join("|");
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(i)) >>> 0;
+  }
+  return `desk-${hash.toString(16)}-${normalized.length}`;
+}
+
+function extractOverlapConflicts(data) {
+  const detail = data.detail;
+  if (!detail || typeof detail !== "object") return null;
+  const d = detail;
+  if (d.error === "manual_overlap_acknowledgement_required") {
+    return Array.isArray(d.conflicts) ? d.conflicts : [];
+  }
+  return null;
+}
+
 test("tehran local converts to timezone-aware UTC ISO", () => {
   const iso = tehranLocalToUtcIso("2026-11-20T12:00");
   assert.match(iso, /Z$/);
@@ -51,7 +75,7 @@ test("tehran local converts to timezone-aware UTC ISO", () => {
     minute: "2-digit",
     hour12: false,
   }).format(roundTrip);
-  assert.ok(fa.includes("12:00") || fa.includes("12:00"));
+  assert.ok(fa.includes("12:00"));
 });
 
 test("formatApiError prefers message then error", () => {
@@ -70,4 +94,31 @@ test("UTC instant is preserved across Tehran display formatting", () => {
   }).format(dt);
   assert.ok(local.length > 0);
   assert.equal(dt.toISOString(), utc);
+});
+
+test("idempotency fingerprint stable for same payload, changes when resources change", () => {
+  const base = {
+    patientId: "p1",
+    serviceId: "s1",
+    resourceIds: ["r2", "r1"],
+    startLocal: "2026-11-20T10:00",
+    durationMinutes: 30,
+  };
+  const a = bookingFingerprint(base);
+  const b = bookingFingerprint({ ...base, resourceIds: ["r1", "r2"] });
+  const c = bookingFingerprint({ ...base, resourceIds: ["r1"] });
+  assert.equal(a, b);
+  assert.notEqual(a, c);
+});
+
+test("overlap conflicts extracted only for acknowledgement responses", () => {
+  assert.equal(extractOverlapConflicts({ error: "capacity_conflict" }), null);
+  const conflicts = extractOverlapConflicts({
+    detail: {
+      error: "manual_overlap_acknowledgement_required",
+      conflicts: [{ appointment_id: "a1" }],
+    },
+  });
+  assert.equal(conflicts.length, 1);
+  assert.equal(conflicts[0].appointment_id, "a1");
 });

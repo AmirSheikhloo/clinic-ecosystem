@@ -83,6 +83,15 @@ class SqlResourcesCatalogRepository:
     async def get_active_resources_by_ids(
         self, *, tenant_id: UUID, resource_ids: list[UUID]
     ) -> list[ResourceRecord]:
+        rows = await self.get_resources_by_ids(
+            tenant_id=tenant_id, resource_ids=resource_ids
+        )
+        return [row for row in rows if row.is_active]
+
+    async def get_resources_by_ids(
+        self, *, tenant_id: UUID, resource_ids: list[UUID]
+    ) -> list[ResourceRecord]:
+        """Tenant-scoped lookup including inactive rows (for explicit 4xx mapping)."""
         if not resource_ids:
             return []
         result = await self._session.execute(
@@ -91,7 +100,6 @@ class SqlResourcesCatalogRepository:
                 SELECT id, resource_type, resource_name, is_active
                 FROM bookable_resources
                 WHERE tenant_id = :tenant_id
-                  AND is_active = TRUE
                   AND id = ANY(:ids)
                 """
             ),

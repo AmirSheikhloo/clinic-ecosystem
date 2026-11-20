@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     requireBetaPanelEnabled();
     await requireCsrf(request);
     const response = NextResponse.json({ ok: true });
-    clearSessionCookies(response);
+    clearSessionCookies(response, request);
     return response;
   } catch (err) {
     return handleRouteError(err);

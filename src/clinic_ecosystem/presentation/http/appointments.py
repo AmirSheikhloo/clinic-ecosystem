@@ -38,6 +38,9 @@ from clinic_ecosystem.presentation.http.dependencies import (
     get_uow,
     require_permission,
 )
+from clinic_ecosystem.presentation.http.schedule_validation import (
+    validate_schedule_catalog,
+)
 from clinic_ecosystem.presentation.scheduling import (
     command_from_api_payload,
     serialize_manual_conflict_response,
@@ -153,6 +156,13 @@ async def schedule_appointment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "patient_not_found", "message": "Patient not found"},
         )
+
+    await validate_schedule_catalog(
+        uow=uow,
+        tenant_id=principal.claims.tenant_id,
+        service_id=body.service_id,
+        resource_ids=list(body.resource_ids),
+    )
 
     payload = {
         "beneficiary_patient_id": str(body.beneficiary_patient_id),
