@@ -300,8 +300,10 @@ async def test_beta01a_role_preflight_accepts_runtime_rejects_migrator(
             engine=migrator_engine,
             create_engine_from_settings=False,
         )
+        # Use the pytest asyncio loop — sync TestClient would attach the engine
+        # to a different loop and raise "Future attached to a different loop".
         with pytest.raises(AuthSettingsError):
-            with TestClient(unsafe_app):
+            async with unsafe_app.router.lifespan_context(unsafe_app):
                 pass
     finally:
         await runtime_engine.dispose()
