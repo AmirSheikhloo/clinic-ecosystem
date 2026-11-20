@@ -76,8 +76,20 @@ def load_auth_settings(environ: dict[str, str] | None = None) -> AuthSettings:
     if ttl <= 0 or ttl > 3600:
         raise AuthSettingsError("CLINIC_ACCESS_TOKEN_TTL_SECONDS must be in 1..3600")
 
-    max_failed = int((env.get("CLINIC_MAX_FAILED_LOGIN_ATTEMPTS") or "5").strip())
-    lockout_minutes = int((env.get("CLINIC_LOCKOUT_MINUTES") or "15").strip())
+    try:
+        max_failed = int((env.get("CLINIC_MAX_FAILED_LOGIN_ATTEMPTS") or "5").strip())
+    except ValueError as exc:
+        raise AuthSettingsError(
+            "CLINIC_MAX_FAILED_LOGIN_ATTEMPTS must be an integer"
+        ) from exc
+    try:
+        lockout_minutes = int((env.get("CLINIC_LOCKOUT_MINUTES") or "15").strip())
+    except ValueError as exc:
+        raise AuthSettingsError("CLINIC_LOCKOUT_MINUTES must be an integer") from exc
+    if max_failed < 1 or max_failed > 50:
+        raise AuthSettingsError("CLINIC_MAX_FAILED_LOGIN_ATTEMPTS must be in 1..50")
+    if lockout_minutes < 1 or lockout_minutes > 24 * 60:
+        raise AuthSettingsError("CLINIC_LOCKOUT_MINUTES must be in 1..1440")
 
     return AuthSettings(
         clinic_env=clinic_env,
@@ -114,3 +126,13 @@ def require_usable_auth_realm(settings: AuthSettings) -> UUID:
     if settings.auth_realm_tenant_id is None:
         raise AuthSettingsError("CLINIC_BETA_AUTH_REALM_TENANT_ID is required")
     return settings.auth_realm_tenant_id
+
+
+def require_token_tenant_matches_realm(
+    settings: AuthSettings, token_tenant_id: UUID
+) -> UUID:
+    """Reject tokens whose tenant is outside the configured demo realm."""
+    realm_tenant_id = require_usable_auth_realm(settings)
+    if token_tenant_id != realm_tenant_id:
+        raise AuthSettingsError("token tenant is outside the configured auth realm")
+    return realm_tenant_id

@@ -23,23 +23,42 @@ class UserAccountRecord:
     locked_until_utc: datetime | None
 
 
+def _row_to_account(row) -> UserAccountRecord:
+    return UserAccountRecord(
+        id=row["id"],
+        tenant_id=row["tenant_id"],
+        person_id=row["person_id"],
+        login_identifier=row["login_identifier"],
+        normalized_login_identifier=row["normalized_login_identifier"],
+        password_hash_argon2id=row["password_hash_argon2id"],
+        is_active=bool(row["is_active"]),
+        failed_login_attempts=int(row["failed_login_attempts"]),
+        locked_until_utc=row["locked_until_utc"],
+    )
+
+
 class SqlUserAccountRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     async def find_by_normalized_login(
-        self, *, tenant_id: UUID, normalized_login: str
+        self,
+        *,
+        tenant_id: UUID,
+        normalized_login: str,
+        for_update: bool = False,
     ) -> UserAccountRecord | None:
+        lock = " FOR UPDATE" if for_update else ""
         result = await self._session.execute(
             text(
-                """
+                f"""
                 SELECT id, tenant_id, person_id, login_identifier,
                        normalized_login_identifier, password_hash_argon2id,
                        is_active, failed_login_attempts, locked_until_utc
                 FROM user_accounts
                 WHERE tenant_id = :tenant_id
                   AND normalized_login_identifier = :normalized_login
-                LIMIT 1
+                LIMIT 1{lock}
                 """
             ),
             {"tenant_id": tenant_id, "normalized_login": normalized_login},
@@ -47,17 +66,7 @@ class SqlUserAccountRepository:
         row = result.mappings().first()
         if row is None:
             return None
-        return UserAccountRecord(
-            id=row["id"],
-            tenant_id=row["tenant_id"],
-            person_id=row["person_id"],
-            login_identifier=row["login_identifier"],
-            normalized_login_identifier=row["normalized_login_identifier"],
-            password_hash_argon2id=row["password_hash_argon2id"],
-            is_active=bool(row["is_active"]),
-            failed_login_attempts=int(row["failed_login_attempts"]),
-            locked_until_utc=row["locked_until_utc"],
-        )
+        return _row_to_account(row)
 
     async def get_by_id(
         self, *, tenant_id: UUID, account_id: UUID
@@ -78,17 +87,7 @@ class SqlUserAccountRepository:
         row = result.mappings().first()
         if row is None:
             return None
-        return UserAccountRecord(
-            id=row["id"],
-            tenant_id=row["tenant_id"],
-            person_id=row["person_id"],
-            login_identifier=row["login_identifier"],
-            normalized_login_identifier=row["normalized_login_identifier"],
-            password_hash_argon2id=row["password_hash_argon2id"],
-            is_active=bool(row["is_active"]),
-            failed_login_attempts=int(row["failed_login_attempts"]),
-            locked_until_utc=row["locked_until_utc"],
-        )
+        return _row_to_account(row)
 
     async def record_failed_login(
         self,
@@ -98,39 +97,53 @@ class SqlUserAccountRepository:
         max_failed_attempts: int,
         lockout_minutes: int,
         now: datetime | None = None,
-    ) -> None:
+    ) -> UserAccountRecord | None:
+        """Atomically increment failures and apply lockout without read-modify-write races."""
+        if max_failed_attempts < 1 or lockout_minutes < 1:
+            raise ValueError("lockout thresholds must be positive")
         current = now or datetime.now(timezone.utc)
-        account = await self.get_by_id(tenant_id=tenant_id, account_id=account_id)
-        if account is None:
-            return
-        attempts = account.failed_login_attempts + 1
-        locked_until = None
-        if attempts >= max_failed_attempts:
-            locked_until = current + timedelta(minutes=lockout_minutes)
-        await self._session.execute(
+        lock_until = current + timedelta(minutes=lockout_minutes)
+        result = await self._session.execute(
             text(
                 """
                 UPDATE user_accounts
-                SET failed_login_attempts = :attempts,
-                    locked_until_utc = :locked_until,
+                SET failed_login_attempts = failed_login_attempts + 1,
+                    locked_until_utc = CASE
+                        WHEN failed_login_attempts + 1 >= :max_failed THEN
+                            CASE
+                                WHEN locked_until_utc IS NULL
+                                     OR locked_until_utc < :lock_until
+                                THEN :lock_until
+                                ELSE locked_until_utc
+                            END
+                        ELSE locked_until_utc
+                    END,
                     updated_at_utc = :now
                 WHERE tenant_id = :tenant_id AND id = :account_id
+                RETURNING id, tenant_id, person_id, login_identifier,
+                          normalized_login_identifier, password_hash_argon2id,
+                          is_active, failed_login_attempts, locked_until_utc
                 """
             ),
             {
-                "attempts": attempts,
-                "locked_until": locked_until,
+                "max_failed": max_failed_attempts,
+                "lock_until": lock_until,
                 "now": current,
                 "tenant_id": tenant_id,
                 "account_id": account_id,
             },
         )
+        row = result.mappings().first()
+        if row is None:
+            return None
+        return _row_to_account(row)
 
     async def clear_failed_logins(
         self, *, tenant_id: UUID, account_id: UUID, now: datetime | None = None
-    ) -> None:
+    ) -> UserAccountRecord | None:
+        """Reset lockout state for a row already locked in the current transaction."""
         current = now or datetime.now(timezone.utc)
-        await self._session.execute(
+        result = await self._session.execute(
             text(
                 """
                 UPDATE user_accounts
@@ -138,6 +151,9 @@ class SqlUserAccountRepository:
                     locked_until_utc = NULL,
                     updated_at_utc = :now
                 WHERE tenant_id = :tenant_id AND id = :account_id
+                RETURNING id, tenant_id, person_id, login_identifier,
+                          normalized_login_identifier, password_hash_argon2id,
+                          is_active, failed_login_attempts, locked_until_utc
                 """
             ),
             {
@@ -146,3 +162,7 @@ class SqlUserAccountRepository:
                 "account_id": account_id,
             },
         )
+        row = result.mappings().first()
+        if row is None:
+            return None
+        return _row_to_account(row)

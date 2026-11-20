@@ -64,8 +64,11 @@ class AuthService:
         await uow.bind_tenant(realm_tenant_id)
         users = SqlUserAccountRepository(uow.session)
         normalized = normalize_login_identifier(login_identifier)
+        # Row lock serializes concurrent failure counting / successful reset.
         account = await users.find_by_normalized_login(
-            tenant_id=realm_tenant_id, normalized_login=normalized
+            tenant_id=realm_tenant_id,
+            normalized_login=normalized,
+            for_update=True,
         )
         if account is None:
             raise InvalidCredentials()

@@ -252,3 +252,126 @@ async def test_beta01a_runtime_role_has_no_superuser_or_bypassrls(plane_topology
         assert row["rolbypassrls"] is False
     finally:
         await conn.close()
+
+
+def _migrator_url(plane_topology) -> str:
+    pwd = plane_topology.passwords["tp_migrator_login"]
+    ep = plane_topology.cloud_tenant
+    return (
+        f"postgresql+asyncpg://{quote_plus('tp_migrator_login')}:{quote_plus(pwd)}"
+        f"@{ep.host}:{ep.port}/tenant_app"
+    )
+
+
+@pytest.mark.asyncio
+async def test_beta01a_role_preflight_accepts_runtime_rejects_migrator(
+    plane_topology,
+) -> None:
+    if not DOCKER_AVAILABLE:
+        pytest.skip(SKIP_REASON)
+    from clinic_ecosystem.infrastructure.auth.db_role_preflight import (
+        UnsafeDatabaseRoleError,
+        verify_runtime_db_role,
+    )
+    from clinic_ecosystem.infrastructure.auth.settings import AuthSettingsError
+
+    runtime_engine = create_async_engine(_app_url(plane_topology), pool_size=1)
+    migrator_engine = create_async_engine(_migrator_url(plane_topology), pool_size=1)
+    try:
+        snap = await verify_runtime_db_role(runtime_engine)
+        assert snap.current_user == "tp_app_login"
+        assert snap.rolsuper is False
+        assert snap.rolbypassrls is False
+
+        with pytest.raises(UnsafeDatabaseRoleError):
+            await verify_runtime_db_role(migrator_engine)
+
+        settings = load_auth_settings(
+            {
+                "CLINIC_ENV": "test",
+                "CLINIC_BETA_AUTH_REALM_ENABLED": "1",
+                "CLINIC_BETA_AUTH_REALM_TENANT_ID": str(uuid4()),
+                "CLINIC_ACCESS_TOKEN_SIGNING_SECRET": "integration-test-signing-secret-32chars!!",
+                "CLINIC_DATABASE_URL": _migrator_url(plane_topology),
+            }
+        )
+        unsafe_app = create_app(
+            settings=settings,
+            engine=migrator_engine,
+            create_engine_from_settings=False,
+        )
+        with pytest.raises(AuthSettingsError):
+            with TestClient(unsafe_app):
+                pass
+    finally:
+        await runtime_engine.dispose()
+        await migrator_engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_beta01a_failed_login_lockout_is_atomic(plane_topology) -> None:
+    if not DOCKER_AVAILABLE:
+        pytest.skip(SKIP_REASON)
+    await _ensure_migrated(plane_topology)
+
+    seed_conn = await asyncpg.connect(plane_topology.cloud_tenant.asyncpg_dsn())
+    try:
+        seed = await seed_beta01a_auth_catalog(seed_conn)
+    finally:
+        await seed_conn.close()
+
+    settings = load_auth_settings(
+        {
+            "CLINIC_ENV": "test",
+            "CLINIC_BETA_AUTH_REALM_ENABLED": "1",
+            "CLINIC_BETA_AUTH_REALM_TENANT_ID": str(seed.tenant_a_id),
+            "CLINIC_ACCESS_TOKEN_SIGNING_SECRET": "integration-test-signing-secret-32chars!!",
+            "CLINIC_DATABASE_URL": _app_url(plane_topology),
+            "CLINIC_MAX_FAILED_LOGIN_ATTEMPTS": "3",
+            "CLINIC_LOCKOUT_MINUTES": "30",
+        }
+    )
+    engine = create_async_engine(_app_url(plane_topology), pool_size=2)
+    app = create_app(settings=settings, engine=engine, create_engine_from_settings=False)
+    try:
+        with TestClient(app) as client:
+            for _ in range(3):
+                resp = client.post(
+                    "/api/v1/auth/login",
+                    json={
+                        "login_identifier": seed.receptionist_login,
+                        "password": "wrong-password-for-lockout",
+                    },
+                )
+                assert resp.status_code == 401
+            locked = client.post(
+                "/api/v1/auth/login",
+                json={
+                    "login_identifier": seed.receptionist_login,
+                    "password": seed.receptionist_password,
+                },
+            )
+            assert locked.status_code == 401
+
+        conn = await asyncpg.connect(_runtime_role_dsn(plane_topology))
+        try:
+            await conn.execute(
+                "SELECT set_config('app.current_tenant_id', $1, false)",
+                str(seed.tenant_a_id),
+            )
+            row = await conn.fetchrow(
+                """
+                SELECT failed_login_attempts, locked_until_utc
+                FROM user_accounts
+                WHERE id = $1 AND tenant_id = $2
+                """,
+                seed.receptionist_account_id,
+                seed.tenant_a_id,
+            )
+            assert row is not None
+            assert int(row["failed_login_attempts"]) >= 3
+            assert row["locked_until_utc"] is not None
+        finally:
+            await conn.close()
+    finally:
+        await engine.dispose()

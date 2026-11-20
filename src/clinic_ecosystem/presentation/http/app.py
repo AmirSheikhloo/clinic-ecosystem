@@ -9,6 +9,10 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from clinic_ecosystem.infrastructure.auth.db_role_preflight import (
+    UnsafeDatabaseRoleError,
+    verify_runtime_db_role,
+)
 from clinic_ecosystem.infrastructure.auth.settings import (
     AuthSettings,
     AuthSettingsError,
@@ -31,6 +35,10 @@ def create_app(
 
     Tests may inject ``settings`` and ``engine``. Production/dev entrypoints load
     settings from the environment and create an engine from CLINIC_DATABASE_URL.
+
+    When a real ``AsyncEngine`` is present, a fail-closed runtime-role preflight
+    runs before serving. Non-engine test doubles skip that probe so unit tests can
+    inject dependencies without a privilege-check bypass switch.
     """
 
     resolved_settings = settings if settings is not None else load_auth_settings()
@@ -59,11 +67,22 @@ def create_app(
 
         app.state.auth_settings = resolved_settings
         app.state.engine = active_engine
+        app.state.db_role_verified = False
+
+        if isinstance(active_engine, AsyncEngine):
+            try:
+                await verify_runtime_db_role(active_engine)
+            except UnsafeDatabaseRoleError as exc:
+                logger.error("refusing to start: unsafe database role")
+                raise AuthSettingsError(str(exc)) from exc
+            app.state.db_role_verified = True
+
         # Never log secrets, DSNs with passwords, or tokens.
         logger.info(
-            "BETA-01A API starting env=%s realm_enabled=%s",
+            "BETA-01A API starting env=%s realm_enabled=%s db_role_verified=%s",
             resolved_settings.clinic_env,
             resolved_settings.auth_realm_enabled,
+            app.state.db_role_verified,
         )
         try:
             yield
@@ -77,6 +96,7 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.auth_settings = resolved_settings
+    app.state.db_role_verified = False
     if engine is not None:
         app.state.engine = engine
 

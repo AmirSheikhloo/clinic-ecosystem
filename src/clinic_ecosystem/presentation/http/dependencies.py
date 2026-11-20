@@ -18,7 +18,16 @@ from clinic_ecosystem.infrastructure.auth.access_tokens import (
     AccessTokenError,
     validate_access_token,
 )
-from clinic_ecosystem.infrastructure.auth.settings import AuthSettings
+from clinic_ecosystem.infrastructure.auth.db_role_preflight import (
+    UnsafeDatabaseRoleError,
+    verify_runtime_db_role,
+)
+from clinic_ecosystem.infrastructure.auth.settings import (
+    AuthSettings,
+    AuthSettingsError,
+    require_token_tenant_matches_realm,
+    require_usable_auth_realm,
+)
 from clinic_ecosystem.infrastructure.persistence.permissions import SqlPermissionService
 from clinic_ecosystem.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 from clinic_ecosystem.infrastructure.persistence.user_accounts import UserAccountRecord
@@ -52,9 +61,30 @@ def get_engine(request: Request) -> AsyncEngine:
     return engine
 
 
+async def ensure_runtime_role_verified(
+    request: Request, engine: AsyncEngine
+) -> None:
+    """Fail closed before any DB-backed work unless the runtime role was verified."""
+    if getattr(request.app.state, "db_role_verified", False):
+        return
+    try:
+        await verify_runtime_db_role(engine)
+    except UnsafeDatabaseRoleError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "unsafe_database_role",
+                "message": "Database runtime role is not authorized",
+            },
+        ) from exc
+    request.app.state.db_role_verified = True
+
+
 async def get_uow(
+    request: Request,
     engine: Annotated[AsyncEngine, Depends(get_engine)],
 ) -> AsyncIterator[SqlAlchemyUnitOfWork]:
+    await ensure_runtime_role_verified(request, engine)
     factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     session = factory()
     uow = SqlAlchemyUnitOfWork(session, owns_session=True)
@@ -71,6 +101,16 @@ def get_auth_service(
     return AuthService(settings=settings)
 
 
+def _realm_unavailable_http(exc: AuthSettingsError) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={
+            "error": "auth_realm_unavailable",
+            "message": "Authentication is not available in this environment",
+        },
+    )
+
+
 async def get_authenticated_principal(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
@@ -78,6 +118,12 @@ async def get_authenticated_principal(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     uow: Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)],
 ) -> AuthenticatedPrincipal:
+    # Demo-only application: JWT validity alone is insufficient without an active realm.
+    try:
+        require_usable_auth_realm(settings)
+    except AuthSettingsError as exc:
+        raise _realm_unavailable_http(exc) from None
+
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -93,7 +139,16 @@ async def get_authenticated_principal(
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
 
-    # Never bind a client-forged tenant: only token claims after signature validation.
+    try:
+        require_token_tenant_matches_realm(settings, claims.tenant_id)
+    except AuthSettingsError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "invalid_token", "message": "Invalid or expired token"},
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from None
+
+    # Never bind a client-forged tenant: only token claims after signature + realm checks.
     try:
         account = await auth_service.load_active_account(
             uow=uow,
@@ -107,7 +162,6 @@ async def get_authenticated_principal(
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
 
-    # Stash for handlers that need the already-bound UoW / tenant.
     request.state.authenticated_tenant_id = claims.tenant_id
     return AuthenticatedPrincipal(claims=claims, account=account)
 
