@@ -149,45 +149,95 @@ def test_protected_route_rejects_valid_token_for_different_tenant() -> None:
     assert response.json()["detail"]["error"] == "invalid_token"
 
 
-def test_evaluate_runtime_role_accepts_tp_app_login_only() -> None:
-    evaluate_runtime_role(
-        RuntimeRoleSnapshot(
-            current_user="tp_app_login",
-            session_user="tp_app_login",
-            rolsuper=False,
-            rolbypassrls=False,
-            rolname="tp_app_login",
-        )
+def _snap(
+    *,
+    current_user: str,
+    session_user: str,
+    current_rolsuper: bool = False,
+    current_rolbypassrls: bool = False,
+    session_rolsuper: bool = False,
+    session_rolbypassrls: bool = False,
+    session_member_of_forbidden: tuple[str, ...] = (),
+) -> RuntimeRoleSnapshot:
+    return RuntimeRoleSnapshot(
+        current_user=current_user,
+        session_user=session_user,
+        current_rolsuper=current_rolsuper,
+        current_rolbypassrls=current_rolbypassrls,
+        session_rolsuper=session_rolsuper,
+        session_rolbypassrls=session_rolbypassrls,
+        session_member_of_forbidden=session_member_of_forbidden,
+        rolsuper=current_rolsuper,
+        rolbypassrls=current_rolbypassrls,
+        rolname=current_user,
     )
+
+
+def test_evaluate_runtime_role_accepts_authorized_runtime_login() -> None:
+    evaluate_runtime_role(
+        _snap(current_user="tp_app_login", session_user="tp_app_login")
+    )
+    # Authorized login may SET ROLE to its runtime group role.
+    evaluate_runtime_role(
+        _snap(current_user="db_app_runtime", session_user="tp_app_login")
+    )
+    evaluate_runtime_role(
+        _snap(current_user="local_app_login", session_user="local_app_login")
+    )
+
+
+def test_evaluate_runtime_role_rejects_migrator_session_even_after_set_role() -> None:
+    # Elevated migrator login using SET ROLE db_app_runtime must fail closed.
     with pytest.raises(UnsafeDatabaseRoleError):
         evaluate_runtime_role(
-            RuntimeRoleSnapshot(
-                current_user="tp_migrator_login",
-                session_user="tp_migrator_login",
-                rolsuper=False,
-                rolbypassrls=False,
-                rolname="tp_migrator_login",
+            _snap(current_user="db_app_runtime", session_user="tp_migrator_login")
+        )
+    with pytest.raises(UnsafeDatabaseRoleError):
+        evaluate_runtime_role(
+            _snap(current_user="db_app_runtime", session_user="db_migrator")
+        )
+    with pytest.raises(UnsafeDatabaseRoleError):
+        evaluate_runtime_role(
+            _snap(current_user="tp_migrator_login", session_user="tp_migrator_login")
+        )
+
+
+def test_evaluate_runtime_role_rejects_superuser_bypassrls_and_membership() -> None:
+    with pytest.raises(UnsafeDatabaseRoleError):
+        evaluate_runtime_role(
+            _snap(
+                current_user="tp_app_login",
+                session_user="tp_app_login",
+                session_rolsuper=True,
             )
         )
     with pytest.raises(UnsafeDatabaseRoleError):
         evaluate_runtime_role(
-            RuntimeRoleSnapshot(
+            _snap(
                 current_user="tp_app_login",
                 session_user="tp_app_login",
-                rolsuper=True,
-                rolbypassrls=False,
-                rolname="tp_app_login",
+                session_rolbypassrls=True,
             )
         )
     with pytest.raises(UnsafeDatabaseRoleError):
         evaluate_runtime_role(
-            RuntimeRoleSnapshot(
+            _snap(
+                current_user="db_app_runtime",
+                session_user="tp_app_login",
+                current_rolbypassrls=True,
+            )
+        )
+    with pytest.raises(UnsafeDatabaseRoleError):
+        evaluate_runtime_role(
+            _snap(
                 current_user="tp_app_login",
                 session_user="tp_app_login",
-                rolsuper=False,
-                rolbypassrls=True,
-                rolname="tp_app_login",
+                session_member_of_forbidden=("db_migrator",),
             )
+        )
+    with pytest.raises(UnsafeDatabaseRoleError):
+        evaluate_runtime_role(
+            _snap(current_user="cp_app_login", session_user="cp_app_login")
         )
 
 
