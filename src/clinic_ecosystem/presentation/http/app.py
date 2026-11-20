@@ -1,4 +1,4 @@
-"""Minimal FastAPI application for BETA-01A auth + catalog read slice."""
+"""FastAPI application for BETA-01A auth/catalog + BETA-01B reception APIs."""
 
 from __future__ import annotations
 
@@ -19,8 +19,11 @@ from clinic_ecosystem.infrastructure.auth.settings import (
     load_auth_settings,
     require_token_signing_secret,
 )
+from clinic_ecosystem.presentation.http import appointments as appointment_routes
 from clinic_ecosystem.presentation.http import auth as auth_routes
 from clinic_ecosystem.presentation.http import catalog as catalog_routes
+from clinic_ecosystem.presentation.http import patients as patient_routes
+from clinic_ecosystem.presentation.http import resources as resource_routes
 
 logger = logging.getLogger("clinic_ecosystem.http")
 
@@ -79,7 +82,7 @@ def create_app(
 
         # Never log secrets, DSNs with passwords, or tokens.
         logger.info(
-            "BETA-01A API starting env=%s realm_enabled=%s db_role_verified=%s",
+            "BETA-01B API starting env=%s realm_enabled=%s db_role_verified=%s",
             resolved_settings.clinic_env,
             resolved_settings.auth_realm_enabled,
             app.state.db_role_verified,
@@ -91,8 +94,8 @@ def create_app(
                 await owned_engine.dispose()
 
     app = FastAPI(
-        title="Clinic Ecosystem BETA-01A",
-        version="0.1.0-beta-01a",
+        title="Clinic Ecosystem BETA-01B",
+        version="0.1.0-beta-01b",
         lifespan=lifespan,
     )
     app.state.auth_settings = resolved_settings
@@ -106,4 +109,7 @@ def create_app(
 
     app.include_router(auth_routes.router)
     app.include_router(catalog_routes.router)
+    app.include_router(resource_routes.router)
+    app.include_router(patient_routes.router)
+    app.include_router(appointment_routes.router)
     return app
