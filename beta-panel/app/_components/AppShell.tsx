@@ -75,6 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}
               <button
                 type="button"
+                data-testid="logout-button"
                 onClick={logout}
                 disabled={loggingOut}
                 className="rounded-md border border-[#c9d5e1] bg-white px-3 py-1.5 text-sm hover:bg-[var(--color-mist)] disabled:opacity-60"

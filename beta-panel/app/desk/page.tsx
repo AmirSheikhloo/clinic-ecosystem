@@ -287,6 +287,7 @@ export default function DeskPage() {
         return;
       }
       setSelectedPatient(data);
+      invalidateBookingState();
       setMessage(`بیمار ثبت شد — شناسه پروفایل: ${data.patient_profile_id}`);
       setFirstName("");
       setLastName("");
@@ -385,7 +386,7 @@ export default function DeskPage() {
       setMessage(
         `نوبت ثبت شد — شناسه: ${data.appointment_id}${data.replayed ? " (بازیابی تکرار)" : ""} — ${formatTehran(startIso)}`,
       );
-      keyStore.current.clear();
+      // Keep idempotency key for identical intent so duplicate submits replay.
     } catch {
       setError(
         "ارتباط برای ثبت نوبت برقرار نشد — نتیجه نامشخص است؛ همان درخواست را با همان کلید می‌توانید تکرار کنید",
@@ -444,7 +445,6 @@ export default function DeskPage() {
       setMessage(
         `نوبت با تأیید تداخل ثبت شد — شناسه: ${data.appointment_id}${data.replayed ? " (بازیابی تکرار)" : ""} — ${formatTehran(startIso)}`,
       );
-      keyStore.current.clear();
     } catch {
       setError(
         "ارتباط برای تأیید تداخل برقرار نشد — نتیجه نامشخص است؛ همان تأیید را می‌توانید تکرار کنید",
@@ -457,7 +457,11 @@ export default function DeskPage() {
 
   if (bootError) {
     return (
-      <p className="rounded-lg bg-red-50 px-4 py-3 text-[var(--color-alert)]" role="alert">
+      <p
+        className="rounded-lg bg-red-50 px-4 py-3 text-[var(--color-alert)]"
+        role="alert"
+        data-testid="desk-boot-error"
+      >
         {bootError}
       </p>
     );
@@ -468,7 +472,7 @@ export default function DeskPage() {
   }
 
   return (
-    <main className="space-y-8 animate-rise">
+    <main className="space-y-8 animate-rise" data-testid="desk-page">
       <header>
         <h1 className="text-2xl font-bold text-[var(--color-sea-deep)]">میز پذیرش</h1>
         <p className="text-[var(--color-ink)]/70">
@@ -481,6 +485,7 @@ export default function DeskPage() {
           <h2 className="font-semibold">جستجوی بیمار</h2>
           <div className="flex gap-2">
             <input
+              data-testid="patient-search-query"
               className="flex-1 rounded-lg border border-[#c9d5e1] px-3 py-2"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -488,6 +493,7 @@ export default function DeskPage() {
             />
             <button
               type="button"
+              data-testid="patient-search-submit"
               onClick={searchPatients}
               className="rounded-lg bg-[var(--color-sea)] px-4 py-2 text-white"
             >
@@ -525,6 +531,7 @@ export default function DeskPage() {
             <h3 className="font-medium">ثبت بیمار مصنوعی</h3>
             <div className="grid grid-cols-2 gap-2">
               <input
+                data-testid="patient-first-name"
                 className="rounded-lg border border-[#c9d5e1] px-3 py-2"
                 placeholder="نام"
                 value={firstName}
@@ -532,6 +539,7 @@ export default function DeskPage() {
                 required
               />
               <input
+                data-testid="patient-last-name"
                 className="rounded-lg border border-[#c9d5e1] px-3 py-2"
                 placeholder="نام خانوادگی"
                 value={lastName}
@@ -541,12 +549,14 @@ export default function DeskPage() {
             </div>
             <input
               type="date"
+              data-testid="patient-birth-date"
               className="w-full rounded-lg border border-[#c9d5e1] px-3 py-2"
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
             />
             <button
               type="submit"
+              data-testid="patient-register-submit"
               disabled={registering}
               className="rounded-lg border border-[var(--color-sea)] px-4 py-2 text-[var(--color-sea-deep)] disabled:opacity-60"
             >
@@ -560,7 +570,10 @@ export default function DeskPage() {
           className="space-y-4 rounded-2xl border border-[#d7e0ea] bg-white/90 p-5"
         >
           <h2 className="font-semibold">ثبت نوبت دستی</h2>
-          <p className="rounded-md bg-[var(--color-mist)] px-3 py-2 text-sm">
+          <p
+            className="rounded-md bg-[var(--color-mist)] px-3 py-2 text-sm"
+            data-testid="selected-patient"
+          >
             بیمار انتخاب‌شده:{" "}
             {selectedPatient
               ? `${selectedPatient.first_name} ${selectedPatient.last_name}`
@@ -569,6 +582,7 @@ export default function DeskPage() {
           <label className="block space-y-1">
             <span className="text-sm">خدمت</span>
             <select
+              data-testid="service-select"
               className="w-full rounded-lg border border-[#c9d5e1] px-3 py-2"
               value={serviceId}
               onChange={(e) => changeService(e.target.value)}
@@ -583,7 +597,11 @@ export default function DeskPage() {
             </select>
           </label>
 
-          <fieldset className="space-y-2" disabled={!requirementsReady || !!pendingConflicts}>
+          <fieldset
+            className="space-y-2"
+            data-testid="resource-fieldset"
+            disabled={!requirementsReady || !!pendingConflicts}
+          >
             <legend className="text-sm">
               منابع معتبر ({selectedResourceIds.length}/{neededCount})
             </legend>
@@ -603,7 +621,10 @@ export default function DeskPage() {
                 const checked = selectedResourceIds.includes(resource.id);
                 return (
                   <li key={resource.id}>
-                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#d7e0ea] px-3 py-2">
+                    <label
+                      data-testid="resource-option"
+                      className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#d7e0ea] px-3 py-2"
+                    >
                       <input
                         type="checkbox"
                         checked={checked}
@@ -629,6 +650,7 @@ export default function DeskPage() {
             <span className="text-sm">زمان شروع (Asia/Tehran)</span>
             <input
               type="datetime-local"
+              data-testid="appointment-start"
               className="w-full rounded-lg border border-[#c9d5e1] px-3 py-2"
               value={localStart}
               onChange={(e) => {
@@ -644,6 +666,7 @@ export default function DeskPage() {
           </p>
           <button
             type="submit"
+            data-testid="appointment-submit"
             disabled={!canSubmit}
             className="w-full rounded-lg bg-[var(--color-sea)] px-4 py-2.5 font-medium text-white disabled:opacity-60"
           >
@@ -653,7 +676,12 @@ export default function DeskPage() {
       </section>
 
       {pendingConflicts && (
-        <section className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-5" role="dialog" aria-labelledby="overlap-title">
+        <section
+          className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-5"
+          role="dialog"
+          aria-labelledby="overlap-title"
+          data-testid="overlap-dialog"
+        >
           <h2 id="overlap-title" className="font-semibold text-amber-900">
             تأیید صریح تداخل نوبت دستی
           </h2>
@@ -678,6 +706,7 @@ export default function DeskPage() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
+              data-testid="overlap-confirm"
               disabled={submitting}
               onClick={confirmOverlap}
               className="rounded-lg bg-amber-700 px-4 py-2 text-white disabled:opacity-60"
@@ -700,12 +729,20 @@ export default function DeskPage() {
       )}
 
       {message && (
-        <p className="rounded-lg bg-emerald-50 px-4 py-3 text-[var(--color-ok)]" role="status">
+        <p
+          className="rounded-lg bg-emerald-50 px-4 py-3 text-[var(--color-ok)]"
+          role="status"
+          data-testid="desk-status"
+        >
           {message}
         </p>
       )}
       {error && (
-        <p className="rounded-lg bg-red-50 px-4 py-3 text-[var(--color-alert)]" role="alert">
+        <p
+          className="rounded-lg bg-red-50 px-4 py-3 text-[var(--color-alert)]"
+          role="alert"
+          data-testid="desk-error"
+        >
           {error}
         </p>
       )}

@@ -28,6 +28,10 @@ Thumbs.db
 *.log
 tmp/
 temp/
+artifacts/
+beta-panel/test-results/
+beta-panel/playwright-report/
+beta-panel/blob-report/
 
 # Local databases and backups
 *.db

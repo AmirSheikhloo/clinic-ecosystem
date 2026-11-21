@@ -73,7 +73,7 @@ export default function AppointmentsPage() {
   }, [date, router]);
 
   return (
-    <main className="space-y-6 animate-rise">
+    <main className="space-y-6 animate-rise" data-testid="appointments-page">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-sea-deep)]">نوبت‌های روز</h1>
@@ -83,6 +83,7 @@ export default function AppointmentsPage() {
           <span className="block">تاریخ (تقویم تهران)</span>
           <input
             type="date"
+            data-testid="appointments-date"
             className="rounded-lg border border-[#c9d5e1] px-3 py-2"
             value={date}
             onChange={(e) => setDate(e.target.value)}
@@ -114,7 +115,12 @@ export default function AppointmentsPage() {
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.appointment_id} className="border-t border-[#e8eef4]">
+                <tr
+                  key={item.appointment_id}
+                  className="border-t border-[#e8eef4]"
+                  data-testid="appointment-row"
+                  data-appointment-id={item.appointment_id}
+                >
                   <td className="px-4 py-3">{formatTehran(item.scheduled_start_at_utc)}</td>
                   <td className="px-4 py-3">
                     {item.patient_first_name} {item.patient_last_name}

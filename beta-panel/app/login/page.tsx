@@ -56,6 +56,7 @@ function LoginForm() {
         <label className="block space-y-1.5">
           <span className="text-sm font-medium">شناسه ورود</span>
           <input
+            data-testid="login-identifier"
             className="w-full rounded-lg border border-[#c9d5e1] bg-white px-3 py-2 outline-none focus:border-[var(--color-sea)]"
             value={login}
             onChange={(e) => setLogin(e.target.value)}
@@ -67,6 +68,7 @@ function LoginForm() {
           <span className="text-sm font-medium">رمز عبور</span>
           <input
             type="password"
+            data-testid="login-password"
             className="w-full rounded-lg border border-[#c9d5e1] bg-white px-3 py-2 outline-none focus:border-[var(--color-sea)]"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -81,6 +83,7 @@ function LoginForm() {
         )}
         <button
           type="submit"
+          data-testid="login-submit"
           disabled={busy}
           className="w-full rounded-lg bg-[var(--color-sea)] px-4 py-2.5 font-medium text-white transition hover:bg-[var(--color-sea-deep)] disabled:opacity-60"
         >
