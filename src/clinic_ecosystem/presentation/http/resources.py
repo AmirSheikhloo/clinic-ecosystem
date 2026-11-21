@@ -5,12 +5,15 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from clinic_ecosystem.infrastructure.auth.settings import CATALOG_RESOURCES_READ
 from clinic_ecosystem.infrastructure.persistence.resources_catalog import (
     SqlResourcesCatalogRepository,
+)
+from clinic_ecosystem.infrastructure.persistence.services_catalog import (
+    SqlServicesCatalogRepository,
 )
 from clinic_ecosystem.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 from clinic_ecosystem.presentation.http.dependencies import (
@@ -78,15 +81,31 @@ async def list_service_requirements(
     uow: Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)],
 ) -> RequirementListResponse:
     await require_permission(CATALOG_RESOURCES_READ, principal=principal, uow=uow)
+    services = SqlServicesCatalogRepository(uow.session)
+    service = await services.get_by_id(
+        tenant_id=principal.claims.tenant_id,
+        service_id=service_id,
+    )
+    if service is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "service_not_found", "message": "Service not found"},
+        )
+    if not service.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "service_inactive",
+                "message": "Service is not active",
+            },
+        )
+
     repo = SqlResourcesCatalogRepository(uow.session)
     rows = await repo.list_requirements_for_service(
         tenant_id=principal.claims.tenant_id,
         service_id=service_id,
     )
-    if not rows:
-        # Distinguish empty requirements from unknown/cross-tenant services for UI.
-        # Services table is still tenant-scoped by GUC; empty list is valid when none.
-        pass
+    # Empty list is valid for an existing active service with no requirements.
     return RequirementListResponse(
         items=[
             RequirementItemResponse(

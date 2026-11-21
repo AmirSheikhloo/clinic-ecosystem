@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { BetaPanelConfigError } from "./config";
+import { CookieTransportError } from "./cookies";
+import { CsrfError } from "./csrf";
 
 export function jsonError(status: number, error: string, message: string) {
   return NextResponse.json({ error, message }, { status });
@@ -30,7 +32,13 @@ export function handleRouteError(err: unknown) {
   if (err instanceof BetaPanelConfigError) {
     return jsonError(503, "panel_disabled", err.message);
   }
-  if (err instanceof Error && err.message === "csrf_failed") {
+  if (err instanceof CookieTransportError) {
+    return jsonError(503, "unsafe_cookie_transport", err.message);
+  }
+  if (
+    err instanceof CsrfError
+    || (err instanceof Error && err.message === "csrf_failed")
+  ) {
     return jsonError(403, "csrf_failed", "CSRF validation failed");
   }
   return jsonError(500, "internal_error", "Unexpected server error");

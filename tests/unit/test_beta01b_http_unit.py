@@ -194,10 +194,32 @@ def test_resources_list_success(app_principal) -> None:
                 )
             ]
 
+    sid = uuid4()
+
+    class FakeServices:
+        def __init__(self, session):
+            pass
+
+        async def get_by_id(self, **kwargs):
+            from clinic_ecosystem.infrastructure.persistence.services_catalog import (
+                ServiceCatalogItem,
+            )
+
+            return ServiceCatalogItem(
+                id=kwargs["service_id"],
+                service_code="X",
+                service_name="Svc",
+                default_duration_minutes=30,
+                default_price_irr=1,
+                is_active=True,
+            )
+
     original_perm = resources_mod.require_permission
     original_repo = resources_mod.SqlResourcesCatalogRepository
+    original_services = resources_mod.SqlServicesCatalogRepository
     resources_mod.require_permission = allow
     resources_mod.SqlResourcesCatalogRepository = FakeRepo
+    resources_mod.SqlServicesCatalogRepository = FakeServices
     try:
         with TestClient(app) as client:
             resources = client.get(
@@ -205,7 +227,7 @@ def test_resources_list_success(app_principal) -> None:
                 headers={"Authorization": f"Bearer {token}"},
             )
             reqs = client.get(
-                f"/api/v1/catalog/services/{uuid4()}/resource-requirements",
+                f"/api/v1/catalog/services/{sid}/resource-requirements",
                 headers={"Authorization": f"Bearer {token}"},
             )
         assert resources.status_code == 200
@@ -215,6 +237,7 @@ def test_resources_list_success(app_principal) -> None:
     finally:
         resources_mod.require_permission = original_perm
         resources_mod.SqlResourcesCatalogRepository = original_repo
+        resources_mod.SqlServicesCatalogRepository = original_services
 
 
 def test_appointment_list_success(app_principal) -> None:

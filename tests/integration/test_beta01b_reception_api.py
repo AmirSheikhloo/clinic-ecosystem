@@ -642,69 +642,54 @@ async def test_beta01b_concurrent_scheduling_consistency(plane_topology) -> None
     app = create_app(settings=settings, engine=engine, create_engine_from_settings=False)
     transport = ASGITransport(app=app)
     try:
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            login = await client.post(
-                "/api/v1/auth/login",
-                json={
-                    "login_identifier": seed.receptionist_login,
-                    "password": seed.receptionist_password,
-                },
-            )
-            assert login.status_code == 200
-            token = login.json()["access_token"]
-            base = datetime.now(timezone.utc) + timedelta(hours=20)
-
-            async def _schedule(i: int):
-                start = base + timedelta(minutes=i * 40)
-                end = start + timedelta(minutes=30)
-                return await client.post(
-                    "/api/v1/appointments",
-                    headers={
-                        **_auth(token),
-                        "Idempotency-Key": f"concurrent-{i}-{new_uuid7()}",
-                    },
+        # Explicit lifespan so role preflight and app.state match request loops.
+        async with app.router.lifespan_context(app):
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                login = await client.post(
+                    "/api/v1/auth/login",
                     json={
-                        "beneficiary_patient_id": str(seed.patient_a_id),
-                        "service_id": str(seed.service_a_id),
-                        "resource_ids": [str(seed.resource_a_id)],
-                        "start_at_utc": start.isoformat(),
-                        "end_at_utc": end.isoformat(),
+                        "login_identifier": seed.receptionist_login,
+                        "password": seed.receptionist_password,
                     },
                 )
+                assert login.status_code == 200
+                token = login.json()["access_token"]
+                base = datetime.now(timezone.utc) + timedelta(hours=20)
 
-            # Non-overlapping concurrent slots should all succeed.
-            results = await asyncio.gather(*[_schedule(i) for i in range(3)])
-            assert all(r.status_code == 200 for r in results), [
-                r.text for r in results
-            ]
-            ids = {r.json()["appointment_id"] for r in results}
-            assert len(ids) == 3
+                async def _schedule(i: int):
+                    start = base + timedelta(minutes=i * 40)
+                    end = start + timedelta(minutes=30)
+                    return await client.post(
+                        "/api/v1/appointments",
+                        headers={
+                            **_auth(token),
+                            "Idempotency-Key": f"concurrent-{i}-{new_uuid7()}",
+                        },
+                        json={
+                            "beneficiary_patient_id": str(seed.patient_a_id),
+                            "service_id": str(seed.service_a_id),
+                            "resource_ids": [str(seed.resource_a_id)],
+                            "start_at_utc": start.isoformat(),
+                            "end_at_utc": end.isoformat(),
+                        },
+                    )
 
-            # Conflicting overlapping requests: authorized path needs acknowledgement.
-            conflict_start = base + timedelta(hours=5)
-            conflict_end = conflict_start + timedelta(minutes=30)
-            first = await client.post(
-                "/api/v1/appointments",
-                headers={
-                    **_auth(token),
-                    "Idempotency-Key": f"conflict-first-{new_uuid7()}",
-                },
-                json={
-                    "beneficiary_patient_id": str(seed.patient_a_id),
-                    "service_id": str(seed.service_a_id),
-                    "resource_ids": [str(seed.resource_a_id)],
-                    "start_at_utc": conflict_start.isoformat(),
-                    "end_at_utc": conflict_end.isoformat(),
-                },
-            )
-            assert first.status_code == 200, first.text
+                # Non-overlapping concurrent slots should all succeed.
+                results = await asyncio.gather(*[_schedule(i) for i in range(3)])
+                assert all(r.status_code == 200 for r in results), [
+                    r.text for r in results
+                ]
+                ids = {r.json()["appointment_id"] for r in results}
+                assert len(ids) == 3
 
-            async def _overlap(i: int):
-                return await client.post(
+                # Conflicting overlapping requests: authorized path needs acknowledgement.
+                conflict_start = base + timedelta(hours=5)
+                conflict_end = conflict_start + timedelta(minutes=30)
+                first = await client.post(
                     "/api/v1/appointments",
                     headers={
                         **_auth(token),
-                        "Idempotency-Key": f"conflict-overlap-{i}-{new_uuid7()}",
+                        "Idempotency-Key": f"conflict-first-{new_uuid7()}",
                     },
                     json={
                         "beneficiary_patient_id": str(seed.patient_a_id),
@@ -714,39 +699,60 @@ async def test_beta01b_concurrent_scheduling_consistency(plane_topology) -> None
                         "end_at_utc": conflict_end.isoformat(),
                     },
                 )
+                assert first.status_code == 200, first.text
 
-            overlaps = await asyncio.gather(*[_overlap(i) for i in range(2)])
-            assert all(r.status_code == 409 for r in overlaps), [r.text for r in overlaps]
-            for response in overlaps:
-                assert (
-                    response.json()["detail"]["error"]
-                    == "manual_overlap_acknowledgement_required"
+                async def _overlap(i: int):
+                    return await client.post(
+                        "/api/v1/appointments",
+                        headers={
+                            **_auth(token),
+                            "Idempotency-Key": f"conflict-overlap-{i}-{new_uuid7()}",
+                        },
+                        json={
+                            "beneficiary_patient_id": str(seed.patient_a_id),
+                            "service_id": str(seed.service_a_id),
+                            "resource_ids": [str(seed.resource_a_id)],
+                            "start_at_utc": conflict_start.isoformat(),
+                            "end_at_utc": conflict_end.isoformat(),
+                        },
+                    )
+
+                overlaps = await asyncio.gather(*[_overlap(i) for i in range(2)])
+                assert all(r.status_code == 409 for r in overlaps), [
+                    r.text for r in overlaps
+                ]
+                for response in overlaps:
+                    assert (
+                        response.json()["detail"]["error"]
+                        == "manual_overlap_acknowledgement_required"
+                    )
+
+                # Duplicate idempotency: same key + fingerprint replays.
+                dup_start = base + timedelta(hours=8)
+                dup_end = dup_start + timedelta(minutes=30)
+                key = f"dup-{new_uuid7()}"
+                payload = {
+                    "beneficiary_patient_id": str(seed.patient_a_id),
+                    "service_id": str(seed.service_a_id),
+                    "resource_ids": [str(seed.resource_a_id)],
+                    "start_at_utc": dup_start.isoformat(),
+                    "end_at_utc": dup_end.isoformat(),
+                }
+                created = await client.post(
+                    "/api/v1/appointments",
+                    headers={**_auth(token), "Idempotency-Key": key},
+                    json=payload,
                 )
-
-            # Duplicate idempotency: same key + fingerprint replays.
-            dup_start = base + timedelta(hours=8)
-            dup_end = dup_start + timedelta(minutes=30)
-            key = f"dup-{new_uuid7()}"
-            payload = {
-                "beneficiary_patient_id": str(seed.patient_a_id),
-                "service_id": str(seed.service_a_id),
-                "resource_ids": [str(seed.resource_a_id)],
-                "start_at_utc": dup_start.isoformat(),
-                "end_at_utc": dup_end.isoformat(),
-            }
-            created = await client.post(
-                "/api/v1/appointments",
-                headers={**_auth(token), "Idempotency-Key": key},
-                json=payload,
-            )
-            replay = await client.post(
-                "/api/v1/appointments",
-                headers={**_auth(token), "Idempotency-Key": key},
-                json=payload,
-            )
-            assert created.status_code == 200
-            assert replay.status_code == 200
-            assert replay.json()["replayed"] is True
-            assert replay.json()["appointment_id"] == created.json()["appointment_id"]
+                replay = await client.post(
+                    "/api/v1/appointments",
+                    headers={**_auth(token), "Idempotency-Key": key},
+                    json=payload,
+                )
+                assert created.status_code == 200
+                assert replay.status_code == 200
+                assert replay.json()["replayed"] is True
+                assert (
+                    replay.json()["appointment_id"] == created.json()["appointment_id"]
+                )
     finally:
         await engine.dispose()

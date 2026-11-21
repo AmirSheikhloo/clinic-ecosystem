@@ -125,7 +125,14 @@ class SqlPatientRepository:
         limit: int = 20,
         offset: int = 0,
     ) -> list[PatientRecord]:
-        pattern = f"%{query.strip()}%"
+        # Escape LIKE metacharacters so literal % / _ in names are not wildcards.
+        escaped = (
+            query.strip()
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
+        pattern = f"%{escaped}%"
         result = await self._session.execute(
             text(
                 """
@@ -137,9 +144,9 @@ class SqlPatientRepository:
                 WHERE p.tenant_id = :tenant_id
                   AND p.is_active = TRUE
                   AND (
-                    tp.first_name ILIKE :pattern
-                    OR tp.last_name ILIKE :pattern
-                    OR (tp.first_name || ' ' || tp.last_name) ILIKE :pattern
+                    tp.first_name ILIKE :pattern ESCAPE '\\'
+                    OR tp.last_name ILIKE :pattern ESCAPE '\\'
+                    OR (tp.first_name || ' ' || tp.last_name) ILIKE :pattern ESCAPE '\\'
                   )
                 ORDER BY tp.last_name ASC, tp.first_name ASC, p.id ASC
                 LIMIT :limit OFFSET :offset

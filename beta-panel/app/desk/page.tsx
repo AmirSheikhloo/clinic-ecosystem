@@ -4,12 +4,14 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   apiFetch,
-  bookingFingerprint,
   extractOverlapConflicts,
   formatApiError,
   formatTehran,
+  IdempotencyKeyStore,
+  sortedConflictIds,
   tehranLocalToUtcIso,
   type ApiErrorBody,
+  type BookingIntent,
   type OverlapConflict,
 } from "@/lib/client";
 import {
@@ -35,15 +37,24 @@ type Service = {
   is_active: boolean;
 };
 
+type RequirementsState =
+  | { status: "idle" }
+  | { status: "loading"; serviceId: string }
+  | { status: "ready"; serviceId: string; items: Requirement[] }
+  | { status: "error"; serviceId: string; message: string };
+
 export default function DeskPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [bootError, setBootError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
-  const [requirements, setRequirements] = useState<Requirement[]>([]);
+  const [requirementsState, setRequirementsState] = useState<RequirementsState>({
+    status: "idle",
+  });
   const [serviceId, setServiceId] = useState("");
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [localStart, setLocalStart] = useState("");
@@ -55,13 +66,26 @@ export default function DeskPage() {
   const [submitting, setSubmitting] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [pendingConflicts, setPendingConflicts] = useState<OverlapConflict[] | null>(null);
-  const reqSeq = useRef(0);
-  const keyCache = useRef(new Map<string, string>());
+  const reqToken = useRef(0);
+  const keyStore = useRef(new IdempotencyKeyStore());
+  const confirmingRef = useRef(false);
 
   const durationMinutes = useMemo(() => {
     const svc = services.find((s) => s.id === serviceId);
     return svc?.default_duration_minutes || 30;
   }, [services, serviceId]);
+
+  const requirements = useMemo(() => {
+    if (requirementsState.status === "ready" && requirementsState.serviceId === serviceId) {
+      return requirementsState.items;
+    }
+    return [];
+  }, [requirementsState, serviceId]);
+
+  const requirementsReady =
+    !!serviceId
+    && requirementsState.status === "ready"
+    && requirementsState.serviceId === serviceId;
 
   const resourcesById = useMemo(
     () => new Map(resources.map((item) => [item.id, item])),
@@ -80,85 +104,132 @@ export default function DeskPage() {
 
   const neededCount = requiredSelectionCount(requirements);
 
-  function idempotencyForPayload(resourceIds: string[]): string {
-    if (!selectedPatient || !serviceId || !localStart) {
-      return crypto.randomUUID();
-    }
-    const fp = bookingFingerprint({
+  function baseIntent(overrides: Partial<BookingIntent> = {}): BookingIntent | null {
+    if (!selectedPatient || !serviceId || !localStart) return null;
+    return {
       patientId: selectedPatient.patient_profile_id,
       serviceId,
-      resourceIds,
+      resourceIds: selectedResourceIds,
       startLocal: localStart,
       durationMinutes,
-    });
-    const existing = keyCache.current.get(fp);
-    if (existing) return existing;
-    const created = crypto.randomUUID();
-    keyCache.current.set(fp, created);
-    return created;
+      acknowledgeOverlap: false,
+      acknowledgedConflictIds: [],
+      ...overrides,
+    };
+  }
+
+  function invalidateBookingState() {
+    setPendingConflicts(null);
+    keyStore.current.clear();
+  }
+
+  function changeService(nextServiceId: string) {
+    // Immediately invalidate in-flight requirement responses and UI state.
+    reqToken.current += 1;
+    setServiceId(nextServiceId);
+    setSelectedResourceIds([]);
+    setPendingConflicts(null);
+    keyStore.current.clear();
+    if (!nextServiceId) {
+      setRequirementsState({ status: "idle" });
+      return;
+    }
+    setRequirementsState({ status: "loading", serviceId: nextServiceId });
   }
 
   useEffect(() => {
+    let cancelled = false;
     async function boot() {
-      const me = await apiFetch("/api/auth/me");
-      if (me.status === 401) {
-        router.replace("/login?expired=1");
-        return;
+      try {
+        const me = await apiFetch("/api/auth/me");
+        if (cancelled) return;
+        if (me.status === 401) {
+          router.replace("/login?expired=1");
+          return;
+        }
+        if (!me.ok) {
+          setBootError("نشست معتبر نیست");
+          setReady(false);
+          return;
+        }
+        const [svcRes, resRes] = await Promise.all([
+          apiFetch("/api/catalog/services"),
+          apiFetch("/api/catalog/resources"),
+        ]);
+        if (cancelled) return;
+        if (svcRes.status === 401 || resRes.status === 401) {
+          router.replace("/login?expired=1");
+          return;
+        }
+        if (!svcRes.ok || !resRes.ok) {
+          setBootError("بارگذاری فهرست خدمات/منابع ناموفق بود");
+          return;
+        }
+        const svcData = await svcRes.json();
+        const resData = await resRes.json();
+        if (cancelled) return;
+        setServices(svcData.items || []);
+        setResources(resData.items || []);
+        setReady(true);
+      } catch {
+        if (!cancelled) {
+          setBootError("ارتباط برای آماده‌سازی میز پذیرش برقرار نشد");
+          setReady(false);
+        }
       }
-      if (!me.ok) {
-        setError("نشست معتبر نیست");
-        return;
-      }
-      const [svcRes, resRes] = await Promise.all([
-        apiFetch("/api/catalog/services"),
-        apiFetch("/api/catalog/resources"),
-      ]);
-      if (svcRes.status === 401 || resRes.status === 401) {
-        router.replace("/login?expired=1");
-        return;
-      }
-      if (!svcRes.ok || !resRes.ok) {
-        setError("بارگذاری فهرست خدمات/منابع ناموفق بود");
-        return;
-      }
-      const svcData = await svcRes.json();
-      const resData = await resRes.json();
-      setServices(svcData.items || []);
-      setResources(resData.items || []);
-      setReady(true);
     }
     void boot();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   useEffect(() => {
+    if (!serviceId) return;
+    if (requirementsState.status !== "loading") return;
+    if (requirementsState.serviceId !== serviceId) return;
+
+    const token = reqToken.current;
+    const requestedServiceId = serviceId;
+
     async function loadRequirements() {
-      if (!serviceId) {
-        setRequirements([]);
-        setSelectedResourceIds([]);
-        setPendingConflicts(null);
-        return;
+      try {
+        const response = await apiFetch(
+          `/api/catalog/resources?service_id=${encodeURIComponent(requestedServiceId)}`,
+        );
+        if (token !== reqToken.current) return;
+        if (response.status === 401) {
+          router.replace("/login?expired=1");
+          return;
+        }
+        if (!response.ok) {
+          const data = (await response.json().catch(() => ({}))) as ApiErrorBody;
+          if (token !== reqToken.current) return;
+          setRequirementsState({
+            status: "error",
+            serviceId: requestedServiceId,
+            message: formatApiError(data, "خواندن الزامات منابع ناموفق بود"),
+          });
+          return;
+        }
+        const data = await response.json();
+        if (token !== reqToken.current) return;
+        setRequirementsState({
+          status: "ready",
+          serviceId: requestedServiceId,
+          items: data.items || [],
+        });
+      } catch {
+        if (token !== reqToken.current) return;
+        setRequirementsState({
+          status: "error",
+          serviceId: requestedServiceId,
+          message: "ارتباط برای خواندن الزامات منابع برقرار نشد",
+        });
       }
-      const seq = ++reqSeq.current;
-      const response = await apiFetch(
-        `/api/catalog/resources?service_id=${encodeURIComponent(serviceId)}`,
-      );
-      if (seq !== reqSeq.current) return;
-      if (response.status === 401) {
-        router.replace("/login?expired=1");
-        return;
-      }
-      if (!response.ok) {
-        setError("خواندن الزامات منابع ناموفق بود");
-        return;
-      }
-      const data = await response.json();
-      if (seq !== reqSeq.current) return;
-      setRequirements(data.items || []);
-      setSelectedResourceIds([]);
-      setPendingConflicts(null);
     }
     void loadRequirements();
-  }, [serviceId, router]);
+  }, [serviceId, requirementsState, router]);
 
   function toggleResource(id: string) {
     setPendingConflicts(null);
@@ -169,21 +240,25 @@ export default function DeskPage() {
 
   async function searchPatients() {
     setError(null);
-    const response = await apiFetch(
-      `/api/patients?q=${encodeURIComponent(query.trim())}`,
-    );
-    if (response.status === 401) {
-      router.replace("/login?expired=1");
-      return;
+    try {
+      const response = await apiFetch(
+        `/api/patients?q=${encodeURIComponent(query.trim())}`,
+      );
+      if (response.status === 401) {
+        router.replace("/login?expired=1");
+        return;
+      }
+      const data = (await response.json().catch(() => ({}))) as ApiErrorBody & {
+        items?: Patient[];
+      };
+      if (!response.ok) {
+        setError(formatApiError(data, "جستجوی بیمار ناموفق بود"));
+        return;
+      }
+      setPatients(data.items || []);
+    } catch {
+      setError("ارتباط برای جستجوی بیمار برقرار نشد");
     }
-    const data = (await response.json().catch(() => ({}))) as ApiErrorBody & {
-      items?: Patient[];
-    };
-    if (!response.ok) {
-      setError(formatApiError(data, "جستجوی بیمار ناموفق بود"));
-      return;
-    }
-    setPatients(data.items || []);
   }
 
   async function registerPatient(event: FormEvent) {
@@ -217,66 +292,75 @@ export default function DeskPage() {
       setLastName("");
       setBirthDate("");
     } catch {
-      setError("ارتباط برای ثبت بیمار برقرار نشد");
+      setError(
+        "ارتباط برای ثبت بیمار برقرار نشد — نتیجه نامشخص است؛ از تکرار کور خودداری کنید",
+      );
     } finally {
       setRegistering(false);
     }
   }
 
-  async function postAppointment(options: {
-    acknowledge: boolean;
-    conflictIds: string[];
-    idempotencyKey: string;
-  }) {
-    if (!selectedPatient) return;
-    const startIso = tehranLocalToUtcIso(localStart);
+  async function postAppointment(intent: BookingIntent, idempotencyKey: string) {
+    if (!selectedPatient) return null;
+    const startIso = tehranLocalToUtcIso(intent.startLocal);
     const endDate = new Date(
-      new Date(startIso).getTime() + durationMinutes * 60_000,
+      new Date(startIso).getTime() + intent.durationMinutes * 60_000,
     );
     const response = await apiFetch("/api/appointments", {
       method: "POST",
       csrf: true,
-      headers: { "Idempotency-Key": options.idempotencyKey },
+      headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({
-        beneficiary_patient_id: selectedPatient.patient_profile_id,
-        service_id: serviceId,
-        resource_ids: selectedResourceIds,
+        beneficiary_patient_id: intent.patientId,
+        service_id: intent.serviceId,
+        resource_ids: intent.resourceIds,
         start_at_utc: startIso,
         end_at_utc: endDate.toISOString(),
         booking_channel: "MANUAL_STAFF",
         capacity_pool: "MANUAL",
-        acknowledge_overlap: options.acknowledge,
-        acknowledged_conflict_ids: options.conflictIds,
+        acknowledge_overlap: intent.acknowledgeOverlap,
+        acknowledged_conflict_ids: intent.acknowledgedConflictIds,
       }),
     });
     return { response, startIso };
   }
 
+  const canSubmit =
+    ready
+    && !!selectedPatient
+    && requirementsReady
+    && selectionCheck.ok
+    && !!localStart
+    && !submitting
+    && !pendingConflicts;
+
   async function submitAppointment(event: FormEvent) {
     event.preventDefault();
-    if (submitting) return;
+    if (submitting || !canSubmit) return;
     setError(null);
     setMessage(null);
-    if (!selectedPatient) {
-      setError("ابتدا بیمار را انتخاب کنید");
+    const intent = baseIntent({ acknowledgeOverlap: false, acknowledgedConflictIds: [] });
+    if (!intent) {
+      setError("بیمار، خدمت و زمان الزامی است");
       return;
     }
-    if (!serviceId || !localStart) {
-      setError("خدمت و زمان الزامی است");
+    if (!requirementsReady) {
+      setError("الزامات منابع هنوز آماده نیست");
       return;
     }
-    if (!selectionCheck.ok) {
-      setError(selectionCheck.message);
+    const resourceGate = validateResourceSelection(
+      requirements,
+      selectedResourceIds,
+      resourcesById,
+    );
+    if (!resourceGate.ok) {
+      setError(resourceGate.message);
       return;
     }
     setSubmitting(true);
     try {
-      const key = idempotencyForPayload(selectedResourceIds);
-      const result = await postAppointment({
-        acknowledge: false,
-        conflictIds: [],
-        idempotencyKey: key,
-      });
+      const key = keyStore.current.keyFor(intent);
+      const result = await postAppointment(intent, key);
       if (!result) return;
       const { response, startIso } = result;
       if (response.status === 401) {
@@ -301,28 +385,34 @@ export default function DeskPage() {
       setMessage(
         `نوبت ثبت شد — شناسه: ${data.appointment_id}${data.replayed ? " (بازیابی تکرار)" : ""} — ${formatTehran(startIso)}`,
       );
-      // New booking after success uses a fresh key for a changed payload.
-      keyCache.current.clear();
+      keyStore.current.clear();
     } catch {
-      setError("ارتباط برای ثبت نوبت برقرار نشد — نتیجه نامشخص است؛ از تکرار کور خودداری کنید");
+      setError(
+        "ارتباط برای ثبت نوبت برقرار نشد — نتیجه نامشخص است؛ همان درخواست را با همان کلید می‌توانید تکرار کنید",
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
   async function confirmOverlap() {
-    if (!pendingConflicts || submitting) return;
+    if (!pendingConflicts || submitting || confirmingRef.current) return;
+    confirmingRef.current = true;
     setSubmitting(true);
     setError(null);
     try {
-      // Confirmed overlap is a different fingerprint → distinct idempotency key.
-      const confirmKey = crypto.randomUUID();
-      const conflictIds = pendingConflicts.map((item) => item.appointment_id);
-      const result = await postAppointment({
-        acknowledge: true,
-        conflictIds,
-        idempotencyKey: confirmKey,
+      const conflictIds = sortedConflictIds(pendingConflicts);
+      const intent = baseIntent({
+        acknowledgeOverlap: true,
+        acknowledgedConflictIds: conflictIds,
       });
+      if (!intent) {
+        setError("درخواست تأیید ناقص است");
+        return;
+      }
+      // Stable key for this confirmed-overlap fingerprint (retries reuse it).
+      const confirmKey = keyStore.current.keyFor(intent);
+      const result = await postAppointment(intent, confirmKey);
       if (!result) return;
       const { response, startIso } = result;
       if (response.status === 401) {
@@ -336,6 +426,8 @@ export default function DeskPage() {
       const refreshed = extractOverlapConflicts(data);
       if (refreshed) {
         setPendingConflicts(refreshed);
+        // Conflict set changed → previous confirm fingerprint is stale.
+        keyStore.current.clear();
         setError("تعارض‌ها تغییر کرده است — فهرست به‌روز شد؛ دوباره تأیید کنید");
         return;
       }
@@ -350,14 +442,25 @@ export default function DeskPage() {
       }
       setPendingConflicts(null);
       setMessage(
-        `نوبت با تأیید تداخل ثبت شد — شناسه: ${data.appointment_id} — ${formatTehran(startIso)}`,
+        `نوبت با تأیید تداخل ثبت شد — شناسه: ${data.appointment_id}${data.replayed ? " (بازیابی تکرار)" : ""} — ${formatTehran(startIso)}`,
       );
-      keyCache.current.clear();
+      keyStore.current.clear();
     } catch {
-      setError("ارتباط برای تأیید تداخل برقرار نشد");
+      setError(
+        "ارتباط برای تأیید تداخل برقرار نشد — نتیجه نامشخص است؛ همان تأیید را می‌توانید تکرار کنید",
+      );
     } finally {
+      confirmingRef.current = false;
       setSubmitting(false);
     }
+  }
+
+  if (bootError) {
+    return (
+      <p className="rounded-lg bg-red-50 px-4 py-3 text-[var(--color-alert)]" role="alert">
+        {bootError}
+      </p>
+    );
   }
 
   if (!ready) {
@@ -396,7 +499,10 @@ export default function DeskPage() {
               <li key={patient.patient_profile_id}>
                 <button
                   type="button"
-                  onClick={() => setSelectedPatient(patient)}
+                  onClick={() => {
+                    setSelectedPatient(patient);
+                    invalidateBookingState();
+                  }}
                   className={`w-full rounded-lg border px-3 py-2 text-right ${
                     selectedPatient?.patient_profile_id === patient.patient_profile_id
                       ? "border-[var(--color-sea)] bg-[var(--color-mist)]"
@@ -465,7 +571,7 @@ export default function DeskPage() {
             <select
               className="w-full rounded-lg border border-[#c9d5e1] px-3 py-2"
               value={serviceId}
-              onChange={(e) => setServiceId(e.target.value)}
+              onChange={(e) => changeService(e.target.value)}
               required
             >
               <option value="">انتخاب کنید</option>
@@ -477,11 +583,17 @@ export default function DeskPage() {
             </select>
           </label>
 
-          <fieldset className="space-y-2">
+          <fieldset className="space-y-2" disabled={!requirementsReady || !!pendingConflicts}>
             <legend className="text-sm">
               منابع معتبر ({selectedResourceIds.length}/{neededCount})
             </legend>
-            {!eligibleResources.length && serviceId && (
+            {requirementsState.status === "loading" && (
+              <p className="text-sm text-[var(--color-ink)]/60">در حال بارگذاری الزامات…</p>
+            )}
+            {requirementsState.status === "error" && requirementsState.serviceId === serviceId && (
+              <p className="text-sm text-[var(--color-alert)]">{requirementsState.message}</p>
+            )}
+            {requirementsReady && !eligibleResources.length && (
               <p className="text-sm text-[var(--color-alert)]">
                 منبع معتبری برای الزامات این خدمت در دسترس نیست
               </p>
@@ -508,18 +620,8 @@ export default function DeskPage() {
                 );
               })}
             </ul>
-            {!selectionCheck.ok && selectedResourceIds.length > 0 && (
+            {!selectionCheck.ok && selectedResourceIds.length > 0 && requirementsReady && (
               <p className="text-xs text-[var(--color-alert)]">{selectionCheck.message}</p>
-            )}
-            {requirements.length > 0 && (
-              <ul className="text-xs text-[var(--color-ink)]/60">
-                {requirements.map((req) => (
-                  <li key={req.id}>
-                    گروه {req.requirement_group}: {req.quantity_required}× {req.required_resource_type}
-                    {req.specific_resource_id ? " (منبع مشخص)" : ""}
-                  </li>
-                ))}
-              </ul>
             )}
           </fieldset>
 
@@ -531,20 +633,21 @@ export default function DeskPage() {
               value={localStart}
               onChange={(e) => {
                 setLocalStart(e.target.value);
-                setPendingConflicts(null);
+                invalidateBookingState();
               }}
               required
+              disabled={!!pendingConflicts}
             />
           </label>
           <p className="text-xs text-[var(--color-ink)]/55">
-            مدت خدمت: {durationMinutes} دقیقه — کلید ایدمپوتنسی برای همان درخواست پایدار می‌ماند
+            مدت خدمت: {durationMinutes} دقیقه — کلید ایدمپوتنسی برای همان اثر انگشت پایدار است
           </p>
           <button
             type="submit"
-            disabled={submitting || !selectionCheck.ok || !!pendingConflicts}
+            disabled={!canSubmit}
             className="w-full rounded-lg bg-[var(--color-sea)] px-4 py-2.5 font-medium text-white disabled:opacity-60"
           >
-            {submitting ? "در حال ثبت…" : "ثبت نوبت"}
+            {submitting && !pendingConflicts ? "در حال ثبت…" : "ثبت نوبت"}
           </button>
         </form>
       </section>
@@ -579,12 +682,15 @@ export default function DeskPage() {
               onClick={confirmOverlap}
               className="rounded-lg bg-amber-700 px-4 py-2 text-white disabled:opacity-60"
             >
-              تأیید تداخل و ثبت نوبت
+              {submitting ? "در حال تأیید…" : "تأیید تداخل و ثبت نوبت"}
             </button>
             <button
               type="button"
               disabled={submitting}
-              onClick={() => setPendingConflicts(null)}
+              onClick={() => {
+                setPendingConflicts(null);
+                keyStore.current.clear();
+              }}
               className="rounded-lg border border-amber-700 px-4 py-2 text-amber-900"
             >
               انصراف

@@ -1,9 +1,14 @@
 "use client";
 
 import { CSRF_COOKIE } from "./constants";
-import { formatTehran, tehranLocalToUtcIso } from "./tehran";
 
 export { formatTehran, tehranLocalToUtcIso, tehranTodayYmd, tehranDayBoundsUtc } from "./tehran";
+export {
+  bookingFingerprint,
+  IdempotencyKeyStore,
+  sortedConflictIds,
+  type BookingIntent,
+} from "./booking";
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -90,26 +95,4 @@ export function formatApiError(data: ApiErrorBody, fallback: string): string {
   }
   if (data.error) return data.error;
   return fallback;
-}
-
-/** Stable idempotency key for an unchanged booking payload; new payload → new key. */
-export function bookingFingerprint(payload: {
-  patientId: string;
-  serviceId: string;
-  resourceIds: string[];
-  startLocal: string;
-  durationMinutes: number;
-}): string {
-  const normalized = [
-    payload.patientId,
-    payload.serviceId,
-    [...payload.resourceIds].sort().join(","),
-    payload.startLocal,
-    String(payload.durationMinutes),
-  ].join("|");
-  let hash = 0;
-  for (let i = 0; i < normalized.length; i += 1) {
-    hash = (hash * 31 + normalized.charCodeAt(i)) >>> 0;
-  }
-  return `desk-${hash.toString(16)}-${normalized.length}`;
 }

@@ -2,6 +2,9 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { CSRF_COOKIE, SESSION_COOKIE } from "./config";
 import { csrfCookieOptions, sessionCookieOptions } from "./cookies";
+import { CsrfError, evaluateCsrf } from "./csrf";
+
+export { evaluateCsrf, CsrfError } from "./csrf";
 
 export async function getSessionToken(): Promise<string | null> {
   const jar = await cookies();
@@ -33,18 +36,19 @@ export function clearSessionCookies(response: NextResponse, request: Request): v
 }
 
 export async function requireCsrf(request: Request): Promise<void> {
-  const header = request.headers.get("x-csrf-token") || "";
   const jar = await cookies();
-  const cookie = jar.get(CSRF_COOKIE)?.value || "";
-  if (!header || !cookie || header !== cookie) {
-    throw new Error("csrf_failed");
-  }
-  const origin = request.headers.get("origin");
-  if (origin) {
-    const expected = new URL(request.url).origin;
-    if (origin !== expected) {
+  try {
+    evaluateCsrf({
+      headerToken: request.headers.get("x-csrf-token"),
+      cookieToken: jar.get(CSRF_COOKIE)?.value,
+      origin: request.headers.get("origin"),
+      requestUrl: request.url,
+    });
+  } catch (err) {
+    if (err instanceof CsrfError) {
       throw new Error("csrf_failed");
     }
+    throw err;
   }
 }
 
@@ -66,5 +70,13 @@ export async function backendFetch(
     ...init,
     headers,
     cache: "no-store",
+  });
+}
+
+/** True when the Set-Cookie header marks the session cookie HttpOnly. */
+export function sessionCookieIsHttpOnly(setCookieHeaders: string[]): boolean {
+  return setCookieHeaders.some((header) => {
+    const lower = header.toLowerCase();
+    return lower.includes("ce_beta_session=") && lower.includes("httponly");
   });
 }
