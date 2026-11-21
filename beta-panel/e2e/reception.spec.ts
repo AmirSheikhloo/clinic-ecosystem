@@ -63,7 +63,9 @@ async function registerAndSelectPatient(page: Page, first: string, last: string)
   await page.getByTestId("patient-first-name").fill(first);
   await page.getByTestId("patient-last-name").fill(last);
   await page.getByTestId("patient-register-submit").click();
-  await expect(page.getByTestId("desk-status")).toContainText(first, { timeout: 30_000 });
+  await expect(page.getByTestId("desk-status")).toContainText("بیمار ثبت شد", {
+    timeout: 30_000,
+  });
   await expect(page.getByTestId("selected-patient")).toContainText(`${first} ${last}`);
 }
 
