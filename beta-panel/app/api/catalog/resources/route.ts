@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const path = serviceId
       ? `/api/v1/catalog/services/${encodeURIComponent(serviceId)}/resource-requirements`
       : "/api/v1/catalog/resources";
-    const upstream = await backendFetch(path);
+    const upstream = await backendFetch(path, {}, request);
     const data = await upstream.json().catch(() => ({}));
     if (upstream.status === 401) {
       const response = jsonError(401, "session_expired", "Session expired");

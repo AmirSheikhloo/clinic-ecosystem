@@ -6,11 +6,11 @@ import { backendFetch, clearSessionCookies, getSessionToken } from "@/lib/sessio
 export async function GET(request: Request) {
   try {
     requireBetaPanelEnabled();
-    const token = await getSessionToken();
+    const token = await getSessionToken(request);
     if (!token) {
       return jsonError(401, "authentication_required", "Authentication required");
     }
-    const upstream = await backendFetch("/api/v1/auth/me");
+    const upstream = await backendFetch("/api/v1/auth/me", {}, request);
     const data = await upstream.json().catch(() => ({}));
     if (upstream.status === 401) {
       const response = jsonError(401, "session_expired", "Session expired");

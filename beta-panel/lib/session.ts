@@ -1,12 +1,18 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { CSRF_COOKIE, SESSION_COOKIE } from "./config";
 import { csrfCookieOptions, sessionCookieOptions } from "./cookies";
 import { CsrfError, evaluateCsrf } from "./csrf";
+import { cookiesFromRequest } from "./request-cookies";
 
 export { evaluateCsrf, CsrfError } from "./csrf";
 
-export async function getSessionToken(): Promise<string | null> {
+/** Prefer request Cookie header when available (Route Handlers). */
+export async function getSessionToken(request?: Request): Promise<string | null> {
+  if (request) {
+    const value = cookiesFromRequest(request).get(SESSION_COOKIE)?.value;
+    return value && value.length > 0 ? value : null;
+  }
+  const { cookies } = await import("next/headers");
   const jar = await cookies();
   const value = jar.get(SESSION_COOKIE)?.value;
   return value && value.length > 0 ? value : null;
@@ -36,13 +42,14 @@ export function clearSessionCookies(response: NextResponse, request: Request): v
 }
 
 export async function requireCsrf(request: Request): Promise<void> {
-  const jar = await cookies();
+  const jar = cookiesFromRequest(request);
   try {
     evaluateCsrf({
       headerToken: request.headers.get("x-csrf-token"),
       cookieToken: jar.get(CSRF_COOKIE)?.value,
       origin: request.headers.get("origin"),
       requestUrl: request.url,
+      hostHeader: request.headers.get("host"),
     });
   } catch (err) {
     if (err instanceof CsrfError) {
@@ -55,10 +62,11 @@ export async function requireCsrf(request: Request): Promise<void> {
 export async function backendFetch(
   path: string,
   init: RequestInit = {},
+  request?: Request,
 ): Promise<Response> {
   const { backendBaseUrl } = await import("./config");
   const base = backendBaseUrl();
-  const token = await getSessionToken();
+  const token = await getSessionToken(request);
   const headers = new Headers(init.headers || {});
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);

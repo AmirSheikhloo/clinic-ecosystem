@@ -24,6 +24,8 @@ export async function GET(request: Request) {
     const offset = searchParams.get("offset") || "0";
     const upstream = await backendFetch(
       `/api/v1/patients?q=${encodeURIComponent(q)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`,
+      {},
+      request,
     );
     const data = await upstream.json().catch(() => ({}));
     return maybeExpire(request, upstream, data);
@@ -37,10 +39,14 @@ export async function POST(request: Request) {
     requireBetaPanelEnabled();
     await requireCsrf(request);
     const body = await request.json();
-    const upstream = await backendFetch("/api/v1/patients", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
+    const upstream = await backendFetch(
+      "/api/v1/patients",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+      request,
+    );
     const data = await upstream.json().catch(() => ({}));
     return maybeExpire(request, upstream, data);
   } catch (err) {

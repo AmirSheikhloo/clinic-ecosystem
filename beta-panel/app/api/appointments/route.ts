@@ -1,12 +1,10 @@
-import { cookies } from "next/headers";
 import { handleAppointmentsGet, handleAppointmentsPost } from "@/lib/bff-handlers";
+import { cookiesFromRequest } from "@/lib/request-cookies";
 
 export async function GET(request: Request) {
-  const jar = await cookies();
-  return handleAppointmentsGet(request, jar);
+  return handleAppointmentsGet(request, cookiesFromRequest(request));
 }
 
 export async function POST(request: Request) {
-  const jar = await cookies();
-  return handleAppointmentsPost(request, jar);
+  return handleAppointmentsPost(request, cookiesFromRequest(request));
 }

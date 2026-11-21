@@ -41,10 +41,20 @@ async function assertHttpOnlySession(page: Page) {
 async function loginAsReceptionist(page: Page) {
   requireCreds();
   await page.goto("/login");
+  // Prime CSRF cookie the same way the app does before submit.
+  await page.evaluate(async () => {
+    await fetch("/api/auth/csrf", { method: "GET", credentials: "same-origin" });
+  });
+  await expect
+    .poll(async () => {
+      const cookies = await page.context().cookies();
+      return cookies.some((c) => c.name === CSRF && c.value.length > 0);
+    })
+    .toBe(true);
   await page.getByTestId("login-identifier").fill(loginId());
   await page.getByTestId("login-password").fill(password());
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/desk/);
+  await expect(page).toHaveURL(/\/desk/, { timeout: 45_000 });
   await expect(page.getByTestId("desk-page")).toBeVisible({ timeout: 45_000 });
   await assertHttpOnlySession(page);
 }

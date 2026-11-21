@@ -36,6 +36,7 @@ export async function handleLoginPost(
       cookieToken: cookies.get(CSRF_COOKIE)?.value,
       origin: request.headers.get("origin"),
       requestUrl: request.url,
+      hostHeader: request.headers.get("host"),
     });
     const body = await request.json();
     const login = String(body.login_identifier || "").trim();
@@ -86,6 +87,7 @@ export async function handleLogoutPost(
       cookieToken: cookies.get(CSRF_COOKIE)?.value,
       origin: request.headers.get("origin"),
       requestUrl: request.url,
+      hostHeader: request.headers.get("host"),
     });
     const response = NextResponse.json({ ok: true });
     response.cookies.set(SESSION_COOKIE, "", sessionCookieOptions(request, 0));
@@ -141,6 +143,7 @@ export async function handleAppointmentsPost(
       cookieToken: cookies.get(CSRF_COOKIE)?.value,
       origin: request.headers.get("origin"),
       requestUrl: request.url,
+      hostHeader: request.headers.get("host"),
     });
     const body = await request.json();
     const idempotencyKey = String(

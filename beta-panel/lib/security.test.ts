@@ -21,7 +21,8 @@ import {
   sessionCookieOptions,
   csrfCookieOptions,
 } from "./cookies.ts";
-import { evaluateCsrf, CsrfError } from "./csrf.ts";
+import { evaluateCsrf, CsrfError, originsMatch } from "./csrf.ts";
+import { cookiesFromRequest } from "./request-cookies.ts";
 import {
   bookingFingerprint,
   IdempotencyKeyStore,
@@ -149,6 +150,27 @@ test("evaluateCsrf rejects missing, mismatched, and cross-origin tokens", () => 
       requestUrl: "http://127.0.0.1:3100/api/auth/logout",
     }),
   );
+  // Loopback hostname equivalence (Playwright/Next may mix localhost and 127.0.0.1).
+  assert.equal(
+    originsMatch("http://127.0.0.1:3100", "http://localhost:3100/api/auth/login"),
+    true,
+  );
+  assert.doesNotThrow(() =>
+    evaluateCsrf({
+      headerToken: "abc",
+      cookieToken: "abc",
+      origin: "http://127.0.0.1:3100",
+      requestUrl: "http://localhost:3100/api/auth/login",
+      hostHeader: "127.0.0.1:3100",
+    }),
+  );
+  const jar = cookiesFromRequest(
+    new Request("http://127.0.0.1:3100/x", {
+      headers: { cookie: `${CSRF_COOKIE}=tok123; ${SESSION_COOKIE}=sess` },
+    }),
+  );
+  assert.equal(jar.get(CSRF_COOKIE)?.value, "tok123");
+  assert.equal(jar.get(SESSION_COOKIE)?.value, "sess");
 });
 
 test("setSessionCookies / clearSessionCookies set HttpOnly session and Readable CSRF", () => {

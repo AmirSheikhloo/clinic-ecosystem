@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { handleLogoutPost } from "@/lib/bff-handlers";
+import { cookiesFromRequest } from "@/lib/request-cookies";
 
 export async function POST(request: Request) {
-  const jar = await cookies();
-  return handleLogoutPost(request, jar);
+  return handleLogoutPost(request, cookiesFromRequest(request));
 }
