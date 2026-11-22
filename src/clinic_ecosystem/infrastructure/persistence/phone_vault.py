@@ -25,7 +25,9 @@ from clinic_ecosystem.infrastructure.persistence.authenticated_uow import (
     VerifiedTenantDbSession,
 )
 from clinic_ecosystem.infrastructure.persistence.permissions import SqlPermissionService
-from clinic_ecosystem.shared_kernel.pii_contracts import LookupDigest, require_e164
+from clinic_ecosystem.shared_kernel.pii_contracts import (
+    LookupDigest, require_e164, mask_phone_e164, canonical_aad_tokens,
+)
 from clinic_ecosystem.shared_kernel.pii_encryption import (
     EncryptionKey, FieldContext, seal_phone_aesgcm,
 )
@@ -45,6 +47,14 @@ class TenantPhoneEncryptionKey:
     tenant_id: UUID
     key_identity: UUID   # stable KMS identity; NOT just a key-version integer
     key: EncryptionKey
+
+    def __post_init__(self) -> None:
+        if type(self.tenant_id) is not UUID or type(self.key_identity) is not UUID:
+            raise ValueError("validated tenant and key identity UUIDs required")
+        if self.tenant_id.int == 0 or self.key_identity.int == 0:
+            raise ValueError("nil tenant or key identity forbidden")
+        if type(self.key) is not EncryptionKey:
+            raise TypeError("validated AES encryption key required")
 
 
 class PhoneHmacProvider(Protocol):
@@ -139,8 +149,9 @@ class SqlPhoneVault:
             raise TypeError("verified tenant DB scope is mandatory")
         if getattr(scope, "_auth", None) is None:
             raise TypeError("verified tenant DB scope is mandatory")
-        if not phone_field_type or not phone_issuing_authority:
-            raise ValueError("explicit approved phone AAD contract is mandatory")
+        phone_field_type, phone_issuing_authority = canonical_aad_tokens(
+            phone_field_type, phone_issuing_authority
+        )
         if not create_permission_code or not create_permission_code.isascii():
             raise ValueError("configured RBAC permission code is mandatory")
         for port, name, action in (
@@ -249,7 +260,7 @@ class SqlPhoneVault:
                 "tag": encrypted.auth_tag_128bit,
                 "key_version": encrypted.encryption_key_version,
                 "aad_version": encrypted.aad_version,
-                "masked": "****" + normalized[-4:],
+                "masked": mask_phone_e164(normalized),
                 "digest": lookup.digest,
                 "digest_version": lookup.key_version,
                 "is_primary": bool(is_primary),
