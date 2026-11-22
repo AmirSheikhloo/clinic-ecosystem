@@ -233,3 +233,40 @@ def test_forged_verified_scope_is_rejected():
     session = _Session()
     with pytest.raises(TypeError, match="minted"):
         VerifiedTenantDbSession(session=session, principal=_principal())
+
+
+
+@pytest.mark.parametrize("bad_tenant,bad_key_id,bad_key", [
+    (None, KEY_ID, EncryptionKey(1, b"a" * 32)),
+    (TENANT, None, EncryptionKey(1, b"a" * 32)),
+    (TENANT, KEY_ID, b"not-key"),
+    (UUID(int=0), KEY_ID, EncryptionKey(1, b"a" * 32)),
+])
+def test_tenant_kms_key_identity_fail_closed(bad_tenant, bad_key_id, bad_key):
+    with pytest.raises((TypeError, ValueError)):
+        TenantPhoneEncryptionKey(bad_tenant, bad_key_id, bad_key)
+
+
+@pytest.mark.parametrize("bad_type,bad_auth", [
+    (" PHONE_E164 ", "E164"),
+    ("PHONE_E164", " E164 "),
+    ("PHONE|E164", "E164"),
+])
+def test_phone_vault_validates_aad_before_database_actions(bad_type, bad_auth):
+    session = _Session()
+    with pytest.raises(ValueError):
+        SqlPhoneVault(
+            scope=_scope(session),
+            key_provider=_Kms(),
+            hmac_provider=_Hmac(),
+            nonce_registry=SqlNonceRegistry(session),
+            phone_field_type=bad_type,
+            phone_issuing_authority=bad_auth,
+            create_permission_code="TEST_ONLY_PHONE_WRITE",
+        )
+    assert session.executed == []
+
+
+def test_no_public_production_scope_test_mint():
+    import clinic_ecosystem.infrastructure.persistence.authenticated_uow as auth
+    assert not hasattr(auth, "mint_verified_scope_for_tests")
