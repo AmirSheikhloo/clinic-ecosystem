@@ -257,8 +257,6 @@ async def test_real_pg15_phone_storage_nonce_and_rls(plane_topology, monkeypatch
 
         # Duplicate (key, nonce) rejected by a REAL PostgreSQL UNIQUE
         # across separate DB transactions and cannot create a phone row.
-        fixed_nonce = b"test-nonce-12"
-        assert len(fixed_nonce) == 13 or len(fixed_nonce) == 12
         fixed_nonce = b"0123456789ab"
         monkeypatch.setattr(
             "clinic_ecosystem.infrastructure.persistence.phone_vault.secrets.token_bytes",
