@@ -196,3 +196,19 @@ async def test_pg_nonce_registration_checks_shape_before_sql():
     with pytest.raises(ValueError):
         await registry.reserve(tenant_id=TENANT, aes_key_identity=KEY_ID, nonce_96bit=b"bad")
     assert session.executed == []
+
+
+
+def test_phone_vault_rejects_nonce_ledger_on_unrelated_session():
+    trusted_session = _Session()
+    unrelated_session = _Session()
+    with pytest.raises(TypeError, match="same SQL transaction"):
+        SqlPhoneVault(
+            scope=_scope(trusted_session),
+            key_provider=_Kms(),
+            hmac_provider=_Hmac(),
+            nonce_registry=SqlNonceRegistry(unrelated_session),
+            phone_field_type="PHONE_E164",
+            phone_issuing_authority="E164",
+            create_permission_code="TEST_ONLY_PHONE_WRITE",
+        )
