@@ -149,6 +149,14 @@ class SqlPhoneVault:
         ):
             if not callable(getattr(port, action, None)):
                 raise TypeError(f"{name} is mandatory")
+        # Enforce the actual SQL ledger on the SAME authenticated session.
+        # A test-only in-memory ledger, unrelated connection, or no-op
+        # reservation must never be accepted by this persistence service.
+        if (
+            not isinstance(nonce_registry, SqlNonceRegistry)
+            or nonce_registry._session is not scope.session
+        ):
+            raise TypeError("nonce ledger must use the same SQL transaction session")
         self._scope = scope
         self._key_provider = key_provider
         self._hmac_provider = hmac_provider
