@@ -96,3 +96,31 @@ def test_cp_success_resets_role_and_disposes_engine():
         'SET ROLE "cp_db_migrator"', "MIGRATE", "COMMIT", "ROLLBACK",
         "RESET ROLE", "COMMIT", "CLOSE", "DISPOSE",
     ]
+
+
+
+def test_primary_migration_error_survives_secondary_rollback_failure(monkeypatch):
+    async def connection_lost(self):
+        self.events.append("ROLLBACK-FAILED")
+        raise ConnectionError("disconnected during rollback")
+    monkeypatch.setattr(_FakeConnection, "rollback", connection_lost)
+    events: list[str] = []
+    fn = _load_actual_run_async_migrations(events, abort=True)
+    with pytest.raises(RuntimeError, match="representative SQL transaction abort"):
+        asyncio.run(fn())
+    assert events[-2:] == ["CLOSE", "DISPOSE"]
+
+
+def test_set_role_permission_error_is_not_replaced_by_cleanup(monkeypatch):
+    async def role_denied(self, statement):
+        if statement.startswith("SET ROLE"):
+            self.events.append("SET-ROLE-DENIED")
+            raise PermissionError("SQLSTATE 42501")
+        self.events.append(statement)
+    monkeypatch.setattr(_FakeConnection, "execute", role_denied)
+    events: list[str] = []
+    fn = _load_actual_run_async_migrations(events, abort=False)
+    with pytest.raises(PermissionError, match="42501"):
+        asyncio.run(fn())
+    assert "RESET ROLE" not in events
+    assert events[-2:] == ["CLOSE", "DISPOSE"]
