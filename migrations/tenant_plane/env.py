@@ -106,7 +106,7 @@ async def run_async_migrations() -> None:
                         # must abort and never be represented as success.
                         raise
                     import logging
-                    logging.getLogger(__name__).exception(
+                    logging.getLogger("clinic_ecosystem.migrations").exception(
                         "migrator connection cleanup failed after primary error"
                     )
                     # Preserve the original migration/permission exception.
