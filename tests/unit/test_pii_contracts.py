@@ -15,6 +15,7 @@ from clinic_ecosystem.shared_kernel.pii_contracts import (
     identifier_input,
     identifier_lookup_hmac,
     require_e164,
+    map_identifier_digits,
 )
 
 TENANT = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
@@ -158,3 +159,17 @@ def test_aad_rejects_whitespace_in_signed_token_contract():
             tenant_id=TENANT, original_person_id=PERSON, record_id=RECORD,
             id_type_or_field_type=" PHONE_E164 ", issuing_country_or_authority="E164",
         )
+
+
+
+def test_clause765_digit_mapping_preserves_leading_zeroes():
+    assert map_identifier_digits("۰۰۱۲-٣٤") == "0012-34"
+    assert map_identifier_digits("0012") == "0012"
+    assert _input(map_identifier_digits("۰۰۱۲")) == _input("0012")
+
+
+def test_digit_mapping_is_not_identifier_type_verification():
+    # Check-digit, visual separators, authority and length remain separate.
+    assert map_identifier_digits("۱۲-۳") == "12-3"
+    with pytest.raises(TypeError):
+        map_identifier_digits(None)  # type: ignore[arg-type]
