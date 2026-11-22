@@ -138,6 +138,19 @@ async def test_jwt_provenance_and_runtime_rls_cross_tenant_real_pg15(plane_topol
                 {"other": tenant_a},
             ) == 0
 
+        # A spoofed transaction-local GUC cannot survive the verified scope
+        # checkpoint. No generic raw-SQL route may expose scope.session.
+        with pytest.raises(RuntimeRoleRejected, match="tenant context mismatch"):
+            async with verified_jwt_transaction(
+                engine=engine, bearer_token=token(tenant_a, "allowed-A"),
+                verifier=verifier,
+            ) as spoof_scope:
+                await spoof_scope.session.execute(
+                    text("SELECT set_config('app.current_tenant_id', :other, true)"),
+                    {"other": str(tenant_b)},
+                )
+                await spoof_scope.assert_tenant_guc()
+
         async with engine.connect() as conn:
             # New unit of work, without verified tenant context, cannot see rows.
             assert await conn.scalar(text("SELECT count(*) FROM tenant_registry")) == 0
