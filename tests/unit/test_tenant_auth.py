@@ -90,7 +90,11 @@ async def test_rs256_and_es256_validate_real_signature_claims_and_jti(keypairs, 
     {"aud": "not-clinic-api"},
     {"iss": "https://evil.invalid/"},
     {"tenant_id": "invalid-uuid"},
+    {"tenant_id": 123},
+    {"tenant_id": None},
+    {"tenant_id": "00000000-0000-0000-0000-000000000000"},
     {"sub": "not-an-account"},
+    {"sub": ["uuid"]},
     {"jti": ""},
     {"exp": 0},
     {"nbf": int(time.time()) + 999},
@@ -153,7 +157,7 @@ async def test_unsigned_missing_and_client_supplied_context_rejected(keypairs):
     # No tenant_id request-path argument exists on the verifier API.
 
 
-def test_human_jwt_verifier_rejects_subclass_and_permit_all_jti(keypairs):
+def test_human_jwt_verifier_rejects_subclass_and_bool_lifetime(keypairs):
     with pytest.raises(TypeError, match="cannot be subclassed"):
         class Evil(HumanJwtVerifier):  # type: ignore[misc]
             pass
@@ -162,10 +166,13 @@ def test_human_jwt_verifier_rejects_subclass_and_permit_all_jti(keypairs):
         async def ensure_active(self, *, tenant_id, token_jti):
             return None
 
-    with pytest.raises(ValueError, match="permit-all"):
-        HumanJwtVerifier(
-            issuer="issuer", audience="audience",
-            trusted_keys=(keypairs[0][3],),
-            jti_validator=PermitAllJti(),
-            max_lifetime_seconds=300,
-        )
+    # A class name cannot be used as proof of revocation behavior.
+    # A concrete authoritative store remains required at deployment.
+    for invalid in (True, False, 3601):
+        with pytest.raises(ValueError):
+            HumanJwtVerifier(
+                issuer="issuer", audience="audience",
+                trusted_keys=(keypairs[0][3],),
+                jti_validator=PermitAllJti(),
+                max_lifetime_seconds=invalid,
+            )
