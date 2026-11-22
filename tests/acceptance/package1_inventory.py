@@ -26,21 +26,21 @@ MIGRATIONS = (
     / "versions"
 )
 
-# Narrow, title-aligned PASS evidence only. Unlisted cases are NOT_EXECUTED
-# unless listed under BLOCKED.
-_PASS = {
+# Supporting unit/structural evidence does NOT constitute a complete
+# F0.5 case-level Gate A PASS. Every outcome needs direct acceptance proof.
+_SUPPORTING = {
     "RP1-021": (
-        "PASS_UNIT: non-UNIQUE ix_person_phones_lookup preserved in TP0002; "
+        "PARTIAL_UNIT_EVIDENCE: non-UNIQUE ix_person_phones_lookup preserved in TP0002; "
         "SqlPhoneVault shared-phone create unit + PG15 shared HMAC coexistence test when Docker available"
     ),
-    "RP1-023": "PASS_UNIT: tests/unit/test_pii_contracts.py require_e164 vectors",
-    "RP1-031": "PASS_UNIT: tests/unit/test_pii_encryption.py AES-GCM roundtrip",
-    "RP1-032": "PASS_UNIT: tests/unit/test_pii_encryption.py AAD tenant/record transplant InvalidTag",
-    "RP1-033": "PASS_UNIT: tests/unit/test_pii_encryption.py original_person_id transplant InvalidTag",
-    "RP1-035": "PASS_UNIT: encrypt_phone/SqlNonceRegistry nonce reuse rejection",
-    "RP1-036": "PASS_UNIT: wrong key version + auth-tag tamper tests (encryption + reveal)",
-    "RP1-051": "PASS_STRUCTURAL: official versions directory contains only tp0001..tp0007 (no unauthorized tp0008+)",
-    "RP1-055": "PASS_UNIT: TP+CP env.py rollback-before-RESET ROLE unit proofs",
+    "RP1-023": "PARTIAL_UNIT_EVIDENCE: tests/unit/test_pii_contracts.py require_e164 vectors",
+    "RP1-031": "PARTIAL_UNIT_EVIDENCE: tests/unit/test_pii_encryption.py AES-GCM roundtrip",
+    "RP1-032": "PARTIAL_UNIT_EVIDENCE: tests/unit/test_pii_encryption.py AAD tenant/record transplant InvalidTag",
+    "RP1-033": "PARTIAL_UNIT_EVIDENCE: tests/unit/test_pii_encryption.py original_person_id transplant InvalidTag",
+    "RP1-035": "PARTIAL_UNIT_EVIDENCE: encrypt_phone/SqlNonceRegistry nonce reuse rejection",
+    "RP1-036": "PARTIAL_UNIT_EVIDENCE: wrong key version + auth-tag tamper tests (encryption + reveal)",
+    "RP1-051": "PARTIAL_STRUCTURAL_EVIDENCE: official versions directory contains only tp0001..tp0007 (no unauthorized tp0008+)",
+    "RP1-055": "PARTIAL_UNIT_EVIDENCE: TP+CP env.py rollback-before-RESET ROLE unit proofs",
 }
 
 _BLOCKED = {
@@ -68,12 +68,12 @@ _BLOCKED = {
     "RP1-059": "BLOCKED: true fresh-vs-upgrade T16 parity requires authorized tp0008+ heads",
     "RP1-060": "BLOCKED: Gate A nonprod full rotation proof reserved post-code / unsigned ADR",
     "RP1-068": "BLOCKED: API-PII-18 GET→POST controlled amendment not published",
-    "RP1-072": "BLOCKED: Sync Ed25519 node attestation is Package-2/4 boundary",
-    "RP1-073": "BLOCKED: revoked Sync node path is Package-2/4 boundary",
-    "RP1-074": "BLOCKED: offline node cohort invalidation is Package-2/4 boundary",
+    "RP1-072": "BLOCKED: Package-1 rotation writer-fencing/Sync ADR unsigned; writer-fencing implementation unproven",
+    "RP1-073": "BLOCKED: Package-1 rotation writer-fencing/Sync ADR unsigned; writer-fencing implementation unproven",
+    "RP1-074": "BLOCKED: Package-1 rotation writer-fencing/Sync ADR unsigned; writer-fencing implementation unproven",
     "RP1-075": "BLOCKED: stale writer fence across hubs requires topology + signed SCHEMA",
     "RP1-076": "BLOCKED: mixed-hub old HMAC compatibility requires authorized rotation",
-    "RP1-077": "BLOCKED: quarantined node readmission is Package-2/4 boundary",
+    "RP1-077": "BLOCKED: Package-1 rotation writer-fencing/Sync ADR unsigned; writer-fencing implementation unproven",
     "RP1G-001": "BLOCKED: Route B / ACR provenance exception not effective",
     "RP1G-002": "BLOCKED: case identifier uniqueness supersession requires effective ACR",
     "RP1G-003": "BLOCKED: schema constraint catalog Gate A depends on unsigned physical ADRs",
@@ -130,9 +130,15 @@ def classify_case(row: dict[str, str]) -> CaseOutcome:
                 "FAIL",
                 f"unexpected official revisions: {revisions}",
             )
-        return CaseOutcome(case_id, title, "PASS", _PASS[case_id])
-    if case_id in _PASS:
-        return CaseOutcome(case_id, title, "PASS", _PASS[case_id])
+        return CaseOutcome(
+            case_id, title, "NOT_EXECUTED",
+            _SUPPORTING[case_id] + "; SHA256 baseline plus case-level proof missing",
+        )
+    if case_id in _SUPPORTING:
+        return CaseOutcome(
+            case_id, title, "NOT_EXECUTED",
+            _SUPPORTING[case_id] + "; F0.5 case-specific acceptance not executed",
+        )
     if case_id in _BLOCKED:
         return CaseOutcome(case_id, title, "BLOCKED", _BLOCKED[case_id])
     return CaseOutcome(
@@ -157,6 +163,10 @@ def inventory_summary(outcomes: list[CaseOutcome] | None = None) -> dict[str, ob
         "csv_sha256": EXPECTED_CSV_SHA256,
         "case_count": len(rows),
         "counts": counts,
+        "gate_a_pass_count": 0,
+        "supporting_partial_evidence_count": sum(
+            row.case_id in _SUPPORTING for row in rows
+        ),
         "official_tp_revisions": official_tp_revisions(),
         "cases": [asdict(row) for row in rows],
     }
