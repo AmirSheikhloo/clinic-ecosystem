@@ -91,7 +91,7 @@ def test_identifier_input_rejects_ambiguous_or_unvalidated_values(invalid):
 def test_identifier_input_rejects_untyped_tenant():
     with pytest.raises(TypeError):
         identifier_input(
-            tenant_id=str(TENANT), id_type="NATIONAL",  # type: ignore[arg-type]
+            tenant_id=str(TENANT), id_type="IR_NATIONAL_ID",  # type: ignore[arg-type]
             issuing_country_or_authority="IR",
             normalized_identifier_value="0001",
         )
