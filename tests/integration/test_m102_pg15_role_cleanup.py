@@ -48,3 +48,61 @@ async def test_real_pg15_aborted_transaction_requires_rollback_before_reset_role
             assert user == session_user == endpoint.user
     finally:
         await engine.dispose()
+
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "plane,role_name",
+    [
+        ("tenant_plane", "db_migrator"),
+        ("control_plane", "cp_db_migrator"),
+    ],
+)
+async def test_real_env_py_propagates_pg15_division_by_zero_after_reset(
+    plane_topology, plane, role_name,
+):
+    """Run the actual env.py coroutine AST against real PG15 asyncpg engine.
+
+    This covers SQLSTATE 22012 + the subsequent 25P02 rollback prerequisite,
+    not Alembic's autocommit_block or later TP0008+ migrations.
+    """
+    import ast
+    from pathlib import Path
+    from types import SimpleNamespace
+    endpoint = (
+        plane_topology.cloud_tenant if plane == "tenant_plane"
+        else plane_topology.cloud_control
+    )
+    engine = create_async_engine(endpoint.sqlalchemy_async_url())
+    source_path = (
+        Path(__file__).resolve().parents[2] / "migrations" / plane / "env.py"
+    )
+    source = source_path.read_text(encoding="utf-8")
+    fn_node = next(
+        n for n in ast.parse(source).body
+        if isinstance(n, ast.AsyncFunctionDef) and n.name == "run_async_migrations"
+    )
+
+    def failing_live_migration(connection):
+        assert connection.execute(text("SELECT current_user")).scalar() == role_name
+        connection.execute(text("SELECT 1/0"))
+
+    namespace = {
+        "config": SimpleNamespace(
+            config_ini_section="alembic", get_section=lambda _: {},
+        ),
+        "get_url": endpoint.sqlalchemy_async_url,
+        "async_engine_from_config": lambda *_a, **_kw: engine,
+        "pool": SimpleNamespace(NullPool=object()),
+        "text": text,
+        "MIGRATOR_ROLE": role_name,
+        "do_run_migrations": failing_live_migration,
+    }
+    exec(
+        compile(ast.Module(body=[fn_node], type_ignores=[]), str(source_path), "exec"),
+        namespace,
+    )
+    with pytest.raises(DBAPIError) as exc:
+        await namespace["run_async_migrations"]()
+    assert "division by zero" in str(exc.value).lower()
