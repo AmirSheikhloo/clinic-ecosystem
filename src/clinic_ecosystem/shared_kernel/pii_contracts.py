@@ -94,6 +94,24 @@ def map_identifier_digits(value: str) -> str:
     return value.translate(_PERSIAN_ARABIC_DIGITS)
 
 
+def normalized_iran_national_id(value: str) -> str:
+    """Clause 765: syntactic Iranian National ID validation ONLY, not ownership.
+
+    Digit conversion is permitted; unspecified separator/whitespace policy is
+    intentionally not guessed. Invalid/check-digit-only identities fail closed.
+    """
+    canonical = map_identifier_digits(value)
+    if len(canonical) != 10 or not canonical.isascii() or not canonical.isdecimal():
+        raise ValueError("Iranian national ID must have exactly 10 ASCII digits")
+    if len(set(canonical)) == 1:
+        raise ValueError("repeated-digit national ID is syntactically invalid")
+    remainder = sum(int(ch) * (10 - i) for i, ch in enumerate(canonical[:9])) % 11
+    expected_check = remainder if remainder < 2 else 11 - remainder
+    if int(canonical[9]) != expected_check:
+        raise ValueError("Iranian national ID check digit mismatch")
+    return canonical
+
+
 def identifier_input(
     *,
     tenant_id: uuid.UUID,
