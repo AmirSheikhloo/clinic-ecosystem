@@ -25,7 +25,10 @@ def test_inventory_summary_has_no_fail_on_current_branch(tmp_path: Path):
     summary = inventory_summary()
     assert summary["case_count"] == 90
     assert summary["counts"]["FAIL"] == 0
-    assert summary["counts"]["PASS"] >= 1
+    assert summary["counts"]["PASS"] == 0
+    assert summary["gate_a_pass_count"] == 0
+    assert summary["supporting_partial_evidence_count"] == 9
+    assert sum(summary["counts"].values()) == 90
     assert summary["counts"]["BLOCKED"] >= 1
     assert summary["counts"]["NOT_EXECUTED"] >= 1
     out = tmp_path / "package1_inventory.json"
