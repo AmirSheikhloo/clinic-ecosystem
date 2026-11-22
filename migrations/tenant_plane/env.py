@@ -81,11 +81,20 @@ async def run_async_migrations() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-    async with connectable.connect() as connection:
-        await connection.execute(text(f'SET ROLE "{MIGRATOR_ROLE}"'))
-        await connection.run_sync(do_run_migrations)
-        await connection.commit()
-    await connectable.dispose()
+    try:
+        async with connectable.connect() as connection:
+            try:
+                await connection.execute(text(f'SET ROLE "{MIGRATOR_ROLE}"'))
+                await connection.run_sync(do_run_migrations)
+                await connection.commit()
+            finally:
+                # PostgreSQL SQL errors can abort the transaction (SQLSTATE 25P02).
+                # Roll back on this SAME connection before attempting RESET ROLE.
+                await connection.rollback()
+                await connection.execute(text("RESET ROLE"))
+                await connection.commit()
+    finally:
+        await connectable.dispose()
 
 
 def run_migrations_online() -> None:
