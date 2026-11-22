@@ -29,7 +29,7 @@ KEY_TWO = HmacKey(2, b"y" * 32)
 def _input(value: str = "0012345678") -> bytes:
     return identifier_input(
         tenant_id=TENANT,
-        id_type=" iran_national_id ",
+        id_type= "IR_NATIONAL_ID" ,
         issuing_country_or_authority=" ir ",
         normalized_identifier_value=value,
     )
@@ -37,7 +37,7 @@ def _input(value: str = "0012345678") -> bytes:
 
 def test_clause767_exact_input_preserves_leading_zeroes():
     assert _input() == (
-        b"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa|IRAN_NATIONAL_ID|IR|0012345678"
+        b"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa|IR_NATIONAL_ID|IR|0012345678"
     )
     assert _input("0012") != _input("12")
 
@@ -192,3 +192,34 @@ def test_iran_national_id_validation_does_not_assert_official_verification():
     normalized = normalized_iran_national_id("۰۰۸۴۵۷۵۹۴۸")
     assert _input(normalized).endswith(b"|0084575948")
     # No verification timestamp, official source, or identity ownership follows.
+
+
+
+@pytest.mark.parametrize("bad_type", ["IRAN_NATIONAL_ID", "OTHER", ""])
+def test_identifier_type_must_match_frozen_tp0002_enum(bad_type):
+    with pytest.raises(ValueError):
+        identifier_input(
+            tenant_id=TENANT,
+            id_type=bad_type,
+            issuing_country_or_authority="IR",
+            normalized_identifier_value="0012345678",
+        )
+
+
+@pytest.mark.parametrize("invalid_version", [0, -1, True, 32768])
+def test_lookup_digest_version_fails_closed(invalid_version):
+    from clinic_ecosystem.shared_kernel.pii_contracts import LookupDigest
+    with pytest.raises(ValueError):
+        LookupDigest(invalid_version, b"x" * 32)
+
+
+@pytest.mark.parametrize("phone, expected_mask", [
+    ("+12", "****"),
+    ("+123", "****"),
+    ("+1234", "****"),
+    ("+1234567", "****4567"),
+    ("+989121234567", "****4567"),
+])
+def test_masked_e164_never_exposes_all_digits(phone, expected_mask):
+    from clinic_ecosystem.shared_kernel.pii_contracts import mask_phone_e164
+    assert mask_phone_e164(phone) == expected_mask
