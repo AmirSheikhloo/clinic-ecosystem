@@ -78,6 +78,22 @@ class LookupDigest:
             raise ValueError("blind-index digest must be exactly 32 bytes")
 
 
+_PERSIAN_ARABIC_DIGITS = str.maketrans(
+    "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"
+)
+
+
+def map_identifier_digits(value: str) -> str:
+    """Clause 765 digit mapping only; NOT full type-specific normalization.
+
+    Callers must still apply approved separator, length, character-set and
+    check-digit rules before passing the value to identifier_input().
+    """
+    if not isinstance(value, str):
+        raise TypeError("identifier must be text")
+    return value.translate(_PERSIAN_ARABIC_DIGITS)
+
+
 def identifier_input(
     *,
     tenant_id: uuid.UUID,
