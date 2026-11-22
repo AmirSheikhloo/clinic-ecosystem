@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest tests/unit tests/integration --collect-only -q | tee m0-collect.txt
+          python -m pytest tests/unit tests/integration tests/acceptance --collect-only -q | tee m0-collect.txt
           python .github/scripts/assert_m0_pytest_evidence.py --mode collect --collect-log m0-collect.txt
 
       - name: Run unit and required integration/migration tests
@@ -61,7 +61,7 @@ jobs:
           # Ryuk is optional; keep default enabled when the daemon supports it.
         run: |
           set -euo pipefail
-          python -m pytest tests/unit tests/integration -v --tb=short -rs \
+          python -m pytest tests/unit tests/integration tests/acceptance -v --tb=short -rs \
             --junitxml=m0-junit.xml | tee m0-pytest.txt
 
       - name: Assert required suites executed (no silent skips)
