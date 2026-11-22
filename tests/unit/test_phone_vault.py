@@ -9,7 +9,6 @@ import pytest
 
 from clinic_ecosystem.infrastructure.persistence.authenticated_uow import (
     VerifiedTenantDbSession,
-    mint_verified_scope_for_tests,
 )
 from clinic_ecosystem.infrastructure.persistence.phone_vault import (
     NonceReuseRejected, PhoneWriteRejected, SqlNonceRegistry, SqlPhoneVault,
@@ -18,6 +17,7 @@ from clinic_ecosystem.infrastructure.persistence.phone_vault import (
 from clinic_ecosystem.shared_kernel.pii_contracts import LookupDigest
 from clinic_ecosystem.shared_kernel.pii_encryption import EncryptionKey
 from clinic_ecosystem.shared_kernel.tenant_auth import VerifiedHumanPrincipal
+from tests.verified_scope_helpers import mint_verified_scope_for_tests
 
 TENANT = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 OTHER = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
