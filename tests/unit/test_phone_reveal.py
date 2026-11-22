@@ -204,3 +204,37 @@ def test_forged_verified_scope_cannot_be_constructed_or_accepted():
             scope=scope, key_provider=None, phone_field_type="PHONE_E164",
             phone_issuing_authority="E164", reveal_permission_code="TEST_ONLY_REVEAL_PHONE",
         )
+
+
+
+@pytest.mark.parametrize("invalid_type,invalid_authority", [
+    (" PHONE_E164 ", "E164"),
+    ("PHONE_E164", " E164 "),
+    ("PHONE|E164", "E164"),
+])
+def test_reveal_rejects_noncanonical_aad_tokens_before_sql(invalid_type, invalid_authority):
+    db = _Db()
+    scope = mint_verified_scope_for_tests(session=db, principal=_principal())
+    with pytest.raises(ValueError):
+        SqlPhoneReader(
+            scope=scope, key_provider=_Keys(),
+            phone_field_type=invalid_type,
+            phone_issuing_authority=invalid_authority,
+            reveal_permission_code="TEST_ONLY_REVEAL_PHONE",
+        )
+    assert db.executed == []
+
+
+def test_reveal_rejects_object_new_scope_with_arbitrary_auth_marker():
+    db = _Db()
+    forged = object.__new__(VerifiedTenantDbSession)
+    object.__setattr__(forged, "session", db)
+    object.__setattr__(forged, "principal", _principal())
+    object.__setattr__(forged, "_auth", object())
+    with pytest.raises(TypeError):
+        SqlPhoneReader(
+            scope=forged, key_provider=_Keys(),
+            phone_field_type="PHONE_E164",
+            phone_issuing_authority="E164",
+            reveal_permission_code="TEST_ONLY_REVEAL_PHONE",
+        )
