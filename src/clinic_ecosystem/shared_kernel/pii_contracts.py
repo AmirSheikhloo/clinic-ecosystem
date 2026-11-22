@@ -31,6 +31,18 @@ def _token(value: str, name: str) -> str:
     return canonical
 
 
+def _aad_token(value: str, name: str) -> str:
+    """AAD has UPPER but no TRIM in frozen Clause 770: reject whitespace."""
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    if value != value.strip():
+        raise ValueError(f"{name} cannot contain surrounding whitespace")
+    canonical = value.upper()
+    if not _ASCII_TOKEN.fullmatch(canonical):
+        raise ValueError(f"{name} must be an unambiguous ASCII contract token")
+    return canonical
+
+
 def require_e164(value: str) -> str:
     """Accept only an *already normalized* E.164 string, without inferring country.
 
@@ -83,7 +95,9 @@ def identifier_input(
     if not isinstance(value, str):
         raise TypeError("identifier must be normalized text")
     if not value or value != value.strip() or "|" in value or any(
-        ord(ch) < 32 or ord(ch) == 127 for ch in value
+        ord(ch) < 32 or ord(ch) == 127
+        or (ch.isdecimal() and not ("0" <= ch <= "9"))
+        for ch in value
     ):
         raise ValueError("identifier must be nonempty pre-normalized text")
     # Deliberately do not guess the identifier-type-specific canonicalization.
@@ -141,7 +155,7 @@ def aad_v1(
         + "|"
         + _uuid_string(record_id)
         + "|"
-        + _token(id_type_or_field_type, "id_type_or_field_type")
+        + _aad_token(id_type_or_field_type, "id_type_or_field_type")
         + "|"
-        + _token(issuing_country_or_authority, "issuing_country_or_authority")
+        + _aad_token(issuing_country_or_authority, "issuing_country_or_authority")
     ).encode("utf-8")
