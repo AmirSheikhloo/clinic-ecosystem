@@ -23,6 +23,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from clinic_ecosystem.infrastructure.persistence.authenticated_uow import (
     verified_jwt_transaction,
 )
+from clinic_ecosystem.infrastructure.persistence.phone_reveal import (
+    PhoneRevealRejected, SqlPhoneReader,
+)
 from clinic_ecosystem.infrastructure.persistence.phone_vault import (
     NonceReuseRejected, SqlNonceRegistry, SqlPhoneVault,
     TenantPhoneEncryptionKey,
@@ -54,6 +57,10 @@ class _SyntheticKeySource:
     async def phone_aes_key(self, *, tenant_id):
         assert tenant_id == self.tenant
         return TenantPhoneEncryptionKey(tenant_id, KEY_ID, AES_KEY)
+
+    async def phone_aes_key_for_version(self, *, tenant_id, encryption_key_version):
+        assert encryption_key_version == 1
+        return await self.phone_aes_key(tenant_id=tenant_id)
 
 
 class _SyntheticPhoneHmac:
@@ -151,6 +158,18 @@ async def test_real_pg15_phone_storage_nonce_and_rls(plane_topology, monkeypatch
             """,
             owner_b, ids_a.tenant_id, datetime.now(timezone.utc)
         )
+        for tenant, role in (
+            (ids_a.tenant_id, ids_a.role_id),
+            (ids_b.tenant_id, ids_b.role_id),
+        ):
+            await mig.execute(
+                """
+                INSERT INTO role_permission_assignments(
+                    id, tenant_id, role_id, permission_code, granted_at_utc
+                ) VALUES ($1,$2,$3,'TEST_ONLY_REVEAL_PHONE',$4)
+                """,
+                new_uuid7(), tenant, role, datetime.now(timezone.utc)
+            )
         await _make_test_registry(mig)
         registry_created = True
         await mig.execute("RESET ROLE")
@@ -247,9 +266,38 @@ async def test_real_pg15_phone_storage_nonce_and_rls(plane_topology, monkeypatch
             )
             assert audit_count == 2
 
+        # Separate plaintext permission is proved on real PG15 runtime login.
+        async with verified_jwt_transaction(
+            engine=engine, bearer_token=token_a, verifier=verifier
+        ) as scope:
+            reader = SqlPhoneReader(
+                scope=scope,
+                key_provider=_SyntheticKeySource(ids_a.tenant_id),
+                phone_field_type="PHONE_E164",
+                phone_issuing_authority="E164",
+                reveal_permission_code="TEST_ONLY_REVEAL_PHONE",
+            )
+            assert await reader.reveal(phone_record_id=first) == "+989121234567"
+            assert await scope.session.scalar(
+                text(
+                    "SELECT count(*) FROM audit_entries "
+                    "WHERE tenant_id=:tenant "
+                    "AND operation='person_phone.plaintext_revealed'"
+                ),
+                {"tenant": ids_a.tenant_id},
+            ) == 1
+
         async with verified_jwt_transaction(
             engine=engine, bearer_token=token_b, verifier=verifier
         ) as scope:
+            with pytest.raises(PhoneRevealRejected):
+                await SqlPhoneReader(
+                    scope=scope,
+                    key_provider=_SyntheticKeySource(ids_b.tenant_id),
+                    phone_field_type="PHONE_E164",
+                    phone_issuing_authority="E164",
+                    reveal_permission_code="TEST_ONLY_REVEAL_PHONE",
+                ).reveal(phone_record_id=first)
             assert await scope.session.scalar(
                 text("SELECT count(*) FROM person_phones WHERE tenant_id=:a"),
                 {"a": ids_a.tenant_id},
