@@ -71,6 +71,12 @@ jobs:
             --junit m0-junit.xml \
             --pytest-log m0-pytest.txt
 
+      - name: Export F0.5 case-evidence inventory (not Gate A execution)
+        if: success()
+        run: |
+          python -c 'from pathlib import Path; from tests.acceptance.package1_inventory import write_inventory_json; write_inventory_json(Path("package1-inventory.json"))'
+          python -c 'import json; x=json.load(open("package1-inventory.json",encoding="utf-8")); assert x["case_count"] == 90; assert x["gate_a_pass_count"] == 0; assert x["counts"]["FAIL"] == 0; print(x["counts"])'
+
       - name: Upload pytest evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -80,4 +86,5 @@ jobs:
             m0-collect.txt
             m0-pytest.txt
             m0-junit.xml
+            package1-inventory.json
           if-no-files-found: warn
