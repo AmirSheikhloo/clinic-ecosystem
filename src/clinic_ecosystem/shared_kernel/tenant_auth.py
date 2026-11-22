@@ -83,15 +83,12 @@ class HumanJwtVerifier:
     ) -> None:
         if not issuer or not audience or not trusted_keys:
             raise ValueError("issuer, audience and at least one signing key are mandatory")
-        if not isinstance(max_lifetime_seconds, int) or max_lifetime_seconds < 1:
+        if type(max_lifetime_seconds) is not int or not 1 <= max_lifetime_seconds <= 3600:
             raise ValueError("short-lived token policy must be configured explicitly")
         if jti_validator is None or not callable(getattr(jti_validator, "ensure_active", None)):
             raise ValueError("authoritative jti/revocation validation is mandatory")
-        # Refuse obvious permit-all stubs in production wiring by requiring a
-        # non-dunder concrete class name that does not advertise "PermitAll".
-        validator_name = type(jti_validator).__name__
-        if "PermitAll" in validator_name or "AlwaysAllow" in validator_name:
-            raise ValueError("permit-all jti validators are forbidden")
+        # Naming a class cannot prove a non-permissive revocation policy.
+        # Its authoritative implementation is a separate deployment gate.
         keyed = {key.kid: key for key in trusted_keys}
         if len(keyed) != len(trusted_keys):
             raise ValueError("duplicate signing-key kid")
@@ -140,6 +137,8 @@ class HumanJwtVerifier:
             if claims["exp"] - claims["iat"] > self._max_lifetime:
                 raise AuthenticationRejected("token rejected")
             if not isinstance(claims["jti"], str) or not 1 <= len(claims["jti"]) <= 256:
+                raise AuthenticationRejected("token rejected")
+            if type(claims["tenant_id"]) is not str or type(claims["sub"]) is not str:
                 raise AuthenticationRejected("token rejected")
             tenant = UUID(claims["tenant_id"])
             subject = UUID(claims["sub"])
