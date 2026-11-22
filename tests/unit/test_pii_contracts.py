@@ -143,3 +143,18 @@ def test_strict_e164_rejects_unverified_format(invalid):
 @pytest.mark.parametrize("valid", ["+123", "+123456789012345", "+989121234567"])
 def test_strict_e164_accepts_prespecified_format_not_verification(valid):
     assert require_e164(valid) == valid
+
+
+
+def test_identifier_rejects_persian_and_arabic_digits_until_type_normalized():
+    for value in ("۰۰۱۲", "٠٠١٢"):
+        with pytest.raises(ValueError):
+            _input(value)
+
+
+def test_aad_rejects_whitespace_in_signed_token_contract():
+    with pytest.raises(ValueError):
+        aad_v1(
+            tenant_id=TENANT, original_person_id=PERSON, record_id=RECORD,
+            id_type_or_field_type=" PHONE_E164 ", issuing_country_or_authority="E164",
+        )
