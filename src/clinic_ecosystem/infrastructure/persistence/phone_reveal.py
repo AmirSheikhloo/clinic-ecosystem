@@ -19,6 +19,7 @@ from clinic_ecosystem.infrastructure.persistence.authenticated_uow import (
 )
 from clinic_ecosystem.infrastructure.persistence.permissions import SqlPermissionService
 from clinic_ecosystem.infrastructure.persistence.phone_vault import TenantPhoneEncryptionKey
+from clinic_ecosystem.shared_kernel.pii_contracts import canonical_aad_tokens
 from clinic_ecosystem.shared_kernel.pii_encryption import (
     EncryptedPhone, FieldContext, decrypt_phone,
 )
@@ -48,13 +49,12 @@ class SqlPhoneReader:
         # Reject forged scopes: construction without mint token fails in __post_init__.
         if type(scope) is not VerifiedTenantDbSession:
             raise TypeError("verified tenant SQL transaction is required")
-        # Touch auth marker (raises if forged without token via dataclass replace tricks).
-        if getattr(scope, "_auth", None) is None:
-            raise TypeError("verified tenant SQL transaction is required")
+        scope.assert_provenance()
         if not callable(getattr(key_provider, "phone_aes_key_for_version", None)):
             raise TypeError("historical authorized tenant KMS key provider is required")
-        if not phone_field_type or not phone_issuing_authority:
-            raise ValueError("exact signed phone AAD tokens are required")
+        phone_field_type, phone_issuing_authority = canonical_aad_tokens(
+            phone_field_type, phone_issuing_authority
+        )
         if not reveal_permission_code or not reveal_permission_code.isascii():
             raise ValueError("distinct, configured phone reveal RBAC permission required")
         self._scope = scope
@@ -66,7 +66,7 @@ class SqlPhoneReader:
     async def reveal(self, *, phone_record_id: UUID) -> str:
         if not isinstance(phone_record_id, UUID):
             raise TypeError("phone record id must be a UUID")
-        await self._scope.assert_tenant_guc()
+        await self._scope.assert_reveal_transaction_clean()
         tenant = self._scope.principal.tenant_id
         principal = self._scope.principal.principal_id
 
@@ -110,6 +110,7 @@ class SqlPhoneReader:
             not isinstance(ref, TenantPhoneEncryptionKey)
             or ref.tenant_id != tenant
             or ref.key.version != version
+            or not isinstance(ref.key_identity, UUID)
         ):
             raise PhoneRevealRejected("historical KMS key boundary mismatch")
 
@@ -122,6 +123,9 @@ class SqlPhoneReader:
         # Plaintext is held only in process memory and returned AFTER durable audit.
         plaintext = decrypt_phone(encrypted=sealed, context=context, key=ref.key)
 
+        # A raw SQL write may have occurred since initial authorization.
+        # Do not commit any unrelated DML on the caller's shared session.
+        await self._scope.assert_reveal_transaction_clean()
         await SqlAuditStore(self._scope.session).append(
             tenant_id=tenant,
             actor_type="USER",
@@ -132,5 +136,5 @@ class SqlPhoneReader:
             details={"aad_version": sealed.aad_version, "key_version": version},
         )
         # Commit audit before plaintext crosses the API boundary.
-        await self._scope.commit_security_checkpoint()
+        await self._scope.finalize_reveal_audit()
         return plaintext
