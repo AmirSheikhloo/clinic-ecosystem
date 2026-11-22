@@ -30,11 +30,15 @@ _SCOPE_AUTH = object()
 _ROLE_CHECK = text(
     """
     SELECT
-      pg_has_role(current_user, 'db_app_runtime', 'member') AS is_runtime,
-      pg_has_role(current_user, 'db_migrator', 'member') AS is_migrator,
+      current_user = session_user AS same_login_role,
+      pg_has_role(session_user, 'db_app_runtime', 'member') AS is_runtime,
+      pg_has_role(session_user, 'db_migrator', 'member') AS is_migrator,
+      CASE WHEN to_regrole('cp_db_migrator') IS NULL THEN FALSE
+           ELSE pg_has_role(session_user, 'cp_db_migrator', 'member')
+      END AS is_cp_migrator,
       r.rolsuper AS is_superuser,
       r.rolbypassrls AS bypasses_rls
-    FROM pg_roles r WHERE r.rolname = current_user
+    FROM pg_roles r WHERE r.rolname = session_user
     """
 )
 
@@ -144,8 +148,10 @@ async def verified_jwt_transaction(
             role = (await session.execute(_ROLE_CHECK)).mappings().one_or_none()
             if (
                 role is None
+                or not role["same_login_role"]
                 or not role["is_runtime"]
                 or role["is_migrator"]
+                or role["is_cp_migrator"]
                 or role["is_superuser"]
                 or role["bypasses_rls"]
             ):
