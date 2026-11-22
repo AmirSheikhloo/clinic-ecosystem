@@ -43,6 +43,17 @@ def _aad_token(value: str, name: str) -> str:
     return canonical
 
 
+def canonical_aad_tokens(field_type: str, authority: str) -> tuple[str, str]:
+    """Validate configured AAD tokens; does not sign or approve their meaning."""
+    return _aad_token(field_type, "field_type"), _aad_token(authority, "authority")
+
+
+def mask_phone_e164(value: str) -> str:
+    """Never reveal a whole short phone number or the international + prefix."""
+    digits = require_e164(value)[1:]
+    return "****" if len(digits) < 7 else "****" + digits[-4:]
+
+
 def require_e164(value: str) -> str:
     """Accept only an *already normalized* E.164 string, without inferring country.
 
@@ -74,6 +85,8 @@ class LookupDigest:
     digest: bytes
 
     def __post_init__(self) -> None:
+        if type(self.key_version) is not int or not 1 <= self.key_version <= 32767:
+            raise ValueError("lookup key version must be a positive SMALLINT")
         if not isinstance(self.digest, bytes) or len(self.digest) != 32:
             raise ValueError("blind-index digest must be exactly 32 bytes")
 
@@ -125,6 +138,8 @@ def identifier_input(
     """
     kind = _token(id_type, "id_type")
     authority = _token(issuing_country_or_authority, "issuing_country_or_authority")
+    if kind not in {"IR_NATIONAL_ID", "FOREIGN_FIDA_CODE", "FOREIGN_PASSPORT"}:
+        raise ValueError("identifier type must match frozen TP0002 enum")
     value = normalized_identifier_value
     if not isinstance(value, str):
         raise TypeError("identifier must be normalized text")
