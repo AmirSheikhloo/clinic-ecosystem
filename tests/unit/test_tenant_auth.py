@@ -151,3 +151,21 @@ async def test_unsigned_missing_and_client_supplied_context_rejected(keypairs):
     with pytest.raises(AuthenticationRejected):
         await verifier.verify("not-a.jwt.token")
     # No tenant_id request-path argument exists on the verifier API.
+
+
+def test_human_jwt_verifier_rejects_subclass_and_permit_all_jti(keypairs):
+    with pytest.raises(TypeError, match="cannot be subclassed"):
+        class Evil(HumanJwtVerifier):  # type: ignore[misc]
+            pass
+
+    class PermitAllJti:
+        async def ensure_active(self, *, tenant_id, token_jti):
+            return None
+
+    with pytest.raises(ValueError, match="permit-all"):
+        HumanJwtVerifier(
+            issuer="issuer", audience="audience",
+            trusted_keys=(keypairs[0][3],),
+            jti_validator=PermitAllJti(),
+            max_lifetime_seconds=300,
+        )

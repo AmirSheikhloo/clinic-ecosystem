@@ -9,6 +9,7 @@ from cryptography.exceptions import InvalidTag
 
 from clinic_ecosystem.infrastructure.persistence.authenticated_uow import (
     VerifiedTenantDbSession,
+    mint_verified_scope_for_tests,
 )
 from clinic_ecosystem.infrastructure.persistence.phone_reveal import (
     PhoneRevealRejected, SqlPhoneReader,
@@ -29,30 +30,34 @@ KEY = EncryptionKey(1, b"q" * 32)
 
 
 class _Nonce:
-    def reserve(self, *, key_version, nonce_96bit):
-        assert key_version == 1 and len(nonce_96bit) == 12
+    def reserve(self, *, aes_key_identity, nonce_96bit):
+        assert aes_key_identity == KEY_ID and len(nonce_96bit) == 12
 
 
-class _Result:
+class _Scalar:
     def __init__(self, value):
-        self.value = value
+        self._value = value
+
+    def scalar_one(self):
+        return self._value
 
     def first(self):
-        return (1,) if self.value is True else None
+        return (1,) if self._value is True else None
 
     def mappings(self):
         return self
 
     def one_or_none(self):
-        return self.value
+        return self._value
 
 
 class _Db:
-    def __init__(self, *, allowed=True, found=True, tag_tamper=False):
+    def __init__(self, *, allowed=True, found=True, tag_tamper=False, guc=None):
         ctx = FieldContext(TENANT, OWNER, PHONE_ID, "PHONE_E164", "E164")
         sealed = encrypt_phone(
             phone_e164="+989121234567",
-            context=ctx, key=KEY, nonce_reservation=_Nonce(),
+            context=ctx, key=KEY, aes_key_identity=KEY_ID,
+            nonce_reservation=_Nonce(),
         )
         if tag_tamper:
             sealed = replace(
@@ -70,17 +75,28 @@ class _Db:
         }
         self.allowed = allowed
         self.found = found
+        self.guc = str(TENANT) if guc is None else guc
         self.executed = []
+        self.commits = 0
+        self.begins = 0
 
     async def execute(self, stmt, params=None):
         sql = str(stmt)
         self.executed.append((sql, params or {}))
+        if "current_setting('app.current_tenant_id'" in sql:
+            return _Scalar(self.guc)
         if "FROM user_role_assignments" in sql:
-            return _Result(self.allowed)
+            return _Scalar(self.allowed)
         if "FROM person_phones" in sql:
             assert params == {"tenant": TENANT, "phone_id": PHONE_ID}
-            return _Result(self.record if self.found else None)
-        return _Result(None)
+            return _Scalar(self.record if self.found else None)
+        return _Scalar(None)
+
+    async def commit(self):
+        self.commits += 1
+
+    async def begin(self):
+        self.begins += 1
 
 
 class _Keys:
@@ -95,14 +111,15 @@ class _Keys:
         return TenantPhoneEncryptionKey(self.tenant, KEY_ID, EncryptionKey(self.version, b"q" * 32))
 
 
-def _reader(db, keys):
-    scope = VerifiedTenantDbSession(
-        session=db,
-        principal=VerifiedHumanPrincipal(
-            tenant_id=TENANT, principal_id=ACCOUNT,
-            jti="synthetic", issued_at_unix=1, expires_at_unix=9999999999,
-        ),
+def _principal():
+    return VerifiedHumanPrincipal(
+        tenant_id=TENANT, principal_id=ACCOUNT,
+        jti="synthetic", issued_at_unix=1, expires_at_unix=9999999999,
     )
+
+
+def _reader(db, keys):
+    scope = mint_verified_scope_for_tests(session=db, principal=_principal())
     return SqlPhoneReader(
         scope=scope, key_provider=keys,
         phone_field_type="PHONE_E164",
@@ -112,13 +129,15 @@ def _reader(db, keys):
 
 
 @pytest.mark.asyncio
-async def test_authorized_reveal_decrypts_and_audits_without_plaintext_in_logs():
+async def test_authorized_reveal_commits_audit_before_returning_plaintext():
     db = _Db()
     assert await _reader(db, _Keys()).reveal(phone_record_id=PHONE_ID) == "+989121234567"
     logs = [(s, p) for s, p in db.executed if "INSERT INTO audit_entries" in s]
     assert len(logs) == 1
     assert logs[0][1]["operation"] == "person_phone.plaintext_revealed"
     assert "+989121234567" not in repr(logs)
+    assert db.commits >= 1
+    assert db.begins >= 1
 
 
 @pytest.mark.asyncio
@@ -128,6 +147,7 @@ async def test_reveal_rbac_denied_before_any_select_or_key_fetch():
         await _reader(db, keys).reveal(phone_record_id=PHONE_ID)
     assert keys.calls == 0
     assert not any("FROM person_phones" in sql for sql, _ in db.executed)
+    assert db.commits == 0
 
 
 @pytest.mark.asyncio
@@ -147,6 +167,7 @@ async def test_reveal_rejects_wrong_tenant_or_wrong_key_version(tenant, version)
             phone_record_id=PHONE_ID
         )
     assert not any("INSERT INTO audit_entries" in sql for sql, _ in db.executed)
+    assert db.commits == 0
 
 
 @pytest.mark.asyncio
@@ -155,14 +176,22 @@ async def test_ciphertext_auth_tag_corruption_fails_with_invalid_tag():
     with pytest.raises(InvalidTag):
         await _reader(db, _Keys()).reveal(phone_record_id=PHONE_ID)
     assert not any("INSERT INTO audit_entries" in sql for sql, _ in db.executed)
+    assert db.commits == 0
 
 
-def test_reveal_requires_separate_configured_permission_and_key_provider():
+@pytest.mark.asyncio
+async def test_reveal_rejects_spoofed_tenant_guc():
+    db = _Db(guc=str(OTHER))
+    with pytest.raises(PermissionError):
+        await _reader(db, _Keys()).reveal(phone_record_id=PHONE_ID)
+    assert db.commits == 0
+
+
+def test_forged_verified_scope_cannot_be_constructed_or_accepted():
     db = _Db()
-    scope = VerifiedTenantDbSession(
-        session=db,
-        principal=VerifiedHumanPrincipal(TENANT, ACCOUNT, "jti", 1, 999999999),
-    )
+    with pytest.raises(TypeError, match="minted"):
+        VerifiedTenantDbSession(session=db, principal=_principal())
+    scope = mint_verified_scope_for_tests(session=db, principal=_principal())
     with pytest.raises(ValueError):
         SqlPhoneReader(
             scope=scope, key_provider=_Keys(), phone_field_type="PHONE_E164",

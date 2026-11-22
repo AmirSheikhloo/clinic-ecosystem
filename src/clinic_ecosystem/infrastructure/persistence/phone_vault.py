@@ -11,13 +11,12 @@ fail closed until those external contracts are provisioned and approved.
 """
 from __future__ import annotations
 
-import secrets
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
 from uuid import UUID
+import secrets
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +27,7 @@ from clinic_ecosystem.infrastructure.persistence.authenticated_uow import (
 from clinic_ecosystem.infrastructure.persistence.permissions import SqlPermissionService
 from clinic_ecosystem.shared_kernel.pii_contracts import LookupDigest, require_e164
 from clinic_ecosystem.shared_kernel.pii_encryption import (
-    EncryptedPhone, EncryptionKey, FieldContext,
+    EncryptionKey, FieldContext, seal_phone_aesgcm,
 )
 from clinic_ecosystem.shared_kernel.uuid7 import new_uuid7
 
@@ -136,7 +135,9 @@ class SqlPhoneVault:
         phone_issuing_authority: str,
         create_permission_code: str,
     ) -> None:
-        if not isinstance(scope, VerifiedTenantDbSession):
+        if type(scope) is not VerifiedTenantDbSession:
+            raise TypeError("verified tenant DB scope is mandatory")
+        if getattr(scope, "_auth", None) is None:
             raise TypeError("verified tenant DB scope is mandatory")
         if not phone_field_type or not phone_issuing_authority:
             raise ValueError("explicit approved phone AAD contract is mandatory")
@@ -169,11 +170,12 @@ class SqlPhoneVault:
         self, *, original_owner_person_id: UUID, phone_e164: str,
         is_primary: bool = False, is_shared_phone: bool = False,
     ) -> UUID:
-        tenant = self._scope.principal.tenant_id
-        principal = self._scope.principal.principal_id
         if not isinstance(original_owner_person_id, UUID):
             raise TypeError("original immutable owner UUID required")
         normalized = require_e164(phone_e164)
+        await self._scope.assert_tenant_guc()
+        tenant = self._scope.principal.tenant_id
+        principal = self._scope.principal.principal_id
 
         allowed = await SqlPermissionService(self._scope.session).principal_has(
             tenant_id=tenant,
@@ -214,15 +216,11 @@ class SqlPhoneVault:
         await self._nonce_registry.reserve(
             tenant_id=tenant, aes_key_identity=key_ref.key_identity, nonce_96bit=nonce
         )
-        sealed = AESGCM(key_ref.key.material).encrypt(
-            nonce, normalized.encode("ascii"), context.aad_bytes()
-        )
-        encrypted = EncryptedPhone(
-            phone_ciphertext=sealed[:-16],
+        encrypted = seal_phone_aesgcm(
+            phone_e164=normalized,
+            context=context,
+            key=key_ref.key,
             nonce_96bit=nonce,
-            auth_tag_128bit=sealed[-16:],
-            encryption_key_version=key_ref.key.version,
-            aad_version=1,
         )
         # Explicitly non-unique phone blind index: shared family numbers allowed.
         await self._scope.session.execute(

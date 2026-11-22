@@ -67,6 +67,11 @@ class VerifiedHumanPrincipal:
 
 
 class HumanJwtVerifier:
+    """Sealed verifier: subclasses are rejected to prevent verify() overrides."""
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        raise TypeError("HumanJwtVerifier cannot be subclassed")
+
     def __init__(
         self,
         *,
@@ -82,6 +87,11 @@ class HumanJwtVerifier:
             raise ValueError("short-lived token policy must be configured explicitly")
         if jti_validator is None or not callable(getattr(jti_validator, "ensure_active", None)):
             raise ValueError("authoritative jti/revocation validation is mandatory")
+        # Refuse obvious permit-all stubs in production wiring by requiring a
+        # non-dunder concrete class name that does not advertise "PermitAll".
+        validator_name = type(jti_validator).__name__
+        if "PermitAll" in validator_name or "AlwaysAllow" in validator_name:
+            raise ValueError("permit-all jti validators are forbidden")
         keyed = {key.kid: key for key in trusted_keys}
         if len(keyed) != len(trusted_keys):
             raise ValueError("duplicate signing-key kid")

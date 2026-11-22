@@ -267,17 +267,25 @@ async def test_real_pg15_phone_storage_nonce_and_rls(plane_topology, monkeypatch
             assert audit_count == 2
 
         # Separate plaintext permission is proved on real PG15 runtime login.
+        # Reveal commits the access audit before returning plaintext; a later
+        # exception in the same UoW must not erase that durable audit.
+        with pytest.raises(RuntimeError, match="post-reveal-failure"):
+            async with verified_jwt_transaction(
+                engine=engine, bearer_token=token_a, verifier=verifier
+            ) as scope:
+                reader = SqlPhoneReader(
+                    scope=scope,
+                    key_provider=_SyntheticKeySource(ids_a.tenant_id),
+                    phone_field_type="PHONE_E164",
+                    phone_issuing_authority="E164",
+                    reveal_permission_code="TEST_ONLY_REVEAL_PHONE",
+                )
+                assert await reader.reveal(phone_record_id=first) == "+989121234567"
+                raise RuntimeError("post-reveal-failure")
+
         async with verified_jwt_transaction(
             engine=engine, bearer_token=token_a, verifier=verifier
         ) as scope:
-            reader = SqlPhoneReader(
-                scope=scope,
-                key_provider=_SyntheticKeySource(ids_a.tenant_id),
-                phone_field_type="PHONE_E164",
-                phone_issuing_authority="E164",
-                reveal_permission_code="TEST_ONLY_REVEAL_PHONE",
-            )
-            assert await reader.reveal(phone_record_id=first) == "+989121234567"
             assert await scope.session.scalar(
                 text(
                     "SELECT count(*) FROM audit_entries "

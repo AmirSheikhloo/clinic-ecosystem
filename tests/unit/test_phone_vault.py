@@ -9,6 +9,7 @@ import pytest
 
 from clinic_ecosystem.infrastructure.persistence.authenticated_uow import (
     VerifiedTenantDbSession,
+    mint_verified_scope_for_tests,
 )
 from clinic_ecosystem.infrastructure.persistence.phone_vault import (
     NonceReuseRejected, PhoneWriteRejected, SqlNonceRegistry, SqlPhoneVault,
@@ -33,15 +34,19 @@ class _Result:
     def first(self):
         return (1,) if self._value else None
 
+    def scalar_one(self):
+        return self._value
+
     def scalar_one_or_none(self):
         return self._value
 
 
 class _Session:
-    def __init__(self, *, allowed=True, owner=True, nonce_available=True):
+    def __init__(self, *, allowed=True, owner=True, nonce_available=True, guc=None):
         self.allowed = allowed
         self.owner = owner
         self.nonce_available = nonce_available
+        self.guc = str(TENANT) if guc is None else guc
         self.executed: list[tuple[str, dict]] = []
 
     async def scalar(self, statement, parameters=None):
@@ -53,6 +58,8 @@ class _Session:
         sql = str(statement)
         params = parameters or {}
         self.executed.append((sql, params))
+        if "current_setting('app.current_tenant_id'" in sql:
+            return _Result(self.guc)
         if "FROM user_role_assignments" in sql:
             return _Result(self.allowed)
         if "INSERT INTO pii_nonce_reservations" in sql:
@@ -83,17 +90,18 @@ class _Hmac:
         return LookupDigest(1, digest)
 
 
-def _scope(session):
-    return VerifiedTenantDbSession(
-        session=session,
-        principal=VerifiedHumanPrincipal(
-            tenant_id=TENANT,
-            principal_id=ACTOR,
-            jti="synthetic-verified",
-            issued_at_unix=1,
-            expires_at_unix=100000000000,
-        ),
+def _principal():
+    return VerifiedHumanPrincipal(
+        tenant_id=TENANT,
+        principal_id=ACTOR,
+        jti="synthetic-verified",
+        issued_at_unix=1,
+        expires_at_unix=100000000000,
     )
+
+
+def _scope(session):
+    return mint_verified_scope_for_tests(session=session, principal=_principal())
 
 
 def _vault(session, kms=None, indexer=None):
@@ -179,6 +187,14 @@ async def test_phone_create_rejects_invalid_number_without_database_actions():
     assert session.executed == []
 
 
+@pytest.mark.asyncio
+async def test_phone_create_rejects_spoofed_tenant_guc():
+    session = _Session(guc=str(OTHER))
+    with pytest.raises(PermissionError):
+        await _vault(session).create(original_owner_person_id=OWNER, phone_e164=PHONE)
+    assert not any("INSERT INTO person_phones" in sql for sql, _ in session.executed)
+
+
 def test_phone_vault_requires_all_external_security_ports():
     session = _Session()
     with pytest.raises(TypeError):
@@ -198,7 +214,6 @@ async def test_pg_nonce_registration_checks_shape_before_sql():
     assert session.executed == []
 
 
-
 def test_phone_vault_rejects_nonce_ledger_on_unrelated_session():
     trusted_session = _Session()
     unrelated_session = _Session()
@@ -212,3 +227,9 @@ def test_phone_vault_rejects_nonce_ledger_on_unrelated_session():
             phone_issuing_authority="E164",
             create_permission_code="TEST_ONLY_PHONE_WRITE",
         )
+
+
+def test_forged_verified_scope_is_rejected():
+    session = _Session()
+    with pytest.raises(TypeError, match="minted"):
+        VerifiedTenantDbSession(session=session, principal=_principal())

@@ -76,14 +76,39 @@ class EncryptedPhone:
 
 
 class DurableNonceReservation(Protocol):
-    def reserve(self, *, key_version: int, nonce_96bit: bytes) -> None:
+    def reserve(self, *, aes_key_identity: uuid.UUID, nonce_96bit: bytes) -> None:
         """Atomically and durably reject any nonce previously used by this key.
 
-        Implementations MUST namespace versions by immutable KMS key identity,
-        never recycle a version, survive worker restarts, and make reservations
-        durable before a ciphertext could be stored. In-memory sets are NOT a
-        production implementation.
+        Implementations MUST namespace by immutable KMS key identity (not a
+        recyclable version integer), survive worker restarts, and make
+        reservations durable before a ciphertext could be stored. In-memory
+        sets are NOT a production implementation.
         """
+
+
+def seal_phone_aesgcm(
+    *,
+    phone_e164: str,
+    context: FieldContext,
+    key: EncryptionKey,
+    nonce_96bit: bytes,
+) -> EncryptedPhone:
+    """AES-GCM seal after the caller has already durably reserved ``nonce_96bit``."""
+    canonical = require_e164(phone_e164)
+    if not isinstance(context, FieldContext) or not isinstance(key, EncryptionKey):
+        raise TypeError("trusted context and encryption key objects are required")
+    if not isinstance(nonce_96bit, bytes) or len(nonce_96bit) != 12:
+        raise ValueError("GCM nonce must be exactly 96 bits")
+    sealed = AESGCM(key.material).encrypt(
+        nonce_96bit, canonical.encode("ascii"), context.aad_bytes()
+    )
+    return EncryptedPhone(
+        phone_ciphertext=sealed[:-16],
+        nonce_96bit=nonce_96bit,
+        auth_tag_128bit=sealed[-16:],
+        encryption_key_version=key.version,
+        aad_version=1,
+    )
 
 
 def encrypt_phone(
@@ -91,6 +116,7 @@ def encrypt_phone(
     phone_e164: str,
     context: FieldContext,
     key: EncryptionKey,
+    aes_key_identity: uuid.UUID,
     nonce_reservation: DurableNonceReservation,
 ) -> EncryptedPhone:
     """Encrypt a normalized phone with fresh random nonce + durable reservation.
@@ -98,24 +124,17 @@ def encrypt_phone(
     No default production nonce ledger: absent/untrusted adapter fails closed.
     Callers separately persist returned fields and any derived keyed HMAC in a
     single application transaction with verified tenant/RLS boundaries.
+    Production SQL persistence uses SqlNonceRegistry (async) then seal_phone_aesgcm.
     """
-    canonical = require_e164(phone_e164)
-    if not isinstance(context, FieldContext) or not isinstance(key, EncryptionKey):
-        raise TypeError("trusted context and encryption key objects are required")
+    if not isinstance(aes_key_identity, uuid.UUID):
+        raise TypeError("immutable KMS aes_key_identity UUID is required")
     reserve = getattr(nonce_reservation, "reserve", None)
     if not callable(reserve):
         raise TypeError("durable nonce reservation is mandatory")
     nonce = secrets.token_bytes(12)
-    reserve(key_version=key.version, nonce_96bit=nonce)
-    sealed = AESGCM(key.material).encrypt(
-        nonce, canonical.encode("ascii"), context.aad_bytes()
-    )
-    return EncryptedPhone(
-        phone_ciphertext=sealed[:-16],
-        nonce_96bit=nonce,
-        auth_tag_128bit=sealed[-16:],
-        encryption_key_version=key.version,
-        aad_version=1,
+    reserve(aes_key_identity=aes_key_identity, nonce_96bit=nonce)
+    return seal_phone_aesgcm(
+        phone_e164=phone_e164, context=context, key=key, nonce_96bit=nonce
     )
 
 
@@ -147,6 +166,7 @@ def rotate_phone_encryption(
     context: FieldContext,
     old_key: EncryptionKey,
     new_key: EncryptionKey,
+    aes_key_identity: uuid.UUID,
     nonce_reservation: DurableNonceReservation,
 ) -> EncryptedPhone:
     """AES rewrap only: caller must separately manage HMAC key rotation."""
@@ -159,5 +179,6 @@ def rotate_phone_encryption(
         phone_e164=phone,
         context=context,
         key=new_key,
+        aes_key_identity=aes_key_identity,
         nonce_reservation=nonce_reservation,
     )

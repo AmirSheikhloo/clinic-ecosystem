@@ -22,10 +22,10 @@ class TestNonceLedger:
     __test__ = False
 
     def __init__(self):
-        self.seen: set[tuple[int, bytes]] = set()
+        self.seen: set[tuple[uuid.UUID, bytes]] = set()
 
-    def reserve(self, *, key_version: int, nonce_96bit: bytes) -> None:
-        record = (key_version, nonce_96bit)
+    def reserve(self, *, aes_key_identity: uuid.UUID, nonce_96bit: bytes) -> None:
+        record = (aes_key_identity, nonce_96bit)
         if record in self.seen:
             raise ValueError("nonce reuse rejected")
         self.seen.add(record)
@@ -34,6 +34,8 @@ class TestNonceLedger:
 TENANT = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 OWNER = uuid.UUID("11111111-1111-1111-1111-111111111111")
 RECORD = uuid.UUID("b1000000-0000-0000-0000-000000000001")
+KEY_ID = uuid.UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
+KEY_ID_TWO = uuid.UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
 CTX = FieldContext(TENANT, OWNER, RECORD, "PHONE_E164", "E164")
 KEY_ONE = EncryptionKey(1, b"a" * 32)
 KEY_TWO = EncryptionKey(2, b"b" * 32)
@@ -43,7 +45,7 @@ def test_phone_encrypted_roundtrip_and_persistence_field_sizes():
     ledger = TestNonceLedger()
     sealed = encrypt_phone(
         phone_e164="+989121234567", context=CTX, key=KEY_ONE,
-        nonce_reservation=ledger,
+        aes_key_identity=KEY_ID, nonce_reservation=ledger,
     )
     assert isinstance(sealed, EncryptedPhone)
     assert len(sealed.nonce_96bit) == 12
@@ -65,7 +67,7 @@ def test_phone_encrypted_roundtrip_and_persistence_field_sizes():
 def test_phone_ciphertext_transplant_fails_aad_binding(swap):
     sealed = encrypt_phone(
         phone_e164="+989121234567", context=CTX, key=KEY_ONE,
-        nonce_reservation=TestNonceLedger(),
+        aes_key_identity=KEY_ID, nonce_reservation=TestNonceLedger(),
     )
     with pytest.raises(InvalidTag):
         decrypt_phone(encrypted=sealed, context=replace(CTX, **swap), key=KEY_ONE)
@@ -74,7 +76,7 @@ def test_phone_ciphertext_transplant_fails_aad_binding(swap):
 def test_phone_tag_and_ciphertext_tampering_rejected():
     sealed = encrypt_phone(
         phone_e164="+989121234567", context=CTX, key=KEY_ONE,
-        nonce_reservation=TestNonceLedger(),
+        aes_key_identity=KEY_ID, nonce_reservation=TestNonceLedger(),
     )
     tampered_tag = bytes([sealed.auth_tag_128bit[0] ^ 1]) + sealed.auth_tag_128bit[1:]
     tampered_data = bytes([sealed.phone_ciphertext[0] ^ 1]) + sealed.phone_ciphertext[1:]
@@ -87,7 +89,7 @@ def test_phone_tag_and_ciphertext_tampering_rejected():
 def test_phone_wrong_key_version_fails_before_crypto():
     sealed = encrypt_phone(
         phone_e164="+123456789", context=CTX, key=KEY_ONE,
-        nonce_reservation=TestNonceLedger(),
+        aes_key_identity=KEY_ID, nonce_reservation=TestNonceLedger(),
     )
     with pytest.raises(ValueError, match="version mismatch"):
         decrypt_phone(encrypted=sealed, context=CTX, key=KEY_TWO)
@@ -97,11 +99,11 @@ def test_aes_rotation_rewraps_and_keeps_immutable_owner():
     ledger = TestNonceLedger()
     old = encrypt_phone(
         phone_e164="+123456789", context=CTX, key=KEY_ONE,
-        nonce_reservation=ledger,
+        aes_key_identity=KEY_ID, nonce_reservation=ledger,
     )
     rotated = rotate_phone_encryption(
         encrypted=old, context=CTX, old_key=KEY_ONE,
-        new_key=KEY_TWO, nonce_reservation=ledger,
+        new_key=KEY_TWO, aes_key_identity=KEY_ID_TWO, nonce_reservation=ledger,
     )
     assert rotated.encryption_key_version == 2
     assert rotated.auth_tag_128bit != old.auth_tag_128bit
@@ -112,13 +114,14 @@ def test_aes_rotation_rewraps_and_keeps_immutable_owner():
 def test_rotation_rejects_reused_aes_key_or_version():
     old = encrypt_phone(
         phone_e164="+123456789", context=CTX, key=KEY_ONE,
-        nonce_reservation=TestNonceLedger(),
+        aes_key_identity=KEY_ID, nonce_reservation=TestNonceLedger(),
     )
     for bad_key in (KEY_ONE, EncryptionKey(2, KEY_ONE.material)):
         with pytest.raises(ValueError):
             rotate_phone_encryption(
                 encrypted=old, context=CTX, old_key=KEY_ONE,
-                new_key=bad_key, nonce_reservation=TestNonceLedger(),
+                new_key=bad_key, aes_key_identity=KEY_ID_TWO,
+                nonce_reservation=TestNonceLedger(),
             )
 
 
@@ -128,18 +131,18 @@ def test_nonce_reservation_is_mandatory_and_duplicate_nonce_is_denied(monkeypatc
     ledger = TestNonceLedger()
     first = encrypt_phone(
         phone_e164="+123456789", context=CTX, key=KEY_ONE,
-        nonce_reservation=ledger,
+        aes_key_identity=KEY_ID, nonce_reservation=ledger,
     )
     assert first.nonce_96bit == fixed_nonce
     with pytest.raises(ValueError, match="nonce reuse"):
         encrypt_phone(
             phone_e164="+123456789", context=CTX, key=KEY_ONE,
-            nonce_reservation=ledger,
+            aes_key_identity=KEY_ID, nonce_reservation=ledger,
         )
     with pytest.raises(TypeError, match="nonce reservation"):
         encrypt_phone(
             phone_e164="+123456789", context=CTX, key=KEY_ONE,
-            nonce_reservation=None,  # type: ignore[arg-type]
+            aes_key_identity=KEY_ID, nonce_reservation=None,  # type: ignore[arg-type]
         )
 
 
@@ -161,5 +164,5 @@ def test_encrypted_envelope_and_unauthorized_aad_input_fail_closed():
     with pytest.raises(ValueError):
         encrypt_phone(
             phone_e164="09121234567", context=CTX, key=KEY_ONE,
-            nonce_reservation=TestNonceLedger(),
+            aes_key_identity=KEY_ID, nonce_reservation=TestNonceLedger(),
         )

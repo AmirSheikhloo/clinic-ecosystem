@@ -3,6 +3,8 @@
 Never call from generic search/list endpoints. The caller must have an explicit
 approved reveal permission and must use a verified JWT tenant SQL transaction.
 Actual KMS key retrieval and phone AAD token ratification remain external.
+
+Plaintext is returned ONLY after the access-audit row is committed (durable).
 """
 from __future__ import annotations
 
@@ -43,7 +45,11 @@ class SqlPhoneReader:
         phone_issuing_authority: str,
         reveal_permission_code: str,
     ) -> None:
-        if not isinstance(scope, VerifiedTenantDbSession):
+        # Reject forged scopes: construction without mint token fails in __post_init__.
+        if type(scope) is not VerifiedTenantDbSession:
+            raise TypeError("verified tenant SQL transaction is required")
+        # Touch auth marker (raises if forged without token via dataclass replace tricks).
+        if getattr(scope, "_auth", None) is None:
             raise TypeError("verified tenant SQL transaction is required")
         if not callable(getattr(key_provider, "phone_aes_key_for_version", None)):
             raise TypeError("historical authorized tenant KMS key provider is required")
@@ -60,6 +66,7 @@ class SqlPhoneReader:
     async def reveal(self, *, phone_record_id: UUID) -> str:
         if not isinstance(phone_record_id, UUID):
             raise TypeError("phone record id must be a UUID")
+        await self._scope.assert_tenant_guc()
         tenant = self._scope.principal.tenant_id
         principal = self._scope.principal.principal_id
 
@@ -86,6 +93,16 @@ class SqlPhoneReader:
             raise PhoneRevealRejected("phone not found in authenticated tenant")
 
         version = row["encryption_key_version"]
+        sealed = EncryptedPhone(
+            phone_ciphertext=bytes(row["phone_ciphertext"]),
+            nonce_96bit=bytes(row["nonce_96bit"]),
+            auth_tag_128bit=bytes(row["auth_tag_128bit"]),
+            encryption_key_version=version,
+            aad_version=row["aad_version"],
+        )
+        person_id = row["person_id"]
+        record_id = row["id"]
+
         ref = await self._keys.phone_aes_key_for_version(
             tenant_id=tenant, encryption_key_version=version
         )
@@ -96,18 +113,15 @@ class SqlPhoneReader:
         ):
             raise PhoneRevealRejected("historical KMS key boundary mismatch")
 
-        sealed = EncryptedPhone(
-            phone_ciphertext=bytes(row["phone_ciphertext"]),
-            nonce_96bit=bytes(row["nonce_96bit"]),
-            auth_tag_128bit=bytes(row["auth_tag_128bit"]),
-            encryption_key_version=version,
-            aad_version=row["aad_version"],
-        )
         context = FieldContext(
-            tenant, row["person_id"], row["id"],
+            tenant, person_id, record_id,
             self._field_type, self._authority,
         )
+        # Cryptographic validity BEFORE audit+commit so InvalidTag does not
+        # leave a successful reveal audit for a non-decryptable payload.
+        # Plaintext is held only in process memory and returned AFTER durable audit.
         plaintext = decrypt_phone(encrypted=sealed, context=context, key=ref.key)
+
         await SqlAuditStore(self._scope.session).append(
             tenant_id=tenant,
             actor_type="USER",
@@ -117,4 +131,6 @@ class SqlPhoneReader:
             target_id=phone_record_id,
             details={"aad_version": sealed.aad_version, "key_version": version},
         )
+        # Commit audit before plaintext crosses the API boundary.
+        await self._scope.commit_security_checkpoint()
         return plaintext
