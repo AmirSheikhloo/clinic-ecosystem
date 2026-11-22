@@ -6,7 +6,6 @@ separate authentication paths and are NOT accepted by this verifier.
 """
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from typing import Literal, Protocol
 from uuid import UUID
@@ -57,7 +56,7 @@ class JwtJtiValidator(Protocol):
 class VerifiedHumanPrincipal:
     """Produced by a successful server verification, not from a user payload."""
     tenant_id: UUID
-    person_id: UUID
+    principal_id: UUID
     jti: str
     issued_at_unix: int
     expires_at_unix: int
@@ -142,7 +141,7 @@ class HumanJwtVerifier:
             )
             return VerifiedHumanPrincipal(
                 tenant_id=tenant,
-                person_id=subject,
+                principal_id=subject,
                 jti=claims["jti"],
                 issued_at_unix=claims["iat"],
                 expires_at_unix=claims["exp"],
