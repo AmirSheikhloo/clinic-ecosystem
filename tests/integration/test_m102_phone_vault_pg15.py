@@ -21,7 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from clinic_ecosystem.infrastructure.persistence.authenticated_uow import (
-    verified_jwt_transaction,
+    RuntimeRoleRejected, verified_jwt_transaction,
 )
 from clinic_ecosystem.infrastructure.persistence.phone_reveal import (
     PhoneRevealRejected, SqlPhoneReader,
@@ -291,6 +291,45 @@ async def test_real_pg15_phone_storage_nonce_and_rls(plane_topology, monkeypatch
                     "SELECT count(*) FROM audit_entries "
                     "WHERE tenant_id=:tenant "
                     "AND operation='person_phone.plaintext_revealed'"
+                ),
+                {"tenant": ids_a.tenant_id},
+            ) == 1
+
+        # PR5-01: a pending unrelated SQL INSERT must NOT be committed as
+        # a side effect of a plaintext reveal. Reject before audit/return.
+        unrelated_person = new_uuid7()
+        with pytest.raises(RuntimeRoleRejected, match="clean transaction|pending business"):
+            async with verified_jwt_transaction(
+                engine=engine, bearer_token=token_a, verifier=verifier
+            ) as scope:
+                await scope.session.execute(
+                    text(
+                        "INSERT INTO tenant_persons "
+                        "(id,tenant_id,first_name,last_name,aggregate_version,"
+                        "created_at_utc,updated_at_utc) "
+                        "VALUES (:id,:tenant,'Unrelated','Rollback',1,NOW(),NOW())"
+                    ),
+                    {"id": unrelated_person, "tenant": ids_a.tenant_id},
+                )
+                await SqlPhoneReader(
+                    scope=scope,
+                    key_provider=_SyntheticKeySource(ids_a.tenant_id),
+                    phone_field_type="PHONE_E164",
+                    phone_issuing_authority="E164",
+                    reveal_permission_code="TEST_ONLY_REVEAL_PHONE",
+                ).reveal(phone_record_id=first)
+
+        async with verified_jwt_transaction(
+            engine=engine, bearer_token=token_a, verifier=verifier
+        ) as scope:
+            assert await scope.session.scalar(
+                text("SELECT count(*) FROM tenant_persons WHERE id=:id"),
+                {"id": unrelated_person},
+            ) == 0
+            assert await scope.session.scalar(
+                text(
+                    "SELECT count(*) FROM audit_entries "
+                    "WHERE tenant_id=:tenant AND operation='person_phone.plaintext_revealed'"
                 ),
                 {"tenant": ids_a.tenant_id},
             ) == 1
