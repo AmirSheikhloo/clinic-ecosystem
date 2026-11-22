@@ -9,7 +9,6 @@ from cryptography.exceptions import InvalidTag
 
 from clinic_ecosystem.infrastructure.persistence.authenticated_uow import (
     VerifiedTenantDbSession,
-    mint_verified_scope_for_tests,
 )
 from clinic_ecosystem.infrastructure.persistence.phone_reveal import (
     PhoneRevealRejected, SqlPhoneReader,
@@ -19,6 +18,7 @@ from clinic_ecosystem.shared_kernel.pii_encryption import (
     EncryptionKey, FieldContext, encrypt_phone,
 )
 from clinic_ecosystem.shared_kernel.tenant_auth import VerifiedHumanPrincipal
+from tests.verified_scope_helpers import mint_verified_scope_for_tests
 
 TENANT = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 OTHER = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
@@ -83,6 +83,8 @@ class _Db:
     async def execute(self, stmt, params=None):
         sql = str(stmt)
         self.executed.append((sql, params or {}))
+        if "pg_current_xact_id_if_assigned()" in sql:
+            return _Scalar(True)
         if "current_setting('app.current_tenant_id'" in sql:
             return _Scalar(self.guc)
         if "FROM user_role_assignments" in sql:
@@ -137,7 +139,7 @@ async def test_authorized_reveal_commits_audit_before_returning_plaintext():
     assert logs[0][1]["operation"] == "person_phone.plaintext_revealed"
     assert "+989121234567" not in repr(logs)
     assert db.commits >= 1
-    assert db.begins >= 1
+    assert db.begins == 0  # no post-reveal transaction restart
 
 
 @pytest.mark.asyncio
