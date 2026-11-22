@@ -16,6 +16,7 @@ from clinic_ecosystem.shared_kernel.pii_contracts import (
     identifier_lookup_hmac,
     require_e164,
     map_identifier_digits,
+    normalized_iran_national_id,
 )
 
 TENANT = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
@@ -173,3 +174,21 @@ def test_digit_mapping_is_not_identifier_type_verification():
     assert map_identifier_digits("۱۲-۳") == "12-3"
     with pytest.raises(TypeError):
         map_identifier_digits(None)  # type: ignore[arg-type]
+
+
+
+@pytest.mark.parametrize("valid", ["0084575948", "۰۰۸۴۵۷۵۹۴۸", "٠٠٨٤٥٧٥٩٤٨"])
+def test_iran_national_id_syntactic_mod11_preserves_leading_zeroes(valid):
+    assert normalized_iran_national_id(valid) == "0084575948"
+
+
+@pytest.mark.parametrize("bad", ["0084575949", "0000000000", "1111111111", "008457594", "00845759481", "008 4575948", "008-4575948", "abc84575948"])
+def test_iran_national_id_rejects_invalid_checksum_or_unapproved_separators(bad):
+    with pytest.raises(ValueError):
+        normalized_iran_national_id(bad)
+
+
+def test_iran_national_id_validation_does_not_assert_official_verification():
+    normalized = normalized_iran_national_id("۰۰۸۴۵۷۵۹۴۸")
+    assert _input(normalized).endswith(b"|0084575948")
+    # No verification timestamp, official source, or identity ownership follows.
