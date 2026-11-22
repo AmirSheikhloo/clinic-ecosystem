@@ -81,11 +81,38 @@ async def run_async_migrations() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-    async with connectable.connect() as connection:
-        await connection.execute(text(f'SET ROLE "{MIGRATOR_ROLE}"'))
-        await connection.run_sync(do_run_migrations)
-        await connection.commit()
-    await connectable.dispose()
+    try:
+        async with connectable.connect() as connection:
+            role_set = False
+            primary_error: BaseException | None = None
+            try:
+                await connection.execute(text(f'SET ROLE "{MIGRATOR_ROLE}"'))
+                role_set = True
+                await connection.run_sync(do_run_migrations)
+                await connection.commit()
+            except BaseException as exc:
+                primary_error = exc
+                raise
+            finally:
+                try:
+                    # First clear SQLSTATE 25P02 on the SAME connection.
+                    await connection.rollback()
+                    if role_set:
+                        await connection.execute(text("RESET ROLE"))
+                        await connection.commit()
+                except Exception:
+                    if primary_error is None:
+                        # Cleanup failure on an otherwise successful migration
+                        # must abort and never be represented as success.
+                        raise
+                    import logging
+                    logging.getLogger("clinic_ecosystem.migrations").exception(
+                        "migrator connection cleanup failed after primary error"
+                    )
+                    # Preserve the original migration/permission exception.
+                    # NullPool discards this connection on context exit.
+    finally:
+        await connectable.dispose()
 
 
 def run_migrations_online() -> None:
