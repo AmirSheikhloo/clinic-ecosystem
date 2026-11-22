@@ -147,8 +147,7 @@ class SqlPhoneVault:
     ) -> None:
         if type(scope) is not VerifiedTenantDbSession:
             raise TypeError("verified tenant DB scope is mandatory")
-        if getattr(scope, "_auth", None) is None:
-            raise TypeError("verified tenant DB scope is mandatory")
+        scope.assert_provenance()
         phone_field_type, phone_issuing_authority = canonical_aad_tokens(
             phone_field_type, phone_issuing_authority
         )
