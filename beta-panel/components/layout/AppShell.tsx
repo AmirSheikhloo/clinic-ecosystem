@@ -14,7 +14,8 @@ const NAV = [
   { href: "/dashboard", label: "داشبورد", icon: "◆" },
   { href: "/desk", label: "میز پذیرش", icon: "▣" },
   { href: "/patients", label: "بیماران", icon: "◎" },
-  { href: "/appointments", label: "نوبت‌ها", icon: "▤" },
+  // Keep exact E2E-accessible name for appointments navigation.
+  { href: "/appointments", label: "نوبت‌های روز", icon: "▤" },
   { href: "/catalog", label: "فهرست خدمات", icon: "▥" },
 ];
 
