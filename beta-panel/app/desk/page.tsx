@@ -474,19 +474,19 @@ export default function DeskPage() {
   return (
     <main className="space-y-8 animate-rise" data-testid="desk-page">
       <header>
-        <h1 className="text-2xl font-bold text-[var(--color-sea-deep)]">میز پذیرش</h1>
-        <p className="text-[var(--color-ink)]/70">
-          جستجو/ثبت بیمار مصنوعی، انتخاب خدمت و منابع معتبر، ثبت نوبت دستی
+        <h1 className="text-2xl font-bold text-[var(--ds-primary-strong)]">میز پذیرش</h1>
+        <p className="text-[var(--ds-text-muted)]">
+          جستجو/ثبت بیمار مصنوعی، انتخاب خدمت و منابع معتبر، ثبت نوبت دستی — ارقام نمایشی لاتین
         </p>
       </header>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4 rounded-2xl border border-[#d7e0ea] bg-white/90 p-5">
+        <div className="ds-card space-y-4 p-5">
           <h2 className="font-semibold">جستجوی بیمار</h2>
           <div className="flex gap-2">
             <input
               data-testid="patient-search-query"
-              className="flex-1 rounded-lg border border-[#c9d5e1] px-3 py-2"
+              className="ds-input flex-1"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="نام یا نام خانوادگی"
@@ -495,7 +495,7 @@ export default function DeskPage() {
               type="button"
               data-testid="patient-search-submit"
               onClick={searchPatients}
-              className="rounded-lg bg-[var(--color-sea)] px-4 py-2 text-white"
+              className="ds-btn ds-btn-primary"
             >
               جستجو
             </button>
@@ -567,7 +567,7 @@ export default function DeskPage() {
 
         <form
           onSubmit={submitAppointment}
-          className="space-y-4 rounded-2xl border border-[#d7e0ea] bg-white/90 p-5"
+          className="ds-card space-y-4 p-5"
         >
           <h2 className="font-semibold">ثبت نوبت دستی</h2>
           <p
@@ -668,7 +668,7 @@ export default function DeskPage() {
             type="submit"
             data-testid="appointment-submit"
             disabled={!canSubmit}
-            className="w-full rounded-lg bg-[var(--color-sea)] px-4 py-2.5 font-medium text-white disabled:opacity-60"
+            className="ds-btn ds-btn-primary w-full"
           >
             {submitting && !pendingConflicts ? "در حال ثبت…" : "ثبت نوبت"}
           </button>

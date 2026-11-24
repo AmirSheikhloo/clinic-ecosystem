@@ -13,6 +13,7 @@ import secrets
 import signal
 import socket
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -201,7 +202,7 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
     api_log = (artifact_dir / "api.log").open("w", encoding="utf-8")
     api_proc = subprocess.Popen(
         [
-            "python",
+            sys.executable,
             "-m",
             "uvicorn",
             "clinic_ecosystem.presentation.http.app:create_app",

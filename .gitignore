@@ -53,3 +53,4 @@ credentials/
 # Real patient data
 patient-data/
 real-patient-data/
+P03_HANDOFF/beta_panel_preview/preview.env

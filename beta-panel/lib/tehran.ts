@@ -1,5 +1,7 @@
 /** Shared Asia/Tehran wall-clock helpers for reception UI. */
 
+import { formatJalaliDateTime } from "./format/jalali";
+
 export const TEHRAN_TZ = "Asia/Tehran";
 
 function tehranParts(date: Date): Record<string, string> {
@@ -42,21 +44,25 @@ export function tehranTodayYmd(now: Date = new Date()): string {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+/** Shift a Tehran YMD by ±days using Gregorian calendar arithmetic (UTC noon anchor). */
+export function shiftTehranYmd(ymd: string, deltaDays: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  return `${String(next.getUTCFullYear()).padStart(4, "0")}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
+}
+
 /** Inclusive Tehran day bounds as UTC ISO start (00:00) and exclusive end (next midnight). */
 export function tehranDayBoundsUtc(dateYmd: string): { start: string; end: string } {
   const start = tehranLocalToUtcIso(`${dateYmd}T00:00`);
-  const [y, m, d] = dateYmd.split("-").map(Number);
-  const next = new Date(Date.UTC(y, m - 1, d + 1));
-  const nextYmd = `${String(next.getUTCFullYear()).padStart(4, "0")}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
-  // Using calendar arithmetic on the YMD components keeps midnight boundaries stable.
+  const nextYmd = shiftTehranYmd(dateYmd, 1);
   const end = tehranLocalToUtcIso(`${nextYmd}T00:00`);
   return { start, end };
 }
 
+/**
+ * Display helper: Jalali calendar in Asia/Tehran with Latin digits 0–9.
+ * API/DB contracts remain Gregorian/UTC; this is presentation only.
+ */
 export function formatTehran(isoUtc: string): string {
-  return new Intl.DateTimeFormat("fa-IR", {
-    timeZone: TEHRAN_TZ,
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(isoUtc));
+  return formatJalaliDateTime(isoUtc);
 }

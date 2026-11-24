@@ -2,7 +2,13 @@
 
 import { CSRF_COOKIE } from "./constants";
 
-export { formatTehran, tehranLocalToUtcIso, tehranTodayYmd, tehranDayBoundsUtc } from "./tehran";
+export {
+  formatTehran,
+  tehranLocalToUtcIso,
+  tehranTodayYmd,
+  tehranDayBoundsUtc,
+  shiftTehranYmd,
+} from "./tehran";
 export {
   bookingFingerprint,
   IdempotencyKeyStore,
