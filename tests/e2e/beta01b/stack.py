@@ -27,7 +27,12 @@ from tests.integration.alembic_runner import upgrade_tenant_plane_async
 from tests.integration.beta01b_seed import (
     TEST_RECEPTIONIST_PASSWORD,
     TEST_UNAUTHORIZED_PASSWORD,
-    seed_beta01b_reception,
+)
+from tests.integration.beta02_seed import (
+    DEPUTY_PASSWORD,
+    MANAGER_PASSWORD,
+    OWNER_PASSWORD,
+    seed_beta02_operations,
 )
 from tests.integration.conftest import (
     DbEndpoint,
@@ -67,6 +72,12 @@ class BrowserStack:
     receptionist_password: str
     unauthorized_login: str
     unauthorized_password: str
+    owner_login: str
+    owner_password: str
+    manager_login: str
+    manager_password: str
+    deputy_login: str
+    deputy_password: str
     service_name: str
     resource_name: str
     tenant_a_id: str
@@ -87,6 +98,12 @@ class BrowserStack:
                     f"BETA01B_RECEPTIONIST_PASSWORD={self.receptionist_password}",
                     f"BETA01B_UNAUTHORIZED_LOGIN={self.unauthorized_login}",
                     f"BETA01B_UNAUTHORIZED_PASSWORD={self.unauthorized_password}",
+                    f"BETA02_OWNER_LOGIN={self.owner_login}",
+                    f"BETA02_OWNER_PASSWORD={self.owner_password}",
+                    f"BETA02_MANAGER_LOGIN={self.manager_login}",
+                    f"BETA02_MANAGER_PASSWORD={self.manager_password}",
+                    f"BETA02_DEPUTY_LOGIN={self.deputy_login}",
+                    f"BETA02_DEPUTY_PASSWORD={self.deputy_password}",
                     f"BETA01B_SERVICE_NAME={self.service_name}",
                     f"BETA01B_RESOURCE_NAME={self.resource_name}",
                     f"BETA01B_TENANT_A_ID={self.tenant_a_id}",
@@ -170,11 +187,12 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
         await upgrade_tenant_plane_async(migrator.sqlalchemy_async_url())
         conn = await asyncpg.connect(migrator.asyncpg_dsn())
         try:
-            return await seed_beta01b_reception(conn)
+            return await seed_beta02_operations(conn)
         finally:
             await conn.close()
 
-    seed = asyncio.run(_migrate_and_seed())
+    ops_seed = asyncio.run(_migrate_and_seed())
+    seed = ops_seed.base
 
     app_url = (
         f"postgresql+asyncpg://{quote_plus('tp_app_login')}:"
@@ -248,6 +266,12 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
         receptionist_password=TEST_RECEPTIONIST_PASSWORD,
         unauthorized_login=seed.unauthorized_login,
         unauthorized_password=TEST_UNAUTHORIZED_PASSWORD,
+        owner_login=ops_seed.owner_login,
+        owner_password=OWNER_PASSWORD,
+        manager_login=ops_seed.manager_login,
+        manager_password=MANAGER_PASSWORD,
+        deputy_login=ops_seed.deputy_login,
+        deputy_password=DEPUTY_PASSWORD,
         service_name="Tenant A Consultation",
         resource_name="Room Alpha",
         tenant_a_id=str(seed.tenant_a_id),
