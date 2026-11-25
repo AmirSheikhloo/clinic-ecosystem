@@ -19,7 +19,7 @@ test("manager: staff directory create, login provisioning is opt-in, edit, deact
   await page.getByTestId("staff-add").click();
   await expect(page.getByTestId("staff-form-dialog")).toBeVisible();
   await expect(page.getByTestId("staff-create-login")).not.toBeChecked();
-  await expect(page.getByTestId("login-fields")).toHaveCount(0);
+  await expect(page.getByTestId("login-fields")).toBeHidden();
   await page.getByTestId("staff-first-name").fill("Synthetic");
   await page.getByTestId("staff-last-name").fill(staffLast);
   await page.getByTestId("staff-kind").selectOption("DOCTOR");
@@ -32,14 +32,14 @@ test("manager: staff directory create, login provisioning is opt-in, edit, deact
   const row = page.getByTestId("staff-row").filter({ hasText: staffLast });
   await expect(row).toHaveCount(1);
   await expect(row).toContainText("پزشک");
-  await expect(row).toContainText("ندارد");
+  await expect(row).toContainText("بدون حساب");
 
   await row.getByTestId("staff-provision").click();
   await page.getByTestId("staff-login-identifier").fill(loginName);
   await page.getByTestId("staff-login-password").fill(`Synthetic-Pass-${RUN}!!`);
   await page.getByTestId("provision-submit").click();
   await expectToast(page, "حساب ورود بدون نقش ایجاد شد");
-  await expect(row).not.toContainText("ندارد");
+  await expect(row).not.toContainText("بدون حساب");
   await expect(row).toContainText(loginName);
 
   await row.getByTestId("staff-edit").click();
@@ -49,6 +49,7 @@ test("manager: staff directory create, login provisioning is opt-in, edit, deact
   await expect(row).toContainText(`MCX${RUN}`);
 
   await row.getByTestId("staff-toggle").click();
+  await page.getByTestId("staff-toggle-dialog-confirm").click();
   await expectToast(page, "عضو غیرفعال شد");
   await expect(row).toContainText("غیرفعال");
   await assertNoNonLatinDigits(page);
@@ -77,18 +78,19 @@ test("manager: roles, assignment, effective permissions, account suspension", as
   await account.getByTestId("account-roles").click();
   await page.getByTestId(`assign-role-${roleCode}`).check();
   await page.getByTestId("account-roles-save").click();
+  await page.getByTestId("account-roles-apply-dialog-confirm").click();
   await expectToast(page, "نقش‌های کاربر به‌روزرسانی شد");
-  await expect(account).toContainText(roleCode);
+  await expect(account).toContainText(`Synthetic role ${RUN}`);
 
   await account.getByTestId("account-effective").click();
   const effective = page.getByTestId("effective-dialog");
   await expect(effective.getByTestId("effective-row")).toHaveCount(1);
-  await expect(effective).toContainText("BETA02_STAFF_VIEW");
+  await expect(effective).toContainText("مشاهده کارکنان");
   await page.keyboard.press("Escape");
   await expect(effective).toHaveCount(0);
 
   await account.getByTestId("account-status").click();
-  await page.getByTestId("account-status-confirm").click();
+  await page.getByTestId("account-status-dialog-confirm").click();
   await expectToast(page, "حساب معلق شد");
   await expect(account).toContainText("معلق");
 
@@ -107,7 +109,7 @@ test("owner: governance editing is available only with the manage permission", a
 
 test("manager: services and resources admin with requirements", async ({ page }) => {
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
-  await gotoNav(page, "فهرست خدمات", "catalog-page");
+  await gotoNav(page, "خدمات و منابع", "catalog-page");
   await page.getByTestId("catalog-manage-link").click();
   await expect(page.getByTestId("catalog-admin-page")).toBeVisible();
 

@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { tehranTodayYmd } from "../lib/tehran";
 import { assertHttpOnlySession } from "./helpers";
+import { fillJalaliDateTime } from "./jalali-helpers";
 
 const CSRF = "ce_beta_csrf";
 
@@ -99,7 +100,7 @@ export async function deskBook(page: Page, startLocal: string) {
   const resource = page.getByTestId("resource-option").filter({ hasText: resourceName });
   await expect(resource).toBeVisible();
   await resource.locator('input[type="checkbox"]').check();
-  await page.getByTestId("appointment-start").fill(startLocal);
+  await fillJalaliDateTime(page, "appointment-start", startLocal);
   await expect(page.getByTestId("appointment-submit")).toBeEnabled({ timeout: 15_000 });
   await page.getByTestId("appointment-submit").click();
 }

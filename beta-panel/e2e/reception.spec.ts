@@ -4,6 +4,8 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { tehranTodayYmd } from "../lib/tehran";
+import { navLink } from "./helpers";
+import { fillJalaliDateTime } from "./jalali-helpers";
 
 const loginId = () => process.env.BETA01B_RECEPTIONIST_LOGIN || "";
 const password = () => process.env.BETA01B_RECEPTIONIST_PASSWORD || "";
@@ -75,7 +77,7 @@ async function bookConsultation(page: Page, startLocal: string) {
   const resource = page.getByTestId("resource-option").filter({ hasText: resourceName() });
   await expect(resource).toBeVisible();
   await resource.locator('input[type="checkbox"]').check();
-  await page.getByTestId("appointment-start").fill(startLocal);
+  await fillJalaliDateTime(page, "appointment-start", startLocal);
   await expect(page.getByTestId("appointment-submit")).toBeEnabled({ timeout: 15_000 });
   await page.getByTestId("appointment-submit").click();
 }
@@ -139,7 +141,7 @@ test("BETA-01B reception browser acceptance gate", async ({ page, request }) => 
   expect(statusAfterDup).toMatch(/بازیابی تکرار|نوبت ثبت شد/);
 
   // 11) Daily list shows the appointment once for this synthetic patient
-  await page.getByRole("link", { name: "نوبت‌های روز" }).click();
+  await navLink(page, "تقویم نوبت‌ها").click();
   await expect(page).toHaveURL(/\/appointments/);
   await expect(page.getByTestId("appointments-page")).toBeVisible();
   const rows = page.getByTestId("appointment-row").filter({ hasText: synthFirst });
@@ -147,7 +149,7 @@ test("BETA-01B reception browser acceptance gate", async ({ page, request }) => 
   await expect(rows.first()).toContainText(synthLast);
 
   // Overlap confirmation (receptionist has ALLOW_MANUAL_OVERBOOKING)
-  await page.getByRole("link", { name: "میز پذیرش" }).click();
+  await navLink(page, "میز پذیرش").click();
   await expect(page.getByTestId("desk-page")).toBeVisible();
   await registerAndSelectPatient(page, "Overlap", `Case${Date.now().toString().slice(-5)}`);
   await bookConsultation(page, startLocal);

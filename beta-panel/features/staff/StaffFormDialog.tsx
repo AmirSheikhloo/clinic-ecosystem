@@ -99,7 +99,7 @@ export function StaffFormDialog({ staff, canProvisionLogin, onClose, onSaved }: 
               data-testid="staff-create-login"
             />
             <Collapsible open={withLogin}>
-              <LoginFields idPrefix="new" login={login} password={password} onLoginChange={setLogin} onPasswordChange={setPassword} />
+              <LoginFields idPrefix="new" active={withLogin} login={login} password={password} onLoginChange={setLogin} onPasswordChange={setPassword} />
             </Collapsible>
           </div>
         ) : null}

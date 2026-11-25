@@ -6,6 +6,7 @@ import {
   assertNoNonLatinDigits,
   assertRtlDocument,
   loginAsReceptionist,
+  navLink,
   requireCreds,
 } from "./helpers";
 
@@ -19,7 +20,7 @@ test("workspace screens load authorized synthetic data with Latin digits", async
   await assertRtlDocument(page);
 
   // Dashboard
-  await page.getByRole("link", { name: "داشبورد" }).click();
+  await navLink(page, "داشبورد").click();
   await expect(page).toHaveURL(/\/dashboard/);
   await expect(page.getByTestId("dashboard-page")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("dashboard-count")).toBeVisible();
@@ -28,10 +29,11 @@ test("workspace screens load authorized synthetic data with Latin digits", async
   await assertNoNonLatinDigits(page);
 
   // Patients — register + search
-  await page.getByRole("link", { name: "بیماران" }).click();
+  await navLink(page, "بیماران").click();
   await expect(page.getByTestId("patients-page")).toBeVisible({ timeout: 30_000 });
   const first = "SynWS";
   const last = `P${Date.now().toString().slice(-5)}`;
+  await page.getByTestId("patients-new").click();
   await page.getByTestId("patients-first-name").fill(first);
   await page.getByTestId("patients-last-name").fill(last);
   await page.getByTestId("patients-register-submit").click();
@@ -39,14 +41,14 @@ test("workspace screens load authorized synthetic data with Latin digits", async
     timeout: 30_000,
   });
   await page.getByTestId("patients-search-query").fill(first);
-  await page.getByRole("button", { name: "جستجو" }).click();
+  await page.getByTestId("patients-search-submit").click();
   await expect(page.getByTestId("patients-result-row").first()).toContainText(first, {
     timeout: 30_000,
   });
   await assertNoNonLatinDigits(page);
 
   // Appointments
-  await page.getByRole("link", { name: "نوبت‌های روز" }).click();
+  await navLink(page, "تقویم نوبت‌ها").click();
   await expect(page.getByTestId("appointments-page")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("appointments-count")).toBeVisible();
   const countText = await page.getByTestId("appointments-count").innerText();
@@ -54,7 +56,7 @@ test("workspace screens load authorized synthetic data with Latin digits", async
   await assertNoNonLatinDigits(page);
 
   // Catalog
-  await page.getByRole("link", { name: "فهرست خدمات" }).click();
+  await navLink(page, "خدمات و منابع").click();
   await expect(page.getByTestId("catalog-page")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Tenant A Consultation")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Room Alpha")).toBeVisible();

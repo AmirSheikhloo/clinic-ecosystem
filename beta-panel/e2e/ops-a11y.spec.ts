@@ -3,7 +3,7 @@
  * operations screens (staff, access, patients, calendar, catalog admin, dashboard).
  */
 import { expect, test, type Page } from "@playwright/test";
-import { assertNoNonLatinDigits, assertRtlDocument } from "./helpers";
+import { applyTheme, assertNoNonLatinDigits, assertRtlDocument } from "./helpers";
 import { credsFromEnv, loginAs } from "./ops-helpers";
 
 test.describe.configure({ mode: "serial" });
@@ -45,12 +45,8 @@ test("every operations page renders in each theme with labelled controls and Lat
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
   await assertRtlDocument(page);
   for (const theme of THEMES) {
-    await page.getByTestId("theme-select").selectOption(theme);
-    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     for (const appearance of ["light", "dark"] as const) {
-      const current = await page.locator("html").getAttribute("data-appearance");
-      if (current !== appearance) await page.getByTestId("appearance-toggle").click();
-      await expect(page.locator("html")).toHaveAttribute("data-appearance", appearance);
+      await applyTheme(page, theme, appearance);
       for (const { path, testId } of PAGES) {
         await page.goto(path);
         await expect(page.getByTestId(testId)).toBeVisible({ timeout: 30_000 });
@@ -130,6 +126,7 @@ test("theme preference lives in localStorage; no tokens or patient data are stor
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
   await page.goto("/patients");
   await expect(page.getByTestId("patients-page")).toBeVisible();
+  await page.getByTestId("patients-new").click();
   await page.getByTestId("patients-first-name").fill("StorageProbe");
   await page.getByTestId("patients-last-name").fill("Check");
   const dump = await page.evaluate(() =>

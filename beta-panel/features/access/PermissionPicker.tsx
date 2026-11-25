@@ -1,5 +1,6 @@
 import { CheckboxField } from "@/components/forms/CheckboxField";
 import { Button } from "@/components/ui/Button";
+import { permissionHint } from "./permission-hints";
 import { CATEGORY_LABEL, groupByCategory, toggleInSet, type PermissionDef } from "./types";
 
 type Props = {
@@ -48,7 +49,7 @@ export function PermissionPicker({ catalog, selected, onChange, disabledCodes }:
                 key={item.code}
                 id={`perm-${item.code}`}
                 label={item.label_fa}
-                hint={item.description}
+                hint={permissionHint(item.code)}
                 checked={selected.includes(item.code)}
                 disabled={disabledCodes?.has(item.code) && !selected.includes(item.code)}
                 onChange={(e) => onChange(toggleInSet(selected, item.code, e.target.checked))}

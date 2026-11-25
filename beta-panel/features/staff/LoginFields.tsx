@@ -7,9 +7,11 @@ type Props = {
   onLoginChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   idPrefix: string;
+  /** When false the fields are disabled so a collapsed section never blocks form validation. */
+  active?: boolean;
 };
 
-export function LoginFields({ login, password, onLoginChange, onPasswordChange, idPrefix }: Props) {
+export function LoginFields({ login, password, onLoginChange, onPasswordChange, idPrefix, active = true }: Props) {
   return (
     <div className="grid gap-3 sm:grid-cols-2" data-testid="login-fields">
       <TextField
@@ -19,7 +21,8 @@ export function LoginFields({ login, password, onLoginChange, onPasswordChange, 
         onChange={(e) => onLoginChange(e.target.value)}
         autoComplete="off"
         maxLength={254}
-        required
+        required={active}
+        disabled={!active}
         data-testid="staff-login-identifier"
       />
       <TextField
@@ -31,7 +34,8 @@ export function LoginFields({ login, password, onLoginChange, onPasswordChange, 
         autoComplete="new-password"
         minLength={MIN_PASSWORD_LENGTH}
         maxLength={128}
-        required
+        required={active}
+        disabled={!active}
         data-testid="staff-login-password"
       />
       <p className="text-xs text-[var(--ds-text-muted)] sm:col-span-2 ds-hint">

@@ -2,6 +2,10 @@
 
 import { FormEvent, Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Alert } from "@/components/feedback/Alert";
+import { TextField } from "@/components/forms/TextField";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { apiFetch, ensureCsrf, formatApiError, type ApiErrorBody } from "@/lib/client";
 
 function LoginForm() {
@@ -45,58 +49,48 @@ function LoginForm() {
 
   return (
     <main className="mx-auto flex min-h-[80vh] max-w-md flex-col justify-center animate-rise">
-      <div className="mb-8 text-center">
-        <p className="text-3xl font-bold text-[var(--color-sea-deep)]">کلینیک اکوسیستم</p>
-        <p className="mt-2 text-[var(--color-ink)]/70">ورود کارکنان — محیط توسعه BETA-01B</p>
+      <div className="mb-8 flex flex-col items-center gap-3 text-center">
+        <span className="ds-brand-mark !h-12 !w-12 !bg-[var(--ds-primary)] text-[var(--ds-on-primary)]" aria-hidden="true">
+          <Icon name="stethoscope" size="lg" />
+        </span>
+        <h1 className="text-2xl font-bold text-[var(--ds-heading)]">کلینیک اکوسیستم</h1>
+        <p className="text-sm text-[var(--ds-text-muted)]">ورود کارکنان به پنل عملیات</p>
       </div>
-      <form
-        onSubmit={onSubmit}
-        className="space-y-4 rounded-2xl border border-[#d7e0ea] bg-white/90 p-6 shadow-[0_20px_50px_rgba(15,110,140,0.08)]"
-      >
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium">شناسه ورود</span>
-          <input
-            data-testid="login-identifier"
-            className="w-full rounded-lg border border-[#c9d5e1] bg-white px-3 py-2 outline-none focus:border-[var(--color-sea)]"
-            value={login}
-            onChange={(e) => setLogin(e.target.value)}
-            autoComplete="username"
-            required
-          />
-        </label>
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium">رمز عبور</span>
-          <input
-            type="password"
-            data-testid="login-password"
-            className="w-full rounded-lg border border-[#c9d5e1] bg-white px-3 py-2 outline-none focus:border-[var(--color-sea)]"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
-        {(error || expiredHint) && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-[var(--color-alert)]" role="alert">
-            {error || expiredHint}
-          </p>
-        )}
-        <button
-          type="submit"
-          data-testid="login-submit"
-          disabled={busy}
-          className="w-full rounded-lg bg-[var(--color-sea)] px-4 py-2.5 font-medium text-white transition hover:bg-[var(--color-sea-deep)] disabled:opacity-60"
-        >
+      <form onSubmit={onSubmit} className="ds-card space-y-4 p-6" aria-label="ورود به پنل">
+        <TextField
+          label="شناسهٔ ورود"
+          data-testid="login-identifier"
+          value={login}
+          onChange={(e) => setLogin(e.target.value)}
+          autoComplete="username"
+          dir="ltr"
+          className="text-right"
+          required
+        />
+        <TextField
+          label="رمز عبور"
+          type="password"
+          data-testid="login-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          dir="ltr"
+          className="text-right"
+          required
+        />
+        {error || expiredHint ? <Alert tone={error ? "danger" : "warn"} testId="login-message">{error || expiredHint}</Alert> : null}
+        <Button type="submit" loading={busy} data-testid="login-submit" className="w-full">
           {busy ? "در حال ورود…" : "ورود"}
-        </button>
+        </Button>
       </form>
+      <p className="mt-4 text-center text-xs text-[var(--ds-text-muted)]">نسخهٔ آزمایشی: فقط با داده‌های مصنوعی استفاده شود.</p>
     </main>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<p className="text-center text-[var(--color-ink)]/60">بارگذاری…</p>}>
+    <Suspense fallback={null}>
       <LoginForm />
     </Suspense>
   );

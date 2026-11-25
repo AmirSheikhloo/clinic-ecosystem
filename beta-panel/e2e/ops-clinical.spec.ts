@@ -3,7 +3,10 @@
  * against real BFF + API + PG15. Synthetic data only.
  */
 import { expect, test } from "@playwright/test";
+import { jalaliParts } from "../lib/calendar/jalali-grid";
+import { tehranTodayYmd } from "../lib/tehran";
 import { assertNoNonLatinDigits } from "./helpers";
+import { fillJalaliDateTime } from "./jalali-helpers";
 import {
   RUN,
   bff,
@@ -25,6 +28,7 @@ test("manager: patient registry — register, search, profile edit, deactivate",
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
   await gotoNav(page, "بیماران", "patients-page");
 
+  await page.getByTestId("patients-new").click();
   await page.getByTestId("patients-first-name").fill(first);
   await page.getByTestId("patients-last-name").fill(last);
   await page.getByTestId("patients-register-submit").click();
@@ -32,7 +36,7 @@ test("manager: patient registry — register, search, profile edit, deactivate",
   await expectToast(page, "بیمار با موفقیت ثبت شد");
 
   await page.getByTestId("patients-search-query").fill(last);
-  await page.getByRole("button", { name: "جستجو", exact: true }).click();
+  await page.getByTestId("patients-search-submit").click();
   const row = page.getByTestId("patients-result-row").filter({ hasText: last });
   await expect(row).toHaveCount(1);
   await row.getByTestId("patients-open-profile").click();
@@ -58,7 +62,7 @@ test("manager: patient registry — register, search, profile edit, deactivate",
   await expectToast(page, "بیمار غیرفعال شد");
   await page.goto("/patients");
   await page.getByTestId("patients-search-query").fill(last);
-  await page.getByRole("button", { name: "جستجو", exact: true }).click();
+  await page.getByTestId("patients-search-submit").click();
   await expect(page.getByTestId("patients-result-row").filter({ hasText: last })).toHaveCount(0);
   await page.getByTestId("patients-status-filter").selectOption("inactive");
   await expect(page.getByTestId("patients-result-row").filter({ hasText: last })).toHaveCount(1);
@@ -84,7 +88,7 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await page.getByTestId("overlap-confirm").click();
   await expect(page.getByTestId("desk-status")).toContainText("تأیید تداخل", { timeout: 45_000 });
 
-  await gotoNav(page, "نوبت‌های روز", "appointments-page");
+  await gotoNav(page, "تقویم نوبت‌ها", "appointments-page");
   const rowsA = page.getByTestId("appointment-row").filter({ hasText: pLast });
   await expect(rowsA).toHaveCount(1, { timeout: 30_000 });
   await expect(page.getByTestId("appointments-count")).toHaveText(/^\d+$/);
@@ -101,11 +105,11 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await assertNoNonLatinDigits(page);
 
   // Month navigation and Jalali jump work and keep Latin digits.
-  const yearBefore = Number(await page.getByTestId("jalali-year").innerText());
-  await page.getByRole("button", { name: "سال بعد" }).click();
-  await expect(page.getByTestId("jalali-year")).toHaveText(String(yearBefore + 1));
+  const yearBefore = jalaliParts(tehranTodayYmd()).jy;
+  await page.getByTestId("appointments-date").fill(`${yearBefore + 1}/01/15`);
+  await expect(page.getByTestId("calendar-title")).toContainText(String(yearBefore + 1));
   await page.getByTestId("calendar-today").click();
-  await expect(page.getByTestId("jalali-year")).toHaveText(String(yearBefore));
+  await expect(page.getByTestId("calendar-title")).toContainText(String(yearBefore));
 
   // Filter by status narrows to zero without errors.
   await page.getByTestId("view-day").click();
@@ -121,7 +125,7 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await expect(dialog).toContainText(`B${RUN}`);
   await expect(dialog.getByTestId("appointment-allocations")).toContainText("Room Alpha");
   await dialog.getByTestId("appointment-reschedule").click();
-  await dialog.getByTestId("reschedule-start").fill(tehranSlot(0, 19));
+  await fillJalaliDateTime(page, "reschedule-start", tehranSlot(0, 19));
   await dialog.getByTestId("reschedule-submit").click();
   await expectToast(page, "نوبت جابه‌جا شد");
   await expect(page.getByTestId("appointment-dialog")).toHaveCount(0);
@@ -129,7 +133,7 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   // Reschedule back onto A: server demands acknowledgement; dialog lists the conflict.
   await page.getByTestId("appointment-row").filter({ hasText: `B${RUN}` }).getByTestId("appointment-open").click();
   await page.getByTestId("appointment-reschedule").click();
-  await page.getByTestId("reschedule-start").fill(slotA);
+  await fillJalaliDateTime(page, "reschedule-start", slotA);
   await page.getByTestId("reschedule-submit").click();
   await expect(page.getByTestId("overlap-dialog")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("overlap-dialog")).toContainText(`A${RUN}`);

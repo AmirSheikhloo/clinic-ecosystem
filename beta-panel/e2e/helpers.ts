@@ -55,3 +55,23 @@ export async function assertRtlDocument(page: Page) {
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("html")).toHaveAttribute("lang", "fa");
 }
+
+/** Opens the theme menu when needed, applies palette and (optionally) appearance, then closes it. */
+export async function applyTheme(page: Page, theme: string, appearance?: "light" | "dark") {
+  const select = page.getByTestId("theme-select");
+  if (!(await select.isVisible())) await page.getByTestId("theme-menu-button").click();
+  await select.selectOption(theme);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  if (appearance) {
+    const current = await page.locator("html").getAttribute("data-appearance");
+    if (current !== appearance) await page.getByTestId("appearance-toggle").click();
+    await expect(page.locator("html")).toHaveAttribute("data-appearance", appearance);
+  }
+  await page.keyboard.press("Escape");
+  await expect(select).toBeHidden();
+}
+
+/** Main navigation link by its exact accessible name (avoids matching in-page links). */
+export function navLink(page: Page, name: string) {
+  return page.getByRole("navigation", { name: "ناوبری اصلی" }).getByRole("link", { name, exact: true });
+}

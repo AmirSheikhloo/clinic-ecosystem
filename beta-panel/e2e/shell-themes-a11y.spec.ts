@@ -3,6 +3,7 @@
  */
 import { expect, test } from "@playwright/test";
 import {
+  applyTheme,
   assertNoNonLatinDigits,
   assertRtlDocument,
   loginAsReceptionist,
@@ -22,14 +23,8 @@ test("all theme × appearance combinations apply without non-Latin digits", asyn
   await assertRtlDocument(page);
 
   for (const theme of THEMES) {
-    await page.getByTestId("theme-select").selectOption(theme);
-    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     for (const appearance of APPEARANCES) {
-      const current = await page.locator("html").getAttribute("data-appearance");
-      if (current !== appearance) {
-        await page.getByTestId("appearance-toggle").click();
-      }
-      await expect(page.locator("html")).toHaveAttribute("data-appearance", appearance);
+      await applyTheme(page, theme, appearance);
       await assertNoNonLatinDigits(page);
       // Theme preference is non-sensitive localStorage only
       const stored = await page.evaluate(() => ({
