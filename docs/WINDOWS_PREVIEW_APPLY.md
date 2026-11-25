@@ -1,6 +1,6 @@
 # Windows preview apply — clinic panel increment
 
-**Baseline commit:** `2aa3de8bfa7f9e26fd4ab331807c5005784e040b` (`fix/beta01b-security-deps`)  
+**Baseline commit:** `2aa3de8bfa7f9e26fd4ab331807c5005784e040b` (`fix/beta01b-security-deps`)
 **Do not** merge, push, or alter PR #6. Apply only in an isolated local worktree.
 
 ## Apply the binary patch (PowerShell)

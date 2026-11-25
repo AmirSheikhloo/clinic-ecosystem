@@ -1,6 +1,6 @@
 # Clinic Ecosystem — Permanent Engineering Standards
 
-**Scope:** Applies to all new and modified code in this repository’s non-production beta panel and related application increments.  
+**Scope:** Applies to all new and modified code in this repository’s non-production beta panel and related application increments.
 **Authority:** Product Owner instruction (accelerated implementation standards). Does not amend frozen `docs/FINAL_MASTER_SPECIFICATION_v3.0.1_FINAL.txt`.
 
 ## Architecture
