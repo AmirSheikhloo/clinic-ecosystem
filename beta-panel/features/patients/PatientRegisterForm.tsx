@@ -16,7 +16,8 @@ type Props = {
   onBirthDateChange: (value: string) => void;
   busy: boolean;
   onRegister: (event: FormEvent) => void;
-  selected: Patient | null;
+  selected: Pick<Patient, "patient_profile_id" | "first_name" | "last_name"> | null;
+  canOpenProfile?: boolean;
 };
 
 export function PatientRegisterForm({
@@ -29,15 +30,17 @@ export function PatientRegisterForm({
   busy,
   onRegister,
   selected,
+  canOpenProfile = false,
 }: Props) {
   return (
     <Card>
       <form onSubmit={onRegister} className="space-y-3">
         <h3 className="font-semibold">ثبت بیمار مصنوعی</h3>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
           <input
             className="ds-input"
             placeholder="نام"
+            aria-label="نام"
             value={firstName}
             onChange={(e) => onFirstNameChange(e.target.value)}
             required
@@ -46,6 +49,7 @@ export function PatientRegisterForm({
           <input
             className="ds-input"
             placeholder="نام خانوادگی"
+            aria-label="نام خانوادگی"
             value={lastName}
             onChange={(e) => onLastNameChange(e.target.value)}
             required
@@ -68,20 +72,24 @@ export function PatientRegisterForm({
           <p className="text-sm" data-testid="patients-selected">
             انتخاب‌شده: {selected.first_name} {selected.last_name}
           </p>
-          <Link
-            href="/desk"
-            className="ds-btn ds-btn-primary"
-            data-testid="patients-to-desk"
-            onClick={() => {
-              try {
-                sessionStorage.setItem("ce_beta_selected_patient", JSON.stringify(selected));
-              } catch {
-                /* optional handoff only */
-              }
-            }}
-          >
-            ادامه در میز پذیرش
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/desk?patient=${encodeURIComponent(selected.patient_profile_id)}`}
+              className="ds-btn ds-btn-primary"
+              data-testid="patients-to-desk"
+            >
+              ادامه در میز پذیرش
+            </Link>
+            {canOpenProfile && (
+              <Link
+                href={`/patients/${encodeURIComponent(selected.patient_profile_id)}`}
+                className="ds-btn ds-btn-ghost"
+                data-testid="patients-to-profile"
+              >
+                مشاهدهٔ پرونده
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </Card>

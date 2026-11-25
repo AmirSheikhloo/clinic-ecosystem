@@ -1,171 +1,119 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { useMemo, useState } from "react";
 import { Alert } from "@/components/feedback/Alert";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import {
-  apiFetch,
-  formatApiError,
-  formatTehran,
-  tehranDayBoundsUtc,
-  tehranTodayYmd,
-  type ApiErrorBody,
-} from "@/lib/client";
+import { useSession } from "@/components/session/SessionProvider";
+import { DataTable } from "@/components/tables/DataTable";
+import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { buildQuery } from "@/lib/api";
+import { formatTehran, tehranDayBoundsUtc, tehranTodayYmd } from "@/lib/client";
 import { formatCount } from "@/lib/format/numbers";
 import { formatJalaliFromTehranYmd, formatTehranTime } from "@/lib/format/jalali";
 import { appointmentStatusLabel } from "@/lib/format/status";
+import { P } from "@/lib/permissions";
+import { useApiQuery } from "@/lib/use-api-query";
+import type { CalendarResponse } from "@/features/appointments/types";
 
-type AppointmentItem = {
-  appointment_id: string;
-  patient_first_name: string;
-  patient_last_name: string;
-  service_name: string;
-  status: string;
-  scheduled_start_at_utc: string;
-  scheduled_end_at_utc: string;
+type Summary = {
+  appointments: { total: number; by_status: Record<string, number> } | null;
+  patients_active: number | null;
+  staff_active: number | null;
+  services_active: number | null;
+  resources_active: number | null;
 };
 
+const count = (value: number | null | undefined, loading: boolean) =>
+  loading ? "…" : value === null || value === undefined ? "—" : formatCount(value);
+
 export function DashboardView() {
-  const router = useRouter();
+  const { can, status } = useSession();
+  const [refresh, setRefresh] = useState(0);
   const today = tehranTodayYmd();
-  const [items, setItems] = useState<AppointmentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { start, end } = useMemo(() => tehranDayBoundsUtc(today), [today]);
+  const range = { start_at_utc: start, end_at_utc: end };
+  const ready = status === "ready";
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const me = await apiFetch("/api/auth/me");
-        if (me.status === 401) {
-          router.replace("/login?expired=1");
-          return;
-        }
-        if (!me.ok) {
-          setError("نشست معتبر نیست");
-          return;
-        }
-        const { start, end } = tehranDayBoundsUtc(today);
-        const response = await apiFetch(
-          `/api/appointments?start_at_utc=${encodeURIComponent(start)}&end_at_utc=${encodeURIComponent(end)}`,
-        );
-        if (response.status === 401) {
-          router.replace("/login?expired=1");
-          return;
-        }
-        const data = (await response.json().catch(() => ({}))) as ApiErrorBody & {
-          items?: AppointmentItem[];
-        };
-        if (cancelled) return;
-        if (!response.ok) {
-          setError(formatApiError(data, "بارگذاری نوبت‌های امروز ناموفق بود"));
-          setItems([]);
-          return;
-        }
-        setItems(data.items || []);
-      } catch {
-        if (!cancelled) {
-          setError("ارتباط برای بارگذاری داشبورد برقرار نشد");
-          setItems([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [router, today, refreshKey]);
+  const summary = useApiQuery<Summary>(
+    ready ? `/api/v1/dashboard/summary${buildQuery(range)}` : null,
+    "بارگذاری آمار داشبورد ناموفق بود",
+    refresh,
+  );
+  const upcoming = useApiQuery<CalendarResponse>(
+    ready && can(P.appointmentsList) ? `/api/v1/appointments/calendar${buildQuery({ ...range, limit: 8 })}` : null,
+    "بارگذاری نوبت‌های امروز ناموفق بود",
+    refresh,
+  );
 
-  const upcoming = items
-    .slice()
-    .sort((a, b) => a.scheduled_start_at_utc.localeCompare(b.scheduled_start_at_utc))
-    .slice(0, 8);
+  const loading = status === "loading" || (summary.loading && !summary.data);
+  const data = summary.data;
+  const byStatus = data?.appointments?.by_status ?? {};
 
   return (
     <main className="space-y-6 animate-rise" data-testid="dashboard-page">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-[var(--ds-primary-strong)]">داشبورد پذیرش</h2>
-          <p className="text-[var(--ds-text-muted)]">
-            آمار روز جاری از پاسخ‌های مجاز سرور — {formatJalaliFromTehranYmd(today)}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="ghost" onClick={() => setRefreshKey((k) => k + 1)}>
-            تازه‌سازی
-          </Button>
-          <Link href="/desk" className="ds-btn ds-btn-primary">
-            میز پذیرش
-          </Link>
-          <Link href="/patients" className="ds-btn ds-btn-ghost">
-            ثبت بیمار
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="داشبورد پذیرش"
+        description={`آمار واقعی روز جاری از دادهٔ مجاز شما — ${formatJalaliFromTehranYmd(today)}`}
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setRefresh((v) => v + 1)}>تازه‌سازی</Button>
+            {can(P.appointmentsSchedule) && <Link href="/desk" className="ds-btn ds-btn-primary">میز پذیرش</Link>}
+            {can(P.patientsRegister) && <Link href="/patients" className="ds-btn ds-btn-ghost">ثبت بیمار</Link>}
+          </>
+        }
+      />
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <p className="text-sm text-[var(--ds-text-muted)]">نوبت‌های امروز</p>
-          <p className="mt-2 text-3xl font-bold tabular-nums" data-testid="dashboard-count">
-            {loading ? "…" : formatCount(items.length)}
-          </p>
-        </Card>
-        <Card>
-          <p className="text-sm text-[var(--ds-text-muted)]">نوبت‌های پیش‌رو (نمایش)</p>
-          <p className="mt-2 text-3xl font-bold tabular-nums">
-            {loading ? "…" : formatCount(upcoming.length)}
-          </p>
-        </Card>
-        <Card>
-          <p className="text-sm text-[var(--ds-text-muted)]">محدوده زمانی</p>
-          <p className="mt-2 text-sm">Asia/Tehran — فقط داده مجاز API</p>
-        </Card>
+      {summary.error && <Alert>{summary.error.message}</Alert>}
+
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="شاخص‌ها">
+        {(loading || data?.appointments) && (
+          <StatCard label="نوبت‌های امروز" value={count(data?.appointments?.total, loading)} testId="dashboard-count" />
+        )}
+        {(loading || data?.patients_active !== null) && <StatCard label="بیماران فعال" value={count(data?.patients_active, loading)} testId="dashboard-patients" />}
+        {(loading || data?.staff_active !== null) && <StatCard label="کارکنان فعال" value={count(data?.staff_active, loading)} testId="dashboard-staff" />}
+        {(loading || data?.services_active !== null) && <StatCard label="خدمات فعال" value={count(data?.services_active, loading)} testId="dashboard-services" />}
+        {(loading || data?.resources_active !== null) && <StatCard label="منابع فعال" value={count(data?.resources_active, loading)} testId="dashboard-resources" />}
       </section>
 
-      {loading && <p className="text-[var(--ds-text-muted)]">در حال بارگذاری…</p>}
-      {error && <Alert>{error}</Alert>}
-      {!loading && !error && items.length === 0 && (
-        <EmptyState
-          title="نوبتی برای امروز ثبت نشده است"
-          description="از میز پذیرش می‌توانید نوبت دستی ثبت کنید."
-        />
+      {data?.appointments && Object.keys(byStatus).length > 0 && (
+        <section aria-label="وضعیت نوبت‌های امروز" className="flex flex-wrap gap-2" data-testid="dashboard-by-status">
+          {Object.entries(byStatus).map(([key, value]) => (
+            <StatusBadge key={key}>{appointmentStatusLabel(key)}: <span className="ms-1 tabular-nums">{formatCount(value)}</span></StatusBadge>
+          ))}
+        </section>
       )}
-      {!loading && upcoming.length > 0 && (
-        <Card className="overflow-x-auto p-0">
-          <table className="min-w-full text-sm">
-            <thead className="bg-[var(--ds-surface-muted)] text-[var(--ds-text-muted)]">
-              <tr>
-                <th className="px-4 py-3 text-right font-medium">زمان</th>
-                <th className="px-4 py-3 text-right font-medium">بیمار</th>
-                <th className="px-4 py-3 text-right font-medium">خدمت</th>
-                <th className="px-4 py-3 text-right font-medium">وضعیت</th>
-              </tr>
-            </thead>
-            <tbody>
-              {upcoming.map((item) => (
-                <tr key={item.appointment_id} className="border-t border-[var(--ds-border)]">
-                  <td className="px-4 py-3 tabular-nums" title={formatTehran(item.scheduled_start_at_utc)}>
-                    {formatTehranTime(item.scheduled_start_at_utc)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {item.patient_first_name} {item.patient_last_name}
-                  </td>
-                  <td className="px-4 py-3">{item.service_name}</td>
-                  <td className="px-4 py-3">{appointmentStatusLabel(item.status)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+
+      {can(P.appointmentsList) && (
+        <section className="space-y-3" aria-label="نوبت‌های پیش‌رو">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">نوبت‌های امروز</h3>
+            <Link href="/appointments" className="text-sm text-[var(--ds-primary)] hover:underline">مشاهدهٔ تقویم</Link>
+          </div>
+          {upcoming.error && <Alert>{upcoming.error.message}</Alert>}
+          {upcoming.loading && !upcoming.data && <p className="text-[var(--ds-text-muted)]">در حال بارگذاری…</p>}
+          {upcoming.data && (
+            <DataTable
+              rows={upcoming.data.items}
+              rowKey={(r) => r.appointment_id}
+              rowTestId="dashboard-row"
+              empty={<EmptyState title="نوبتی برای امروز ثبت نشده است" description="از میز پذیرش می‌توانید نوبت دستی ثبت کنید." />}
+              columns={[
+                { key: "time", header: "زمان", className: "tabular-nums", cell: (r) => <span title={formatTehran(r.scheduled_start_at_utc)}>{formatTehranTime(r.scheduled_start_at_utc)}</span> },
+                { key: "patient", header: "بیمار", cell: (r) => `${r.patient_first_name} ${r.patient_last_name}` },
+                { key: "service", header: "خدمت", cell: (r) => r.service_name },
+                { key: "status", header: "وضعیت", cell: (r) => appointmentStatusLabel(r.status) },
+              ]}
+            />
+          )}
+        </section>
+      )}
+
+      {!loading && data && !data.appointments && data.patients_active === null && data.staff_active === null && data.services_active === null && data.resources_active === null && (
+        <EmptyState title="برای حساب شما شاخصی قابل نمایش نیست" description="مجوزهای لازم برای مشاهدهٔ آمار تخصیص داده نشده است." />
       )}
     </main>
   );

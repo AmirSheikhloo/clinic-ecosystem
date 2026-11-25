@@ -1,122 +1,124 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { AccessDenied } from "@/components/feedback/AccessDenied";
 import { Alert } from "@/components/feedback/Alert";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import {
-  apiFetch,
-  formatApiError,
-  tehranDayBoundsUtc,
-  tehranTodayYmd,
-  type ApiErrorBody,
-} from "@/lib/client";
+import { QueryBoundary } from "@/components/feedback/QueryBoundary";
+import { useSession } from "@/components/session/SessionProvider";
+import { buildQuery } from "@/lib/api";
+import { rangeBoundsUtc, visibleRange, type CalendarView } from "@/lib/calendar/jalali-grid";
+import { tehranTodayYmd } from "@/lib/client";
+import { P } from "@/lib/permissions";
+import { useApiQuery } from "@/lib/use-api-query";
+import { AppointmentDetailsDialog } from "./AppointmentDetailsDialog";
 import { AppointmentTable } from "./AppointmentTable";
+import { groupByTehranDay, rangeDays, sortAppointments } from "./calendar-model";
+import { CalendarToolbar, type CalendarFilters, type Option } from "./CalendarToolbar";
 import { DayTimeline } from "./DayTimeline";
-import { DayToolbar } from "./DayToolbar";
-import type { AppointmentItem, SortKey } from "./types";
+import { MonthView } from "./MonthView";
+import { WeekView } from "./WeekView";
+import { CALENDAR_LIMIT, type CalendarResponse, type SortKey } from "./types";
+
+type ServiceDto = { id: string; service_name: string };
+type ResourceDto = { id: string; resource_name: string };
 
 export function AppointmentsView() {
-  const router = useRouter();
-  const [date, setDate] = useState(() => tehranTodayYmd());
-  const [items, setItems] = useState<AppointmentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>("time");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const me = await apiFetch("/api/auth/me");
-        if (me.status === 401) {
-          router.replace("/login?expired=1");
-          return;
-        }
-        const { start, end } = tehranDayBoundsUtc(date);
-        const response = await apiFetch(
-          `/api/appointments?start_at_utc=${encodeURIComponent(start)}&end_at_utc=${encodeURIComponent(end)}`,
-        );
-        if (response.status === 401) {
-          router.replace("/login?expired=1");
-          return;
-        }
-        const data = (await response.json().catch(() => ({}))) as ApiErrorBody & {
-          items?: AppointmentItem[];
-        };
-        if (cancelled) return;
-        if (!response.ok) {
-          setError(formatApiError(data, "بارگذاری نوبت‌ها ناموفق بود"));
-          setItems([]);
-          return;
-        }
-        setItems(data.items || []);
-      } catch {
-        if (!cancelled) {
-          setError("ارتباط برای بارگذاری نوبت‌ها برقرار نشد");
-          setItems([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [date, router]);
-
-  const statuses = useMemo(
-    () => Array.from(new Set(items.map((item) => item.status))).sort(),
-    [items],
+  const { can, status } = useSession();
+  const params = useSearchParams();
+  const requestedDate = params.get("date");
+  const [view, setView] = useState<CalendarView>("day");
+  const [anchor, setAnchor] = useState(() =>
+    requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : tehranTodayYmd(),
   );
+  const [filters, setFilters] = useState<CalendarFilters>({ serviceId: "", resourceId: "", status: "" });
+  const [sortKey, setSortKey] = useState<SortKey>("time");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
+  const allowed = can(P.appointmentsList);
 
-  const visible = useMemo(() => {
-    const filtered =
-      statusFilter === "ALL"
-        ? items
-        : items.filter((item) => item.status === statusFilter);
-    return filtered.slice().sort((a, b) => {
-      if (sortKey === "patient") {
-        return `${a.patient_first_name}${a.patient_last_name}`.localeCompare(
-          `${b.patient_first_name}${b.patient_last_name}`,
-          "fa",
-        );
-      }
-      if (sortKey === "service") {
-        return a.service_name.localeCompare(b.service_name, "fa");
-      }
-      return a.scheduled_start_at_utc.localeCompare(b.scheduled_start_at_utc);
-    });
-  }, [items, sortKey, statusFilter]);
+  const range = useMemo(() => visibleRange(view, anchor), [view, anchor]);
+  const path = useMemo(() => {
+    const { start, end } = rangeBoundsUtc(range);
+    return `/api/v1/appointments/calendar${buildQuery({
+      start_at_utc: start,
+      end_at_utc: end,
+      service_id: filters.serviceId,
+      resource_id: filters.resourceId,
+      status: filters.status,
+      limit: CALENDAR_LIMIT,
+    })}`;
+  }, [range, filters]);
+
+  const calendar = useApiQuery<CalendarResponse>(allowed ? path : null, "بارگذاری نوبت‌ها ناموفق بود", refresh);
+  const services = useApiQuery<{ items: ServiceDto[] }>(allowed && can(P.catalogServicesRead) ? "/api/catalog/services" : null);
+  const resources = useApiQuery<{ items: ResourceDto[] }>(allowed && can(P.resourcesRead) ? "/api/catalog/resources" : null);
+
+  const items = calendar.data?.items;
+  const groups = useMemo(() => groupByTehranDay(items ?? []), [items]);
+  const dayItems = useMemo(() => sortAppointments(items ?? [], sortKey), [items, sortKey]);
+  const serviceOptions: Option[] = (services.data?.items ?? []).map((s) => ({ id: s.id, label: s.service_name }));
+  const resourceOptions: Option[] = (resources.data?.items ?? []).map((r) => ({ id: r.id, label: r.resource_name }));
+  const canOpen = can(P.appointmentsDetails);
+  const open = (item: { appointment_id: string }) => setOpenId(item.appointment_id);
+
+  if (status === "loading") return <p className="text-[var(--ds-text-muted)]">در حال آماده‌سازی…</p>;
+  if (!allowed) return <AccessDenied what="مشاهدهٔ نوبت‌ها" />;
 
   return (
     <main className="space-y-6 animate-rise" data-testid="appointments-page">
-      <DayToolbar
-        date={date}
-        onDateChange={setDate}
-        visibleCount={visible.length}
+      <CalendarToolbar
+        view={view}
+        onViewChange={setView}
+        anchor={anchor}
+        onAnchorChange={setAnchor}
+        count={items?.length ?? 0}
+        filters={filters}
+        onFiltersChange={setFilters}
+        services={serviceOptions}
+        resources={resourceOptions}
         sortKey={sortKey}
         onSortKeyChange={setSortKey}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        statuses={statuses}
       />
-
-      {loading && <p className="text-[var(--ds-text-muted)]">در حال بارگذاری…</p>}
-      {error && <Alert>{error}</Alert>}
-      {!loading && !error && visible.length === 0 && (
-        <EmptyState title="نوبتی برای این تاریخ ثبت نشده است" />
-      )}
-
-      {!loading && visible.length > 0 && (
-        <>
-          <AppointmentTable items={visible} />
-          <DayTimeline items={visible} />
-        </>
+      <QueryBoundary loading={calendar.loading && !calendar.data} error={calendar.error} deniedWhat="مشاهدهٔ نوبت‌ها" onRetry={calendar.reload}>
+        {calendar.data?.truncated && (
+          <Alert tone="danger" testId="calendar-truncated">
+            تعداد نوبت‌ها از سقف نمایش ({CALENDAR_LIMIT}) بیشتر است؛ بازهٔ زمانی یا فیلترها را محدودتر کنید.
+          </Alert>
+        )}
+        {calendar.data && view === "day" && (
+          dayItems.length === 0 ? (
+            <EmptyState title="نوبتی برای این تاریخ ثبت نشده است" description="فیلترها را بررسی کنید یا از میز پذیرش نوبت دستی ثبت کنید." />
+          ) : (
+            <>
+              <AppointmentTable items={dayItems} onOpen={canOpen ? open : null} />
+              <DayTimeline items={dayItems} />
+            </>
+          )
+        )}
+        {calendar.data && view === "week" && (
+          <WeekView days={rangeDays(range)} groups={groups} todayYmd={tehranTodayYmd()} onOpen={canOpen ? open : null} />
+        )}
+        {calendar.data && view === "month" && (
+          <MonthView
+            range={range}
+            anchor={anchor}
+            groups={groups}
+            todayYmd={tehranTodayYmd()}
+            onPickDay={(ymd) => {
+              setAnchor(ymd);
+              setView("day");
+            }}
+          />
+        )}
+      </QueryBoundary>
+      {openId && (
+        <AppointmentDetailsDialog
+          appointmentId={openId}
+          onClose={() => setOpenId(null)}
+          onChanged={() => setRefresh((v) => v + 1)}
+        />
       )}
     </main>
   );

@@ -9,6 +9,8 @@ const STATUS_FA: Record<string, string> = {
   CANCELLED: "لغوشده",
   NO_SHOW: "عدم حضور",
   HELD: "رزرو موقت",
+  PENDING_PAYMENT_HOLD: "در انتظار پرداخت",
+  EXPIRED_HOLD: "رزرو منقضی‌شده",
 };
 
 export function appointmentStatusLabel(status: string): string {

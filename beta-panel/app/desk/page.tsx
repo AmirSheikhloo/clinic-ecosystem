@@ -1,7 +1,10 @@
-"use client";
-
+import { Suspense } from "react";
 import { DeskView } from "@/features/reception/DeskView";
 
 export default function DeskPage() {
-  return <DeskView />;
+  return (
+    <Suspense fallback={null}>
+      <DeskView />
+    </Suspense>
+  );
 }

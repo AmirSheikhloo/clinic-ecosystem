@@ -47,6 +47,7 @@ export function PatientSearchPanel({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder="نام یا نام خانوادگی"
+          aria-label="نام یا نام خانوادگی"
         />
         <button
           type="button"
@@ -86,11 +87,12 @@ export function PatientSearchPanel({
         className="space-y-3 border-t border-[var(--ds-border)] pt-4"
       >
         <h3 className="font-medium">ثبت بیمار مصنوعی</h3>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
           <input
             data-testid="patient-first-name"
             className="ds-input"
             placeholder="نام"
+            aria-label="نام"
             value={firstName}
             onChange={(e) => onFirstNameChange(e.target.value)}
             required
@@ -99,6 +101,7 @@ export function PatientSearchPanel({
             data-testid="patient-last-name"
             className="ds-input"
             placeholder="نام خانوادگی"
+          aria-label="نام خانوادگی"
             value={lastName}
             onChange={(e) => onLastNameChange(e.target.value)}
             required

@@ -44,6 +44,18 @@ export function tehranTodayYmd(now: Date = new Date()): string {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+/** UTC instant -> `YYYY-MM-DDTHH:mm` Tehran wall clock, the inverse of tehranLocalToUtcIso. */
+export function utcIsoToTehranLocal(isoUtc: string): string {
+  const parts = tehranParts(new Date(isoUtc));
+  return `${parts.year}-${parts.month}-${parts.day}T${String(Number(parts.hour) % 24).padStart(2, "0")}:${parts.minute}`;
+}
+
+/** Tehran calendar date (YYYY-MM-DD) of a UTC instant. */
+export function tehranYmdOf(isoUtc: string): string {
+  const parts = tehranParts(new Date(isoUtc));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 /** Shift a Tehran YMD by ±days using Gregorian calendar arithmetic (UTC noon anchor). */
 export function shiftTehranYmd(ymd: string, deltaDays: number): string {
   const [y, m, d] = ymd.split("-").map(Number);

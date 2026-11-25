@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import Link from "next/link";
 import { Alert } from "@/components/feedback/Alert";
+import { useSession } from "@/components/session/SessionProvider";
+import { P } from "@/lib/permissions";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { apiFetch, formatApiError, type ApiErrorBody } from "@/lib/client";
 import { formatCount } from "@/lib/format/numbers";
@@ -25,6 +28,8 @@ type Resource = {
 
 export function CatalogView() {
   const router = useRouter();
+  const { can } = useSession();
+  const filter = (useSearchParams().get("q") ?? "").trim().toLowerCase();
   const [services, setServices] = useState<Service[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,13 +83,23 @@ export function CatalogView() {
     };
   }, [router, refreshKey]);
 
+  const visibleServices = filter
+    ? services.filter((service) => service.service_name.toLowerCase().includes(filter))
+    : services;
+
   return (
     <main className="space-y-6 animate-rise" data-testid="catalog-page">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[var(--ds-primary-strong)]">فهرست خدمات و منابع</h2>
-          <p className="text-[var(--ds-text-muted)]">نمای فقط‌خواندنی از APIهای مجاز — بدون CRUD مدیریتی</p>
+          <p className="text-[var(--ds-text-muted)]">نمای مرجع خدمات و منابع فعال؛ ویرایش فقط در بخش مدیریت</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        {(can(P.servicesManage) || can(P.resourcesManage)) && (
+          <Link href="/catalog/manage" className="ds-btn ds-btn-primary" data-testid="catalog-manage-link">
+            مدیریت خدمات و منابع
+          </Link>
+        )}
         <Button
           variant="ghost"
           onClick={() => {
@@ -94,18 +109,19 @@ export function CatalogView() {
         >
           تازه‌سازی
         </Button>
+        </div>
       </header>
 
       {loading && <p className="text-[var(--ds-text-muted)]">در حال بارگذاری…</p>}
       {error && <Alert>{error}</Alert>}
 
       {!loading && !error && (
-        <section className="grid gap-6 lg:grid-cols-2">
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card className="space-y-3">
-            <h3 className="font-semibold">خدمات ({formatCount(services.length)})</h3>
-            {!services.length && <EmptyState title="خدمتی موجود نیست" />}
+            <h3 className="font-semibold">خدمات ({formatCount(visibleServices.length)})</h3>
+            {!visibleServices.length && <EmptyState title="خدمتی موجود نیست" />}
             <ul className="space-y-2">
-              {services.map((service) => (
+              {visibleServices.map((service) => (
                 <li
                   key={service.id}
                   className="rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] px-3 py-2"

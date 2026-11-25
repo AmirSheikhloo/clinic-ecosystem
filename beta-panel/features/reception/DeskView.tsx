@@ -33,7 +33,7 @@ export function DeskView() {
         </p>
       </header>
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <PatientSearchPanel
           query={desk.query}
           onQueryChange={desk.setQuery}

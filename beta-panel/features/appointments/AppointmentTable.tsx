@@ -7,9 +7,10 @@ import type { AppointmentItem } from "./types";
 
 type Props = {
   items: AppointmentItem[];
+  onOpen?: ((item: AppointmentItem) => void) | null;
 };
 
-export function AppointmentTable({ items }: Props) {
+export function AppointmentTable({ items, onOpen }: Props) {
   return (
     <DataTable
       rows={items}
@@ -36,6 +37,21 @@ export function AppointmentTable({ items }: Props) {
           key: "status",
           header: "وضعیت",
           cell: (item) => appointmentStatusLabel(item.status),
+        },
+        {
+          key: "open",
+          header: "",
+          cell: (item) =>
+            onOpen ? (
+              <button
+                type="button"
+                className="text-[var(--ds-primary)] hover:underline"
+                onClick={() => onOpen(item)}
+                data-testid="appointment-open"
+              >
+                جزئیات
+              </button>
+            ) : null,
         },
       ]}
     />

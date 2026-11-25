@@ -3,6 +3,7 @@ import { Vazirmatn } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { ThemeProvider } from "@/components/feedback/ThemeProvider";
+import { ToastProvider } from "@/components/feedback/Toast";
 
 const vazirmatn = Vazirmatn({
   subsets: ["arabic", "latin"],
@@ -28,7 +29,9 @@ export default function RootLayout({
     >
       <body className="font-sans antialiased text-[var(--ds-font-size-md)] leading-7">
         <ThemeProvider>
-          <AppShell>{children}</AppShell>
+          <ToastProvider>
+            <AppShell>{children}</AppShell>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

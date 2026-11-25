@@ -8,6 +8,8 @@ export {
   tehranTodayYmd,
   tehranDayBoundsUtc,
   shiftTehranYmd,
+  tehranYmdOf,
+  utcIsoToTehranLocal,
 } from "./tehran";
 export {
   bookingFingerprint,
