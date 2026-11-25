@@ -6,13 +6,13 @@ import { AccessDenied } from "@/components/feedback/AccessDenied";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { QueryBoundary } from "@/components/feedback/QueryBoundary";
 import { useToast } from "@/components/feedback/Toast";
+import { SearchField } from "@/components/forms/SearchField";
 import { SelectField } from "@/components/forms/SelectField";
 import { useSession } from "@/components/session/SessionProvider";
 import { DataTable, type DataTableColumn } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Icon } from "@/components/ui/Icon";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { ActiveBadge, StatusBadge } from "@/components/ui/StatusBadge";
@@ -65,9 +65,10 @@ export function StaffView() {
       : null,
     "بارگذاری فهرست کارکنان ناموفق بود",
     refresh,
+    { keepPrevious: true },
   );
 
-  if (status === "loading") return <Skeleton className="h-64" />;
+  if (status === "loading") return <PageSkeleton />;
   if (!allowed) return <AccessDenied what="مشاهدهٔ کارکنان" />;
 
   const canManage = can(P.staffManage);
@@ -100,18 +101,18 @@ export function StaffView() {
   }
 
   function requestToggle(row: StaffRow) {
-    if (row.is_active) setConfirming(row);
-    else void toggleActive(row);
+    setConfirming(row);
   }
 
   const columns: DataTableColumn<StaffRow>[] = [
     { key: "name", header: "نام", cell: (r) => <span className="font-medium">{r.first_name} {r.last_name}</span> },
-    { key: "kind", header: "نوع", cell: (r) => <StatusBadge tone={r.staff_kind === "DOCTOR" || r.staff_kind === "SPECIALIST" ? "info" : "neutral"}>{staffKindLabel(r.staff_kind)}</StatusBadge> },
-    { key: "council", header: "کد نظام پزشکی", cell: (r) => r.medical_council_code ?? "—", className: "tabular-nums" },
-    { key: "status", header: "وضعیت پروفایل", cell: (r) => <ActiveBadge active={r.is_active} /> },
+    { key: "kind", header: "نوع", width: "8.5rem", cell: (r) => <StatusBadge tone={r.staff_kind === "DOCTOR" || r.staff_kind === "SPECIALIST" ? "info" : "neutral"}>{staffKindLabel(r.staff_kind)}</StatusBadge> },
+    { key: "council", header: "کد نظام پزشکی", width: "9rem", cell: (r) => r.medical_council_code ?? "—", className: "tabular-nums" },
+    { key: "status", header: "وضعیت پروفایل", width: "8rem", cell: (r) => <ActiveBadge active={r.is_active} /> },
     {
       key: "account",
       header: "حساب ورود به نرم‌افزار",
+      width: "15rem",
       cell: (r) =>
         r.account ? (
           <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -125,7 +126,8 @@ export function StaffView() {
     {
       key: "actions",
       header: "",
-      className: "text-end whitespace-nowrap",
+      width: "17rem",
+      className: "text-end",
       cell: (r) =>
         canManage || (can(P.staffProvisionLogin) && !r.account) ? (
           <span className="inline-flex flex-wrap justify-end gap-1">
@@ -159,14 +161,19 @@ export function StaffView() {
         description="پروفایل کارمندی با حساب ورود به نرم‌افزار یکی نیست: داشتن پروفایل یا پزشک بودن به‌تنهایی دسترسی نمی‌دهد."
         actions={canManage ? <Button icon="plus" onClick={() => setDialog({ type: "form", staff: null })} data-testid="staff-add">افزودن عضو</Button> : undefined}
       />
-      <form onSubmit={search} className="ds-card flex flex-wrap items-end gap-3 p-3">
-        <label className="block min-w-56 flex-1 space-y-1 text-sm">
-          <span className="ds-field-label">جستجو</span>
-          <span className="relative block">
-            <Icon name="search" size="sm" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ds-text-muted)]" />
-            <input className="ds-input ps-9" value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={120} data-testid="staff-search" placeholder="نام یا نام خانوادگی" aria-label="جستجوی کارکنان" />
-          </span>
-        </label>
+      <form onSubmit={search} className="ds-card ds-filter-grid p-3">
+        <div className="ds-filter-wide">
+          <SearchField
+            label="جستجو"
+            value={draft}
+            onValueChange={setDraft}
+            maxLength={120}
+            busy={query.loading || query.refreshing}
+            data-testid="staff-search"
+            placeholder="نام یا نام خانوادگی"
+            aria-label="جستجوی کارکنان"
+          />
+        </div>
         <SelectField label="نوع" value={filters.kind} onChange={(e) => { setOffset(0); setFilters((c) => ({ ...c, kind: e.target.value })); }} data-testid="staff-filter-kind">
           <option value="">همه</option>
           {STAFF_KINDS.map((k) => <option key={k} value={k}>{staffKindLabel(k)}</option>)}
@@ -181,7 +188,7 @@ export function StaffView() {
       <QueryBoundary loading={query.loading && !data} error={query.error} deniedWhat="مشاهدهٔ کارکنان" onRetry={query.reload}>
         {data ? (
           <>
-            <DataTable columns={columns} rows={data.items} rowKey={(r) => r.staff_profile_id} rowTestId="staff-row" empty={<EmptyState icon="staff" title="عضوی یافت نشد" description="فیلترها را تغییر دهید یا عضو جدید اضافه کنید." />} />
+            <DataTable columns={columns} rows={data.items} rowKey={(r) => r.staff_profile_id} rowTestId="staff-row" busy={query.refreshing} minWidth="52rem" empty={<EmptyState icon="staff" title="عضوی یافت نشد" description="فیلترها را تغییر دهید یا عضو جدید اضافه کنید." />} />
             {data.total > 0 ? <Pagination total={data.total} limit={STAFF_PAGE_SIZE} offset={offset} onOffsetChange={setOffset} /> : null}
           </>
         ) : null}
@@ -192,15 +199,20 @@ export function StaffView() {
       {dialog?.type === "login" ? <ProvisionLoginDialog staff={dialog.staff} onClose={() => setDialog(null)} onSaved={saved} /> : null}
       <ConfirmDialog
         open={!!confirming}
-        title="غیرفعال‌سازی عضو"
-        confirmLabel="غیرفعال‌سازی"
-        tone="danger"
+        title={confirming?.is_active === false ? "فعال‌سازی عضو" : "غیرفعال‌سازی عضو"}
+        confirmLabel={confirming?.is_active === false ? "فعال‌سازی" : "غیرفعال‌سازی"}
+        tone={confirming?.is_active === false ? "primary" : "danger"}
         busy={!!busyId}
         testId="staff-toggle-dialog"
         onCancel={() => setConfirming(null)}
         onConfirm={() => confirming && void toggleActive(confirming)}
       >
-        <p>«{confirming?.first_name} {confirming?.last_name}» از فهرست انتخاب فعال کنار گذاشته می‌شود. حساب ورود او (در صورت وجود) جداگانه مدیریت می‌شود.</p>
+        <p>
+          {confirming?.is_active === false
+            ? `«${confirming.first_name} ${confirming.last_name}» دوباره در فهرست انتخاب فعال قرار می‌گیرد.`
+            : `«${confirming?.first_name} ${confirming?.last_name}» از فهرست انتخاب فعال کنار گذاشته می‌شود.`}{" "}
+          حساب ورود او (در صورت وجود) جداگانه مدیریت می‌شود.
+        </p>
       </ConfirmDialog>
     </main>
   );

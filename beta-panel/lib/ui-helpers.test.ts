@@ -7,16 +7,16 @@ import { buildQuery } from "./api.ts";
 
 test("navigation is filtered by permission and never grants anything itself", () => {
   const none = new Set<string>();
-  assert.deepEqual(visibleNav(none).map((i) => i.href), ["/dashboard"]);
+  assert.deepEqual(visibleNav(none).map((i) => i.href), ["/dashboard", "/preferences"]);
 
   const reception = new Set([P.patientsSearch, P.appointmentsList, P.appointmentsSchedule, P.catalogServicesRead]);
   assert.deepEqual(
     visibleNav(reception).map((i) => i.href),
-    ["/dashboard", "/desk", "/appointments", "/patients", "/catalog"],
+    ["/dashboard", "/desk", "/appointments", "/patients", "/catalog", "/preferences"],
   );
 
   const admin = new Set([P.staffView, P.rolesView]);
-  assert.deepEqual(visibleNav(admin).map((i) => i.href), ["/dashboard", "/staff", "/access"]);
+  assert.deepEqual(visibleNav(admin).map((i) => i.href), ["/dashboard", "/staff", "/access", "/preferences"]);
   assert.equal(hasAny(none, []), true);
   assert.equal(hasAny(none, [P.staffView]), false);
 });

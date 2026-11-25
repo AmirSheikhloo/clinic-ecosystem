@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useId, useState, type KeyboardEvent, type RefObject } from "react";
 import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
+import { SearchField } from "@/components/forms/SearchField";
 import { formatJalaliFromTehranYmd } from "@/lib/format/jalali";
 import { PATIENT_SEARCH_MIN } from "./useDeskPatients";
 import type { Patient } from "./types";
@@ -96,28 +96,23 @@ export function PatientPicker({
     <div className="space-y-3">
       {selectedPatient ? <SelectedSummary patient={selectedPatient} onClear={onClear} /> : null}
       <div className="space-y-1.5">
-        <label className="ds-field-label" htmlFor={`${listId}-input`}>
-          جستجوی بیمار
-        </label>
-        <div className="flex gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Icon name="search" size="sm" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ds-text-muted)]" />
-            <input
-              id={`${listId}-input`}
-              ref={inputRef}
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <SearchField
+              label="جستجوی بیمار"
+              inputRef={inputRef}
               data-testid="patient-search-query"
-              className="ds-input ps-9"
               role="combobox"
               aria-expanded={patients.length > 0}
               aria-controls={listId}
               aria-autocomplete="list"
               aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
-              autoComplete="off"
               placeholder="نام یا نام خانوادگی"
               value={query}
-              onChange={(e) => {
+              busy={searching}
+              onValueChange={(value) => {
                 setActiveIndex(0);
-                onQueryChange(e.target.value);
+                onQueryChange(value);
               }}
               onKeyDown={onKeyDown}
             />

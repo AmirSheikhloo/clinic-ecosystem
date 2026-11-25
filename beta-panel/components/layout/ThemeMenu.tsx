@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useTheme } from "@/components/feedback/ThemeProvider";
 import { Button } from "@/components/ui/Button";
@@ -49,6 +50,9 @@ export function ThemeMenu() {
           >
             {appearance === "light" ? "حالت تیره" : "حالت روشن"}
           </Button>
+          <Link href="/preferences" className="ds-btn ds-btn-subtle ds-btn-sm w-full" onClick={() => setOpen(false)} data-testid="theme-menu-more">
+            تراکم، نوار کناری و حرکت…
+          </Link>
         </div>
       </Popover>
     </>

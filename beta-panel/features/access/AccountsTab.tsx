@@ -5,11 +5,11 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { QueryBoundary } from "@/components/feedback/QueryBoundary";
 import { useToast } from "@/components/feedback/Toast";
 import { useSession } from "@/components/session/SessionProvider";
+import { SearchField } from "@/components/forms/SearchField";
 import { DataTable, type DataTableColumn } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/feedback/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Icon } from "@/components/ui/Icon";
 import { Pagination } from "@/components/ui/Pagination";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { apiJson, buildQuery } from "@/lib/api";
@@ -40,6 +40,7 @@ export function AccountsTab() {
     `/api/v1/access/accounts${buildQuery({ q, limit: ACCOUNT_PAGE_SIZE, offset })}`,
     "بارگذاری حساب‌ها ناموفق بود",
     refresh,
+    { keepPrevious: true },
   );
 
   const roleCatalog = useApiQuery<{ items: RoleRow[] }>(can(P.rolesView) ? "/api/v1/access/roles" : null);
@@ -109,20 +110,25 @@ export function AccountsTab() {
   const data = query.data;
   return (
     <div className="space-y-4" role="tabpanel" id="panel-accounts" aria-labelledby="tab-accounts">
-      <form onSubmit={search} className="ds-card flex flex-wrap items-end gap-3 p-3">
-        <label className="block min-w-56 flex-1 space-y-1 text-sm">
-          <span className="ds-field-label">جستجو</span>
-          <span className="relative block">
-            <Icon name="search" size="sm" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ds-text-muted)]" />
-            <input className="ds-input ps-9" value={draft} onChange={(e) => { setSubmitted(null); setOffset(0); setDraft(e.target.value); }} maxLength={120} placeholder="نام یا شناسهٔ ورود" data-testid="accounts-search" aria-label="جستجوی حساب‌ها" />
-          </span>
-        </label>
+      <form onSubmit={search} className="ds-card ds-filter-grid p-3">
+        <div className="ds-filter-wide">
+          <SearchField
+            label="جستجو"
+            value={draft}
+            onValueChange={(value) => { setSubmitted(null); setOffset(0); setDraft(value); }}
+            maxLength={120}
+            busy={query.loading || query.refreshing}
+            placeholder="نام یا شناسهٔ ورود"
+            data-testid="accounts-search"
+            aria-label="جستجوی حساب‌ها"
+          />
+        </div>
         <Button type="submit" variant="ghost" data-testid="accounts-search-submit">اعمال</Button>
       </form>
       <QueryBoundary loading={query.loading && !data} error={query.error} deniedWhat="مشاهدهٔ حساب‌ها" onRetry={query.reload}>
         {data && (
           <>
-            <DataTable columns={columns} rows={data.items} rowKey={(r) => r.account_id} rowTestId="account-row" empty={<EmptyState icon="access" title="حسابی یافت نشد" description="عبارت جستجو را تغییر دهید." />} />
+            <DataTable columns={columns} rows={data.items} rowKey={(r) => r.account_id} rowTestId="account-row" busy={query.refreshing} minWidth="48rem" empty={<EmptyState icon="access" title="حسابی یافت نشد" description="عبارت جستجو را تغییر دهید." />} />
             {data.total > 0 && <Pagination total={data.total} limit={ACCOUNT_PAGE_SIZE} offset={offset} onOffsetChange={setOffset} />}
           </>
         )}

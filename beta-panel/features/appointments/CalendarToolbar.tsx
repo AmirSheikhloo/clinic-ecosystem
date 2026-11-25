@@ -1,6 +1,7 @@
 "use client";
 
 import { JalaliDateField } from "@/components/forms/jalali/JalaliDateField";
+import { SegmentedControl } from "@/components/forms/SegmentedControl";
 import { SelectField } from "@/components/forms/SelectField";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -18,7 +19,7 @@ type Props = {
   onViewChange: (view: CalendarView) => void;
   anchor: string;
   onAnchorChange: (ymd: string) => void;
-  count: number;
+  count: number | null;
   loading: boolean;
   onRefresh: () => void;
   filters: CalendarFilters;
@@ -29,11 +30,11 @@ type Props = {
   onSortKeyChange: (key: SortKey) => void;
 };
 
-const VIEWS: Array<{ id: CalendarView; label: string }> = [
-  { id: "day", label: "روزانه" },
-  { id: "week", label: "هفتگی" },
-  { id: "month", label: "ماهانه" },
-];
+const VIEWS = [
+  { value: "day", label: "روزانه", testId: "view-day" },
+  { value: "week", label: "هفتگی", testId: "view-week" },
+  { value: "month", label: "ماهانه", testId: "view-month" },
+] as const;
 
 const STEP_NOUN: Record<CalendarView, string> = { day: "روز", week: "هفته", month: "ماه" };
 
@@ -52,7 +53,9 @@ export function CalendarToolbar(props: Props) {
           <>
             <span data-testid="calendar-title" className="font-medium text-[var(--ds-text)]">{formatRangeTitle(view, anchor)}</span>
             {" · "}تعداد نوبت:{" "}
-            <span className="tabular-nums" data-testid="appointments-count">{formatCount(props.count)}</span>
+            <span className="inline-block min-w-[1.5ch] tabular-nums" data-testid="appointments-count">
+              {props.count === null ? "—" : formatCount(props.count)}
+            </span>
           </>
         }
         actions={
@@ -62,14 +65,8 @@ export function CalendarToolbar(props: Props) {
         }
       />
 
-      <div className="ds-card flex flex-wrap items-end gap-x-4 gap-y-3 p-3">
-        <div role="group" aria-label="نمای تقویم" className="ds-segmented">
-          {VIEWS.map((v) => (
-            <button key={v.id} type="button" aria-pressed={view === v.id} data-testid={`view-${v.id}`} onClick={() => props.onViewChange(v.id)}>
-              {v.label}
-            </button>
-          ))}
-        </div>
+      <div className="ds-card ds-calendar-bar p-3">
+        <SegmentedControl label="نمای تقویم" value={view} options={VIEWS} onChange={props.onViewChange} testId="calendar-view" />
         <div className="flex items-center gap-1" role="group" aria-label="پیمایش تاریخ">
           <Button variant="ghost" icon="chevronRight" aria-label={`${noun} قبل`} title={`${noun} قبل`} onClick={() => onAnchorChange(stepView(view, anchor, -1))} data-testid="calendar-prev" />
           <Button variant="ghost" onClick={() => onAnchorChange(tehranTodayYmd())} data-testid="calendar-today">امروز</Button>
@@ -80,7 +77,7 @@ export function CalendarToolbar(props: Props) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="ds-filter-grid">
         <SelectField label="خدمت" value={filters.serviceId} data-testid="filter-service" onChange={(e) => onFiltersChange({ ...filters, serviceId: e.target.value })}>
           <option value="">همه خدمت‌ها</option>
           {props.services.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
@@ -93,18 +90,20 @@ export function CalendarToolbar(props: Props) {
           <option value="">همه وضعیت‌ها</option>
           {CALENDAR_STATUSES.map((s) => <option key={s} value={s}>{appointmentStatusLabel(s)}</option>)}
         </SelectField>
-        {view === "day" ? (
-          <SelectField label="مرتب‌سازی" value={props.sortKey} onChange={(e) => props.onSortKeyChange(e.target.value as SortKey)}>
-            <option value="time">زمان</option>
-            <option value="patient">بیمار</option>
-            <option value="service">خدمت</option>
-          </SelectField>
-        ) : null}
-        {filtered ? (
-          <Button variant="subtle" icon="close" onClick={() => onFiltersChange(EMPTY_FILTERS)} data-testid="filters-clear">
-            پاک‌کردن فیلترها
-          </Button>
-        ) : null}
+        <SelectField
+          label="مرتب‌سازی فهرست روز"
+          value={props.sortKey}
+          disabled={view !== "day"}
+          data-testid="sort-select"
+          onChange={(e) => props.onSortKeyChange(e.target.value as SortKey)}
+        >
+          <option value="time">زمان</option>
+          <option value="patient">بیمار</option>
+          <option value="service">خدمت</option>
+        </SelectField>
+        <Button variant="subtle" icon="close" disabled={!filtered} onClick={() => onFiltersChange(EMPTY_FILTERS)} data-testid="filters-clear">
+          پاک‌کردن فیلترها
+        </Button>
       </div>
     </div>
   );

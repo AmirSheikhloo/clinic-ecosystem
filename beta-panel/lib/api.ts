@@ -2,6 +2,7 @@
 
 import { apiFetch, type ApiErrorBody } from "./client";
 import { describeError } from "./error-messages";
+import { clearQueryCache, invalidateQueryCache } from "./query-cache";
 
 export const SESSION_EXPIRED_EVENT = "ce:session-expired";
 
@@ -71,8 +72,10 @@ export async function apiJson<T>(path: string, options: ApiJsonOptions = {}): Pr
       ? {}
       : await response.json().catch(() => ({}))) as ApiErrorBody;
     if (response.status === 401 && typeof window !== "undefined") {
+      clearQueryCache();
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
     }
+    if (mutating && path.startsWith("/api/v1/catalog")) invalidateQueryCache("/api/catalog");
     if (!response.ok) {
       return {
         ok: false,

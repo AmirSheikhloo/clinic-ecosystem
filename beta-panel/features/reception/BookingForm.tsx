@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import { useEffect, useRef, type FormEvent } from "react";
 import { JalaliDateTimeField } from "@/components/forms/jalali/JalaliDateTimeField";
 import { SelectField } from "@/components/forms/SelectField";
 import { Button } from "@/components/ui/Button";
@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatTehranTime } from "@/lib/format/jalali";
 import { resourceTypeLabel, type Requirement, type Resource } from "@/lib/resources";
 import { tehranLocalToUtcIso } from "@/lib/tehran";
+import { BookingSummary } from "./BookingSummary";
 import type { Patient, RequirementsState, Service } from "./types";
 
 type SelectionCheck = { ok: boolean; message?: string };
@@ -85,9 +86,20 @@ export function BookingForm(props: Props) {
   const requirementLines = describeRequirements(requirements, eligibleResources);
   const missing = missingSteps(props);
   const endLabel = endTimeLabel(localStart, durationMinutes);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const resourceNames = eligibleResources.filter((r) => selectedResourceIds.includes(r.id)).map((r) => r.resource_name);
+
+  // Keyboard progression: once the chosen service's requirements arrive, move to the first resource.
+  useEffect(() => {
+    const form = formRef.current;
+    if (!requirementsReady || !form) return;
+    if (document.activeElement?.getAttribute("data-testid") === "service-select") {
+      form.querySelector<HTMLInputElement>("[data-testid='resource-option'] input")?.focus();
+    }
+  }, [requirementsReady, serviceId]);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" aria-label="ثبت نوبت">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-4" aria-label="ثبت نوبت">
       <SelectField
         label="خدمت"
         data-testid="service-select"
@@ -168,6 +180,15 @@ export function BookingForm(props: Props) {
           مدت خدمت: {durationMinutes} دقیقه{endLabel ? ` — پایان تقریبی: ${endLabel}` : ""}
         </p>
       ) : null}
+
+      <BookingSummary
+        patient={props.selectedPatient}
+        service={services.find((service) => service.id === serviceId)}
+        resourceNames={resourceNames}
+        localStart={localStart}
+        endLabel={endLabel}
+        durationMinutes={durationMinutes}
+      />
 
       <div className="space-y-2 border-t border-[var(--ds-border)] pt-4">
         {missing.length ? (

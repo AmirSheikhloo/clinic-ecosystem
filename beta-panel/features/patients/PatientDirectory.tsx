@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { QueryBoundary } from "@/components/feedback/QueryBoundary";
+import { SearchField } from "@/components/forms/SearchField";
 import { SelectField } from "@/components/forms/SelectField";
 import { DataTable, type DataTableColumn } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
 import { Pagination } from "@/components/ui/Pagination";
 import { ActiveBadge } from "@/components/ui/StatusBadge";
 import { useSession } from "@/components/session/SessionProvider";
@@ -34,7 +34,7 @@ export function PatientDirectory({ refreshToken }: Props) {
   const q = submitted ?? debounced;
 
   const path = `/api/v1/patients/directory${buildQuery({ q, status, limit: PATIENT_PAGE_SIZE, offset })}`;
-  const query = useApiQuery<Page<PatientRow>>(path, "جستجوی بیمار ناموفق بود", refreshToken);
+  const query = useApiQuery<Page<PatientRow>>(path, "جستجوی بیمار ناموفق بود", refreshToken, { keepPrevious: true });
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -47,9 +47,9 @@ export function PatientDirectory({ refreshToken }: Props) {
       key: "name",
       header: "بیمار",
       cell: (row) => (
-        <span className="font-medium">
+        <span className="block truncate font-medium">
           {canProfile ? (
-            <Link href={`/patients/${row.patient_profile_id}`} className="hover:underline">
+            <Link href={`/patients/${row.patient_profile_id}`} className="hover:underline" title={`${row.first_name} ${row.last_name}`}>
               {row.first_name} {row.last_name}
             </Link>
           ) : (
@@ -58,18 +58,20 @@ export function PatientDirectory({ refreshToken }: Props) {
         </span>
       ),
     },
-    { key: "dossier", header: "شماره پرونده", cell: (row) => row.dossier_number ?? "—", className: "tabular-nums" },
+    { key: "dossier", header: "شماره پرونده", width: "9rem", cell: (row) => row.dossier_number ?? "—", className: "tabular-nums" },
     {
       key: "birth",
       header: "تاریخ تولد",
+      width: "9rem",
       cell: (row) => (row.birth_date ? formatJalaliFromTehranYmd(row.birth_date) : "—"),
       className: "tabular-nums",
     },
-    { key: "created", header: "تاریخ ثبت", cell: (row) => formatJalaliDate(row.created_at_utc), className: "tabular-nums" },
-    { key: "status", header: "وضعیت", cell: (row) => <ActiveBadge active={row.is_active} /> },
+    { key: "created", header: "تاریخ ثبت", width: "9rem", cell: (row) => formatJalaliDate(row.created_at_utc), className: "tabular-nums" },
+    { key: "status", header: "وضعیت", width: "6.5rem", cell: (row) => <ActiveBadge active={row.is_active} /> },
     {
       key: "actions",
       header: "",
+      width: "11rem",
       className: "text-end whitespace-nowrap",
       cell: (row) => (
         <span className="inline-flex items-center gap-1">
@@ -93,27 +95,22 @@ export function PatientDirectory({ refreshToken }: Props) {
 
   return (
     <section className="space-y-4" aria-label="فهرست بیماران">
-      <form onSubmit={submit} className="ds-card flex flex-wrap items-end gap-3 p-3">
-        <div className="min-w-56 flex-1">
-          <label className="block space-y-1 text-sm">
-            <span className="ds-field-label">جستجو</span>
-            <span className="relative block">
-              <Icon name="search" size="sm" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ds-text-muted)]" />
-              <input
-                className="ds-input ps-9"
-                value={draft}
-                maxLength={120}
-                onChange={(e) => {
-                  setSubmitted(null);
-                  setOffset(0);
-                  setDraft(e.target.value);
-                }}
-                placeholder="نام، نام خانوادگی یا شماره پرونده"
-                aria-label="جستجو در بیماران"
-                data-testid="patients-search-query"
-              />
-            </span>
-          </label>
+      <form onSubmit={submit} className="ds-card ds-filter-grid p-3">
+        <div className="ds-filter-wide">
+          <SearchField
+            label="جستجو"
+            value={draft}
+            maxLength={120}
+            busy={query.loading || query.refreshing}
+            onValueChange={(value) => {
+              setSubmitted(null);
+              setOffset(0);
+              setDraft(value);
+            }}
+            placeholder="نام، نام خانوادگی یا شماره پرونده"
+            aria-label="جستجو در بیماران"
+            data-testid="patients-search-query"
+          />
         </div>
         {canProfile ? (
           <SelectField
@@ -141,6 +138,8 @@ export function PatientDirectory({ refreshToken }: Props) {
               rows={data.items}
               rowKey={(row) => row.patient_profile_id}
               rowTestId="patients-result-row"
+              busy={query.refreshing}
+              minWidth="46rem"
               empty={
                 <EmptyState
                   icon="patients"

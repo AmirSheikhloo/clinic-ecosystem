@@ -4,16 +4,17 @@ import Link from "next/link";
 import { useState } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { QueryBoundary } from "@/components/feedback/QueryBoundary";
+import { SearchField } from "@/components/forms/SearchField";
 import { SelectField } from "@/components/forms/SelectField";
 import { useSession } from "@/components/session/SessionProvider";
 import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useSearchParams } from "next/navigation";
 import { formatCount } from "@/lib/format/numbers";
 import { P } from "@/lib/permissions";
 import { RESOURCE_TYPE_LABEL, resourceTypeLabel } from "@/lib/resources";
+import { CATALOG_CACHE_MS } from "@/lib/query-cache";
 import { useApiQuery } from "@/lib/use-api-query";
 
 type Service = { id: string; service_name: string; default_duration_minutes: number; is_active: boolean };
@@ -24,8 +25,8 @@ export function CatalogView() {
   const [draft, setDraft] = useState(useSearchParams().get("q") ?? "");
   const [type, setType] = useState("");
   const [refresh, setRefresh] = useState(0);
-  const services = useApiQuery<{ items: Service[] }>("/api/catalog/services", "بارگذاری خدمات ناموفق بود", refresh);
-  const resources = useApiQuery<{ items: Resource[] }>("/api/catalog/resources", "بارگذاری منابع ناموفق بود", refresh);
+  const services = useApiQuery<{ items: Service[] }>("/api/catalog/services", "بارگذاری خدمات ناموفق بود", refresh, { cacheMs: CATALOG_CACHE_MS });
+  const resources = useApiQuery<{ items: Resource[] }>("/api/catalog/resources", "بارگذاری منابع ناموفق بود", refresh, { cacheMs: CATALOG_CACHE_MS });
   const canManage = can(P.servicesManage) || can(P.resourcesManage);
   const term = draft.trim().toLowerCase();
   const visibleServices = (services.data?.items ?? []).filter((item) => !term || item.service_name.toLowerCase().includes(term));
@@ -54,14 +55,17 @@ export function CatalogView() {
         }
       />
 
-      <div className="ds-card flex flex-wrap items-end gap-3 p-3">
-        <label className="block min-w-56 flex-1 space-y-1 text-sm">
-          <span className="ds-field-label">جستجو</span>
-          <span className="relative block">
-            <Icon name="search" size="sm" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ds-text-muted)]" />
-            <input className="ds-input ps-9" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="نام خدمت یا منبع" aria-label="جستجوی خدمات و منابع" data-testid="catalog-search" />
-          </span>
-        </label>
+      <div className="ds-card ds-filter-grid p-3">
+        <div className="ds-filter-wide">
+          <SearchField
+            label="جستجو"
+            value={draft}
+            onValueChange={setDraft}
+            placeholder="نام خدمت یا منبع"
+            aria-label="جستجوی خدمات و منابع"
+            data-testid="catalog-search"
+          />
+        </div>
         <SelectField label="نوع منبع" value={type} onChange={(e) => setType(e.target.value)} data-testid="catalog-type">
           <option value="">همه انواع</option>
           {Object.entries(RESOURCE_TYPE_LABEL).map(([key, label]) => (
@@ -78,8 +82,8 @@ export function CatalogView() {
             <ul className="space-y-2">
               {visibleServices.map((service) => (
                 <li key={service.id} className="flex items-center justify-between gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] px-3 py-2">
-                  <span className="font-medium">{service.service_name}</span>
-                  <StatusBadge>{formatCount(service.default_duration_minutes)} دقیقه</StatusBadge>
+                  <span className="min-w-0 truncate font-medium" title={service.service_name}>{service.service_name}</span>
+                  <span className="flex-none"><StatusBadge>{formatCount(service.default_duration_minutes)} دقیقه</StatusBadge></span>
                 </li>
               ))}
             </ul>
@@ -90,8 +94,8 @@ export function CatalogView() {
             <ul className="space-y-2">
               {visibleResources.map((resource) => (
                 <li key={resource.id} className="flex items-center justify-between gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] px-3 py-2">
-                  <span className="font-medium">{resource.resource_name}</span>
-                  <StatusBadge tone="info">{resourceTypeLabel(resource.resource_type)}</StatusBadge>
+                  <span className="min-w-0 truncate font-medium" title={resource.resource_name}>{resource.resource_name}</span>
+                  <span className="flex-none"><StatusBadge tone="info">{resourceTypeLabel(resource.resource_type)}</StatusBadge></span>
                 </li>
               ))}
             </ul>

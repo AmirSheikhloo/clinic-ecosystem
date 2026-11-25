@@ -51,14 +51,17 @@ test("manager: patient registry — register, search, profile edit, deactivate",
   await expect(page.getByTestId("patient-history")).toContainText("هنوز نوبتی");
 
   await page.getByTestId("patient-toggle-active").click();
+  await page.getByTestId("patient-toggle-dialog-confirm").click();
   await expectToast(page, "بیمار غیرفعال شد");
   await expect(page.getByTestId("patient-book")).toHaveCount(0);
   await page.getByTestId("patient-toggle-active").click();
+  await page.getByTestId("patient-toggle-dialog-confirm").click();
   await expectToast(page, "بیمار فعال شد");
   await expect(page.getByTestId("patient-book")).toBeVisible();
 
   // Inactive patients are hidden from the default directory view.
   await page.getByTestId("patient-toggle-active").click();
+  await page.getByTestId("patient-toggle-dialog-confirm").click();
   await expectToast(page, "بیمار غیرفعال شد");
   await page.goto("/patients");
   await page.getByTestId("patients-search-query").fill(last);

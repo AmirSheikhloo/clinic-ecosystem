@@ -7,6 +7,7 @@ import { TextField } from "@/components/forms/TextField";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { apiFetch, ensureCsrf, formatApiError, type ApiErrorBody } from "@/lib/client";
+import { clearQueryCache } from "@/lib/query-cache";
 
 function LoginForm() {
   const router = useRouter();
@@ -39,6 +40,7 @@ function LoginForm() {
         setError(formatApiError(data, "ورود ناموفق بود"));
         return;
       }
+      clearQueryCache();
       router.replace("/desk");
     } catch {
       setError("ارتباط با سرویس برقرار نشد");

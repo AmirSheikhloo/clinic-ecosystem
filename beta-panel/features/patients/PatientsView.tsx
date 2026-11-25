@@ -9,7 +9,7 @@ import { useSession } from "@/components/session/SessionProvider";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { apiJson } from "@/lib/api";
 import { P } from "@/lib/permissions";
 import { PatientDirectory } from "./PatientDirectory";
@@ -55,7 +55,7 @@ export function PatientsView() {
     setRefreshToken((value) => value + 1);
   }
 
-  if (status === "loading") return <Skeleton className="h-64" />;
+  if (status === "loading") return <PageSkeleton />;
   if (status === "error") return <Alert>نشست معتبر نیست</Alert>;
   if (!can(P.patientsSearch) && !can(P.patientsRegister)) return <AccessDenied what="مدیریت بیماران" />;
 

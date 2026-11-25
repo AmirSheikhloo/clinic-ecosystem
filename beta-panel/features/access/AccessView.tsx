@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AccessDenied } from "@/components/feedback/AccessDenied";
 import { useSession } from "@/components/session/SessionProvider";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs, type TabDef } from "@/components/ui/Tabs";
 import { P } from "@/lib/permissions";
@@ -20,7 +20,7 @@ export function AccessView() {
   ];
   const [chosen, setChosen] = useState<string | null>(null);
 
-  if (status === "loading") return <Skeleton className="h-64" />;
+  if (status === "loading") return <PageSkeleton />;
   if (!tabs.length) return <AccessDenied what="مدیریت کاربران و دسترسی" />;
   const active = tabs.some((t) => t.id === chosen) ? (chosen as string) : tabs[0].id;
 

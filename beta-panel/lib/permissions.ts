@@ -31,7 +31,7 @@ export const P = {
   appointmentsReschedule: "BETA02_APPOINTMENTS_RESCHEDULE",
 } as const;
 
-export type NavGroupId = "work" | "clinic" | "admin";
+export type NavGroupId = "work" | "clinic" | "admin" | "personal";
 
 export type NavItem = {
   href: string;
@@ -46,6 +46,7 @@ export const NAV_GROUPS: readonly { id: NavGroupId; label: string }[] = [
   { id: "work", label: "کار روزانه" },
   { id: "clinic", label: "کلینیک" },
   { id: "admin", label: "مدیریت" },
+  { id: "personal", label: "شخصی" },
 ];
 
 /** UI visibility only; the server remains the sole authority for every action. */
@@ -57,6 +58,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/catalog", label: "خدمات و منابع", icon: "catalog", group: "clinic", anyOf: [P.catalogServicesRead, P.resourcesRead, P.servicesManage, P.resourcesManage] },
   { href: "/staff", label: "کارکنان", icon: "staff", group: "admin", anyOf: [P.staffView] },
   { href: "/access", label: "کاربران و دسترسی", icon: "access", group: "admin", anyOf: [P.accountsView, P.rolesView, P.governanceView] },
+  { href: "/preferences", label: "ظاهر و ترجیحات", icon: "palette", group: "personal", anyOf: [] },
 ];
 
 export function hasAny(granted: ReadonlySet<string>, codes: readonly string[]): boolean {

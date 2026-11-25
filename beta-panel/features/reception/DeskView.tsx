@@ -86,7 +86,10 @@ export function DeskView() {
             searching={desk.patientSearching}
             searched={desk.patientSearched}
             selectedPatient={desk.selectedPatient}
-            onSelect={desk.selectPatient}
+            onSelect={(patient) => {
+              desk.selectPatient(patient);
+              window.requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-testid='service-select']")?.focus());
+            }}
             onClear={desk.clearPatient}
             inputRef={searchInput}
           />

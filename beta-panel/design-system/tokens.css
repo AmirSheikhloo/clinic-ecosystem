@@ -196,3 +196,18 @@
   --ds-on-primary: #ffffff;
   --ds-sidebar: color-mix(in srgb, var(--ds-primary-strong) 35%, #0b121b);
 }
+
+/* Display density (Preferences). Controls and table rows follow these; layout geometry does not. */
+:root {
+  --ds-table-cell-block: 0.7rem;
+  --ds-card-padding: 1rem;
+  --ds-page-padding-block: 1.5rem;
+}
+
+[data-density="compact"] {
+  --ds-control-height: 2.25rem;
+  --ds-control-height-sm: 1.75rem;
+  --ds-table-cell-block: 0.4rem;
+  --ds-card-padding: 0.75rem;
+  --ds-page-padding-block: 1rem;
+}

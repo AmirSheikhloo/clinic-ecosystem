@@ -7,8 +7,9 @@ import { Alert } from "@/components/feedback/Alert";
 import { QueryBoundary } from "@/components/feedback/QueryBoundary";
 import { useToast } from "@/components/feedback/Toast";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { ActiveBadge } from "@/components/ui/StatusBadge";
 import { useSession } from "@/components/session/SessionProvider";
 import { apiJson } from "@/lib/api";
@@ -25,10 +26,11 @@ export function PatientProfileView({ patientId }: { patientId: string }) {
   const [override, setOverride] = useState<PatientRow | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const allowed = can(P.patientsViewProfile);
   const query = useApiQuery<PatientRow>(allowed ? `/api/v1/patients/${patientId}` : null, "بارگذاری پرونده ناموفق بود");
 
-  if (status === "loading") return <Skeleton className="h-64" />;
+  if (status === "loading") return <PageSkeleton />;
   if (!allowed) return <AccessDenied what="مشاهدهٔ پروندهٔ بیمار" />;
 
   const patient = override && query.data && override.aggregate_version >= query.data.aggregate_version ? override : query.data;
@@ -44,6 +46,7 @@ export function PatientProfileView({ patientId }: { patientId: string }) {
       fallbackMessage: "تغییر وضعیت ناموفق بود",
     });
     setBusy(false);
+    setConfirming(false);
     if (!result.ok) {
       setStatusError(result.status === 412 ? "پرونده توسط کاربر دیگری تغییر کرده است؛ صفحه را تازه کنید." : result.message);
       return;
@@ -85,13 +88,29 @@ export function PatientProfileView({ patientId }: { patientId: string }) {
                     </Link>
                   )}
                   {can(P.patientsSetActive) && (
-                    <Button variant={patient.is_active ? "danger" : "ghost"} loading={busy} onClick={() => void toggleActive(patient)} data-testid="patient-toggle-active">
+                    <Button variant={patient.is_active ? "danger" : "ghost"} onClick={() => setConfirming(true)} data-testid="patient-toggle-active">
                       {patient.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}
                     </Button>
                   )}
                 </>
               }
             />
+            <ConfirmDialog
+              open={confirming}
+              title={patient.is_active ? "غیرفعال‌سازی بیمار" : "فعال‌سازی بیمار"}
+              confirmLabel={patient.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}
+              tone={patient.is_active ? "danger" : "primary"}
+              busy={busy}
+              testId="patient-toggle-dialog"
+              onCancel={() => setConfirming(false)}
+              onConfirm={() => void toggleActive(patient)}
+            >
+              <p>
+                {patient.is_active
+                  ? `«${patient.first_name} ${patient.last_name}» از فهرست پیش‌فرض بیماران و نوبت‌دهی جدید کنار گذاشته می‌شود؛ سابقهٔ پرونده و نوبت‌های قبلی حفظ می‌شود.`
+                  : `«${patient.first_name} ${patient.last_name}» دوباره در فهرست بیماران فعال و نوبت‌دهی قرار می‌گیرد.`}
+              </p>
+            </ConfirmDialog>
             {statusError && <Alert testId="patient-status-error">{statusError}</Alert>}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <PatientEditForm

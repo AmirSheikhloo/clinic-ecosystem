@@ -7,6 +7,7 @@ import { useSession } from "@/components/session/SessionProvider";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { apiFetch, formatApiError, type ApiErrorBody } from "@/lib/client";
+import { clearQueryCache } from "@/lib/query-cache";
 import { ThemeMenu } from "./ThemeMenu";
 
 function initials(first: string, last: string, fallback: string): string {
@@ -35,6 +36,7 @@ export function TopBarAccount() {
         toast.failure(formatApiError(data, "خروج ناموفق بود — نشست هنوز فعال است"));
         return;
       }
+      clearQueryCache();
       router.replace("/login");
     } catch {
       toast.failure("ارتباط برای خروج برقرار نشد — نشست هنوز فعال است");

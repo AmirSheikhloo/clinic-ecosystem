@@ -48,3 +48,32 @@ test("duration and Tehran local round trip", () => {
   assert.equal(durationMinutes(start, addMinutesIso(start, 45)), 45);
   assert.equal(durationMinutes(start, start), 1);
 });
+
+import { layoutDay } from "./day-layout.ts";
+
+test("layoutDay puts overlapping visits in separate lanes and leaves disjoint ones alone", () => {
+  const a = item("a", "2025-03-22T09:00");
+  const b = item("b", "2025-03-22T09:15");
+  const c = item("c", "2025-03-22T09:20");
+  const d = item("d", "2025-03-22T11:00");
+  const placed = layoutDay([d, c, b, a]);
+  assert.equal(placed.get("a")!.lanes, 3);
+  assert.deepEqual(["a", "b", "c"].map((id) => placed.get(id)!.lane), [0, 1, 2]);
+  assert.deepEqual([placed.get("d")!.lane, placed.get("d")!.lanes], [0, 1]);
+});
+
+test("layoutDay reuses a freed lane inside one cluster", () => {
+  const a = item("a", "2025-03-22T09:00");
+  const b = item("b", "2025-03-22T09:10");
+  const c = item("c", "2025-03-22T09:35");
+  const placed = layoutDay([a, b, c]);
+  assert.equal(placed.get("c")!.lane, 0);
+  assert.equal(placed.get("a")!.lanes, 2);
+});
+
+test("layoutDay treats very short visits as at least the visual minimum", () => {
+  const short: AppointmentItem = { ...item("s", "2025-03-22T10:00"), scheduled_end_at_utc: item("s", "2025-03-22T10:05").scheduled_end_at_utc };
+  const next = item("n", "2025-03-22T10:20");
+  const placed = layoutDay([short, next]);
+  assert.equal(placed.get("s")!.lanes, 2);
+});

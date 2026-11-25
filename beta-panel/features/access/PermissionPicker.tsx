@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { SearchField } from "@/components/forms/SearchField";
 import { CheckboxField } from "@/components/forms/CheckboxField";
 import { Button } from "@/components/ui/Button";
 import { permissionHint } from "./permission-hints";
@@ -22,10 +26,25 @@ function removeAll(selected: string[], items: PermissionDef[]): string[] {
   return selected.filter((code) => !drop.has(code));
 }
 
+/** Matches Arabic and Persian letter variants so typing with either keyboard finds the same label. */
+function fold(text: string): string {
+  return text.replace(/ي/g, "ی").replace(/ك/g, "ک").trim().toLowerCase();
+}
+
 export function PermissionPicker({ catalog, selected, onChange, disabledCodes }: Props) {
+  const [term, setTerm] = useState("");
+  const needle = fold(term);
+  const matches = (item: PermissionDef) => !needle || fold(`${item.label_fa} ${permissionHint(item.code) ?? ""}`).includes(needle);
+  const groups = groupByCategory(catalog);
+  const visibleGroups = groups.filter(([, items]) => items.some(matches));
+
   return (
     <div className="space-y-4" data-testid="permission-picker">
-      {groupByCategory(catalog).map(([category, items]) => (
+      <SearchField label="جستجوی مجوز" value={term} onValueChange={setTerm} placeholder="مثلاً «نوبت» یا «ویرایش»" data-testid="permission-search" onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} />
+      {needle && !visibleGroups.length ? (
+        <p className="ds-hint" role="status" data-testid="permission-search-empty">مجوزی با این عبارت پیدا نشد.</p>
+      ) : null}
+      {visibleGroups.map(([category, items]) => (
         <fieldset key={category} className="space-y-2">
           <legend className="mb-1 flex w-full items-center justify-between gap-2 text-sm font-semibold text-[var(--ds-heading)]">
             <span>
@@ -44,7 +63,7 @@ export function PermissionPicker({ catalog, selected, onChange, disabledCodes }:
             </span>
           </legend>
           <div className="grid gap-2 sm:grid-cols-2">
-            {items.map((item) => (
+            {items.filter(matches).map((item) => (
               <CheckboxField
                 key={item.code}
                 id={`perm-${item.code}`}

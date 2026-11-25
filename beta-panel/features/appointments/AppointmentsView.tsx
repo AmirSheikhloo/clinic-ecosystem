@@ -7,12 +7,13 @@ import { AccessDenied } from "@/components/feedback/AccessDenied";
 import { Alert } from "@/components/feedback/Alert";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { QueryBoundary } from "@/components/feedback/QueryBoundary";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { useSession } from "@/components/session/SessionProvider";
 import { buildQuery } from "@/lib/api";
 import { rangeBoundsUtc, visibleRange, type CalendarView } from "@/lib/calendar/jalali-grid";
 import { tehranTodayYmd } from "@/lib/client";
 import { P } from "@/lib/permissions";
+import { CATALOG_CACHE_MS } from "@/lib/query-cache";
 import { useApiQuery } from "@/lib/use-api-query";
 import { AppointmentDetailsDialog } from "./AppointmentDetailsDialog";
 import { AppointmentTable } from "./AppointmentTable";
@@ -21,7 +22,7 @@ import { CalendarToolbar, type CalendarFilters, type Option } from "./CalendarTo
 import { DayTimeline } from "./DayTimeline";
 import { MonthView } from "./MonthView";
 import { WeekView } from "./WeekView";
-import { CALENDAR_LIMIT, type CalendarResponse, type SortKey } from "./types";
+import { CALENDAR_LIMIT, CALENDAR_STATUSES, type CalendarResponse, type SortKey } from "./types";
 
 type ServiceDto = { id: string; service_name: string };
 type ResourceDto = { id: string; resource_name: string };
@@ -30,11 +31,19 @@ export function AppointmentsView() {
   const { can, status } = useSession();
   const params = useSearchParams();
   const requestedDate = params.get("date");
-  const [view, setView] = useState<CalendarView>("day");
+  const requestedView = params.get("view");
+  const requestedStatus = params.get("status") ?? "";
+  const [view, setView] = useState<CalendarView>(() =>
+    requestedView === "week" || requestedView === "month" ? requestedView : "day",
+  );
   const [anchor, setAnchor] = useState(() =>
     requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : tehranTodayYmd(),
   );
-  const [filters, setFilters] = useState<CalendarFilters>({ serviceId: "", resourceId: "", status: "" });
+  const [filters, setFilters] = useState<CalendarFilters>({
+    serviceId: "",
+    resourceId: "",
+    status: (CALENDAR_STATUSES as readonly string[]).includes(requestedStatus) ? requestedStatus : "",
+  });
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [openId, setOpenId] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
@@ -54,8 +63,8 @@ export function AppointmentsView() {
   }, [range, filters]);
 
   const calendar = useApiQuery<CalendarResponse>(allowed ? path : null, "بارگذاری نوبت‌ها ناموفق بود", refresh);
-  const services = useApiQuery<{ items: ServiceDto[] }>(allowed && can(P.catalogServicesRead) ? "/api/catalog/services" : null);
-  const resources = useApiQuery<{ items: ResourceDto[] }>(allowed && can(P.resourcesRead) ? "/api/catalog/resources" : null);
+  const services = useApiQuery<{ items: ServiceDto[] }>(allowed && can(P.catalogServicesRead) ? "/api/catalog/services" : null, undefined, 0, { cacheMs: CATALOG_CACHE_MS });
+  const resources = useApiQuery<{ items: ResourceDto[] }>(allowed && can(P.resourcesRead) ? "/api/catalog/resources" : null, undefined, 0, { cacheMs: CATALOG_CACHE_MS });
 
   const items = calendar.data?.items;
   const groups = useMemo(() => groupByTehranDay(items ?? []), [items]);
@@ -65,7 +74,7 @@ export function AppointmentsView() {
   const canOpen = can(P.appointmentsDetails);
   const open = (item: { appointment_id: string }) => setOpenId(item.appointment_id);
 
-  if (status === "loading") return <Skeleton className="h-64" />;
+  if (status === "loading") return <PageSkeleton />;
   if (!allowed) return <AccessDenied what="مشاهدهٔ نوبت‌ها" />;
 
   return (
@@ -75,7 +84,7 @@ export function AppointmentsView() {
         onViewChange={setView}
         anchor={anchor}
         onAnchorChange={setAnchor}
-        count={items?.length ?? 0}
+        count={items ? items.length : null}
         loading={calendar.loading}
         onRefresh={() => setRefresh((v) => v + 1)}
         filters={filters}
