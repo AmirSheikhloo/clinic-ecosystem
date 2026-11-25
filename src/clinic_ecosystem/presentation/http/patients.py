@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from clinic_ecosystem.infrastructure.auth.settings import PATIENTS_REGISTER, PATIENTS_SEARCH
+from clinic_ecosystem.infrastructure.persistence.audit import SqlAuditStore
 from clinic_ecosystem.infrastructure.persistence.patients import SqlPatientRepository
 from clinic_ecosystem.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 from clinic_ecosystem.presentation.http.dependencies import (
@@ -64,6 +65,15 @@ async def register_patient(
             first_name=first,
             last_name=last,
             birth_date=body.birth_date,
+        )
+        await SqlAuditStore(uow.session).append(
+            tenant_id=principal.claims.tenant_id,
+            actor_type="USER_ACCOUNT",
+            actor_id=principal.account.id,
+            operation="patient.registered",
+            target_type="patient_profile",
+            target_id=record.patient_profile_id,
+            details={},
         )
         await uow.commit()
     except Exception:

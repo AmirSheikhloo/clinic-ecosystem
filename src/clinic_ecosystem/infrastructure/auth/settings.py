@@ -11,16 +11,14 @@ import os
 from dataclasses import dataclass
 from uuid import UUID
 
-# Narrow permission used by GET /api/v1/catalog/services.
-CATALOG_SERVICES_READ = "CATALOG_SERVICES_READ"
-
-# Provisional BETA-01B permission codes for synthetic reception fixtures only.
-# Not an approved production permission-catalog contract.
-PATIENTS_REGISTER = "BETA01B_PATIENTS_REGISTER"
-PATIENTS_SEARCH = "BETA01B_PATIENTS_SEARCH"
-CATALOG_RESOURCES_READ = "BETA01B_CATALOG_RESOURCES_READ"
-APPOINTMENTS_SCHEDULE_MANUAL = "BETA01B_APPOINTMENTS_SCHEDULE_MANUAL"
-APPOINTMENTS_LIST = "BETA01B_APPOINTMENTS_LIST"
+from clinic_ecosystem.domain.access.permissions import (  # noqa: E402,F401
+    APPOINTMENTS_LIST,
+    APPOINTMENTS_SCHEDULE_MANUAL,
+    CATALOG_RESOURCES_READ,
+    CATALOG_SERVICES_READ,
+    PATIENTS_REGISTER,
+    PATIENTS_SEARCH,
+)
 
 _DEFAULT_ISSUER = "clinic-ecosystem-beta-01a"
 _DEFAULT_AUDIENCE = "clinic-ecosystem-staff-api"

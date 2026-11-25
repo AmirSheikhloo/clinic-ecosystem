@@ -135,10 +135,21 @@ def test_patient_register_success(app_principal) -> None:
                 is_active=True,
             )
 
+    class FakeAudit:
+        appended: list = []
+
+        def __init__(self, session):
+            pass
+
+        async def append(self, **kwargs):
+            FakeAudit.appended.append(kwargs["operation"])
+
     original_perm = patients_mod.require_permission
     original_repo = patients_mod.SqlPatientRepository
+    original_audit = patients_mod.SqlAuditStore
     patients_mod.require_permission = allow
     patients_mod.SqlPatientRepository = FakeRepo
+    patients_mod.SqlAuditStore = FakeAudit
     try:
         with TestClient(app) as client:
             response = client.post(
@@ -156,9 +167,11 @@ def test_patient_register_success(app_principal) -> None:
         assert body["person_id"] == str(person_id)
         assert body["patient_profile_id"] != body["person_id"]
         assert body["birth_date"] == "1991-01-02"
+        assert FakeAudit.appended == ["patient.registered"]
     finally:
         patients_mod.require_permission = original_perm
         patients_mod.SqlPatientRepository = original_repo
+        patients_mod.SqlAuditStore = original_audit
 
 
 def test_resources_list_success(app_principal) -> None:

@@ -14,6 +14,8 @@ from clinic_ecosystem.application.auth.exceptions import (
     InvalidCredentials,
 )
 from clinic_ecosystem.application.auth.service import AuthService
+from clinic_ecosystem.infrastructure.persistence.access_admin import SqlAccessAdmin
+from clinic_ecosystem.infrastructure.persistence.permissions import SqlPermissionService
 from clinic_ecosystem.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
 from clinic_ecosystem.presentation.http.dependencies import (
     AuthenticatedPrincipal,
@@ -43,6 +45,10 @@ class MeResponse(BaseModel):
     tenant_id: str
     login_identifier: str
     is_active: bool
+    first_name: str = ""
+    last_name: str = ""
+    permissions: list[str] = []
+    governance_roles: list[str] = []
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -86,8 +92,23 @@ async def login(
 @router.get("/me", response_model=MeResponse)
 async def me(
     principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
+    uow: Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)],
 ) -> MeResponse:
+    permissions = SqlPermissionService(uow.session)
+    granted = await permissions.effective_permissions(
+        tenant_id=principal.account.tenant_id, principal_id=principal.account.id
+    )
+    governance = await permissions.governance_roles(
+        tenant_id=principal.account.tenant_id, person_id=principal.account.person_id
+    )
+    name = await SqlAccessAdmin(uow.session).person_display(
+        tenant_id=principal.account.tenant_id, person_id=principal.account.person_id
+    )
     return MeResponse(
+        first_name=name[0] if name else "",
+        last_name=name[1] if name else "",
+        permissions=sorted(granted),
+        governance_roles=sorted(governance),
         account_id=str(principal.account.id),
         tenant_id=str(principal.account.tenant_id),
         login_identifier=principal.account.login_identifier,

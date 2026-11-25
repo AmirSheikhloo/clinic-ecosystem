@@ -75,7 +75,28 @@ def test_health_endpoint(app_and_settings) -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_login_success_and_me(app_and_settings) -> None:
+def test_login_success_and_me(app_and_settings, monkeypatch) -> None:
+    from clinic_ecosystem.presentation.http import auth as auth_mod
+
+    class _FakePerms:
+        def __init__(self, session):
+            pass
+
+        async def effective_permissions(self, **kwargs):
+            return {"BETA02_STAFF_VIEW", "BETA01B_PATIENTS_SEARCH"}
+
+        async def governance_roles(self, **kwargs):
+            return {"RECEPTIONIST"}
+
+    class _FakeAdmin:
+        def __init__(self, session):
+            pass
+
+        async def person_display(self, **kwargs):
+            return ("Rita", "Reception")
+
+    monkeypatch.setattr(auth_mod, "SqlPermissionService", _FakePerms)
+    monkeypatch.setattr(auth_mod, "SqlAccessAdmin", _FakeAdmin)
     app, settings, tenant_id = app_and_settings
     account_id = uuid4()
     account = _account(tenant_id=tenant_id, account_id=account_id)
@@ -118,6 +139,9 @@ def test_login_success_and_me(app_and_settings) -> None:
         )
         assert me.status_code == 200
         assert me.json()["login_identifier"] == account.login_identifier
+        assert me.json()["permissions"] == ["BETA01B_PATIENTS_SEARCH", "BETA02_STAFF_VIEW"]
+        assert me.json()["governance_roles"] == ["RECEPTIONIST"]
+        assert me.json()["first_name"] == "Rita"
 
 
 def test_login_invalid_credentials_generic(app_and_settings) -> None:

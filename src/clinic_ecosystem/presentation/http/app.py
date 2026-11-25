@@ -19,11 +19,18 @@ from clinic_ecosystem.infrastructure.auth.settings import (
     load_auth_settings,
     require_token_signing_secret,
 )
+from clinic_ecosystem.presentation.http import access as access_routes
+from clinic_ecosystem.presentation.http import appointment_admin as appointment_admin_routes
 from clinic_ecosystem.presentation.http import appointments as appointment_routes
 from clinic_ecosystem.presentation.http import auth as auth_routes
 from clinic_ecosystem.presentation.http import catalog as catalog_routes
+from clinic_ecosystem.presentation.http import catalog_admin as catalog_admin_routes
+from clinic_ecosystem.presentation.http import overview as overview_routes
+from clinic_ecosystem.presentation.http import patient_registry as patient_registry_routes
 from clinic_ecosystem.presentation.http import patients as patient_routes
+from clinic_ecosystem.presentation.http.common import install_problem_handlers
 from clinic_ecosystem.presentation.http import resources as resource_routes
+from clinic_ecosystem.presentation.http import staff as staff_routes
 
 logger = logging.getLogger("clinic_ecosystem.http")
 
@@ -107,9 +114,16 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    install_problem_handlers(app)
     app.include_router(auth_routes.router)
     app.include_router(catalog_routes.router)
+    app.include_router(catalog_admin_routes.router)
     app.include_router(resource_routes.router)
     app.include_router(patient_routes.router)
+    app.include_router(patient_registry_routes.router)
+    app.include_router(staff_routes.router)
+    app.include_router(access_routes.router)
+    app.include_router(overview_routes.router)
     app.include_router(appointment_routes.router)
+    app.include_router(appointment_admin_routes.router)
     return app
