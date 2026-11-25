@@ -11,7 +11,7 @@ import { DataTable } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { Pagination } from "@/components/ui/Pagination";
-import { ActiveBadge } from "@/components/ui/StatusBadge";
+import { ActiveBadge, StatusBadge } from "@/components/ui/StatusBadge";
 import { apiJson, buildQuery, type ApiFail } from "@/lib/api";
 import type { Page } from "@/lib/types";
 import { useApiQuery } from "@/lib/use-api-query";
@@ -94,7 +94,7 @@ export function ResourcesAdmin() {
   const data = query.data;
   return (
     <div className="space-y-4" role="tabpanel" id="panel-resources" aria-labelledby="tab-resources">
-      <form onSubmit={(e) => { e.preventDefault(); setOffset(0); setFilters((c) => ({ ...c, q: draft.trim() })); }} className="flex flex-wrap items-end gap-2">
+      <form onSubmit={(e) => { e.preventDefault(); setOffset(0); setFilters((c) => ({ ...c, q: draft.trim() })); }} className="ds-card flex flex-wrap items-end gap-3 p-3">
         <label className="block min-w-48 flex-1 space-y-1 text-sm">
           <span className="ds-field-label">نام منبع</span>
           <input className="ds-input" value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={120} data-testid="resources-search" aria-label="جستجوی منابع" />
@@ -108,8 +108,8 @@ export function ResourcesAdmin() {
           <option value="active">فعال</option>
           <option value="inactive">غیرفعال</option>
         </SelectField>
-        <Button type="submit">اعمال</Button>
-        <Button onClick={() => setModal({ resource: null })} data-testid="resource-add">منبع جدید</Button>
+        <Button type="submit" variant="ghost">اعمال</Button>
+        <Button icon="plus" onClick={() => setModal({ resource: null })} data-testid="resource-add">منبع جدید</Button>
       </form>
       <QueryBoundary loading={query.loading && !data} error={query.error} deniedWhat="مدیریت منابع" onRetry={query.reload}>
         {data && (
@@ -118,18 +118,18 @@ export function ResourcesAdmin() {
               rows={data.items}
               rowKey={(r) => r.resource_id}
               rowTestId="resource-row"
-              empty={<EmptyState title="منبعی یافت نشد" />}
+              empty={<EmptyState icon="layers" title="منبعی یافت نشد" description="جستجو یا فیلتر را تغییر دهید." />}
               columns={[
                 { key: "name", header: "منبع", cell: (r) => <span className="font-medium">{r.resource_name}</span> },
-                { key: "type", header: "نوع", cell: (r) => RESOURCE_TYPE_LABEL[r.resource_type] ?? r.resource_type },
+                { key: "type", header: "نوع", cell: (r) => <StatusBadge>{RESOURCE_TYPE_LABEL[r.resource_type] ?? r.resource_type}</StatusBadge> },
                 { key: "status", header: "وضعیت", cell: (r) => <ActiveBadge active={r.is_active} /> },
                 {
                   key: "actions",
                   header: "",
                   cell: (r) => (
-                    <span className="flex gap-3 text-sm">
-                      <button type="button" className="text-[var(--ds-primary)] hover:underline" onClick={() => setModal({ resource: r })} data-testid="resource-edit">ویرایش</button>
-                      <button type="button" className="text-[var(--ds-primary)] hover:underline disabled:opacity-50" disabled={busyId === r.resource_id} onClick={() => void toggle(r)} data-testid="resource-toggle">{r.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>
+                    <span className="inline-flex flex-wrap justify-end gap-1">
+                      <Button variant="subtle" size="sm" onClick={() => setModal({ resource: r })} data-testid="resource-edit">ویرایش</Button>
+                      <Button variant="ghost" size="sm" disabled={busyId === r.resource_id} onClick={() => void toggle(r)} data-testid="resource-toggle">{r.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</Button>
                     </span>
                   ),
                 },

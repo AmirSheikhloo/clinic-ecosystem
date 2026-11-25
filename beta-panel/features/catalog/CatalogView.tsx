@@ -1,156 +1,103 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import Link from "next/link";
-import { Alert } from "@/components/feedback/Alert";
-import { useSession } from "@/components/session/SessionProvider";
-import { P } from "@/lib/permissions";
+import { useState } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { apiFetch, formatApiError, type ApiErrorBody } from "@/lib/client";
+import { QueryBoundary } from "@/components/feedback/QueryBoundary";
+import { SelectField } from "@/components/forms/SelectField";
+import { useSession } from "@/components/session/SessionProvider";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useSearchParams } from "next/navigation";
 import { formatCount } from "@/lib/format/numbers";
+import { P } from "@/lib/permissions";
+import { RESOURCE_TYPE_LABEL, resourceTypeLabel } from "@/lib/resources";
+import { useApiQuery } from "@/lib/use-api-query";
 
-type Service = {
-  id: string;
-  service_name: string;
-  default_duration_minutes: number;
-  is_active: boolean;
-};
-
-type Resource = {
-  id: string;
-  resource_name: string;
-  resource_type: string;
-  is_active?: boolean;
-};
+type Service = { id: string; service_name: string; default_duration_minutes: number; is_active: boolean };
+type Resource = { id: string; resource_name: string; resource_type: string; is_active?: boolean };
 
 export function CatalogView() {
-  const router = useRouter();
   const { can } = useSession();
-  const filter = (useSearchParams().get("q") ?? "").trim().toLowerCase();
-  const [services, setServices] = useState<Service[]>([]);
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const me = await apiFetch("/api/auth/me");
-        if (cancelled) return;
-        if (me.status === 401) {
-          router.replace("/login?expired=1");
-          return;
-        }
-        const [svcRes, resRes] = await Promise.all([
-          apiFetch("/api/catalog/services"),
-          apiFetch("/api/catalog/resources"),
-        ]);
-        if (cancelled) return;
-        if (svcRes.status === 401 || resRes.status === 401) {
-          router.replace("/login?expired=1");
-          return;
-        }
-        if (!svcRes.ok || !resRes.ok) {
-          const data = (await (svcRes.ok ? resRes : svcRes).json().catch(() => ({}))) as ApiErrorBody;
-          if (cancelled) return;
-          setError(formatApiError(data, "بارگذاری فهرست ناموفق بود"));
-          setLoading(false);
-          return;
-        }
-        const svcData = await svcRes.json();
-        const resData = await resRes.json();
-        if (cancelled) return;
-        setServices(svcData.items || []);
-        setResources(resData.items || []);
-        setError(null);
-        setLoading(false);
-      } catch {
-        if (!cancelled) {
-          setError("ارتباط برای بارگذاری فهرست برقرار نشد");
-          setLoading(false);
-        }
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [router, refreshKey]);
-
-  const visibleServices = filter
-    ? services.filter((service) => service.service_name.toLowerCase().includes(filter))
-    : services;
+  const [draft, setDraft] = useState(useSearchParams().get("q") ?? "");
+  const [type, setType] = useState("");
+  const [refresh, setRefresh] = useState(0);
+  const services = useApiQuery<{ items: Service[] }>("/api/catalog/services", "بارگذاری خدمات ناموفق بود", refresh);
+  const resources = useApiQuery<{ items: Resource[] }>("/api/catalog/resources", "بارگذاری منابع ناموفق بود", refresh);
+  const canManage = can(P.servicesManage) || can(P.resourcesManage);
+  const term = draft.trim().toLowerCase();
+  const visibleServices = (services.data?.items ?? []).filter((item) => !term || item.service_name.toLowerCase().includes(term));
+  const visibleResources = (resources.data?.items ?? []).filter(
+    (item) => (!term || item.resource_name.toLowerCase().includes(term)) && (!type || item.resource_type === type),
+  );
+  const loading = (services.loading && !services.data) || (resources.loading && !resources.data);
 
   return (
-    <main className="space-y-6 animate-rise" data-testid="catalog-page">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-[var(--ds-primary-strong)]">فهرست خدمات و منابع</h2>
-          <p className="text-[var(--ds-text-muted)]">نمای مرجع خدمات و منابع فعال؛ ویرایش فقط در بخش مدیریت</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-        {(can(P.servicesManage) || can(P.resourcesManage)) && (
-          <Link href="/catalog/manage" className="ds-btn ds-btn-primary" data-testid="catalog-manage-link">
-            مدیریت خدمات و منابع
-          </Link>
-        )}
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setLoading(true);
-            setRefreshKey((value) => value + 1);
-          }}
-        >
-          تازه‌سازی
-        </Button>
-        </div>
-      </header>
+    <main className="space-y-5" data-testid="catalog-page">
+      <PageHeader
+        title="خدمات و منابع"
+        description="نمای مرجع خدمت‌ها و منابع فعال که در نوبت‌دهی استفاده می‌شود."
+        meta={<StatusBadge tone={canManage ? "ok" : "neutral"}>{canManage ? "دسترسی مدیریت" : "فقط مشاهده"}</StatusBadge>}
+        actions={
+          <>
+            <Button variant="ghost" icon="refresh" loading={services.loading || resources.loading} onClick={() => setRefresh((v) => v + 1)}>
+              به‌روزرسانی
+            </Button>
+            {canManage ? (
+              <Link href="/catalog/manage" className="ds-btn ds-btn-primary" data-testid="catalog-manage-link">
+                مدیریت خدمات و منابع
+              </Link>
+            ) : null}
+          </>
+        }
+      />
 
-      {loading && <p className="text-[var(--ds-text-muted)]">در حال بارگذاری…</p>}
-      {error && <Alert>{error}</Alert>}
+      <div className="ds-card flex flex-wrap items-end gap-3 p-3">
+        <label className="block min-w-56 flex-1 space-y-1 text-sm">
+          <span className="ds-field-label">جستجو</span>
+          <span className="relative block">
+            <Icon name="search" size="sm" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ds-text-muted)]" />
+            <input className="ds-input ps-9" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="نام خدمت یا منبع" aria-label="جستجوی خدمات و منابع" data-testid="catalog-search" />
+          </span>
+        </label>
+        <SelectField label="نوع منبع" value={type} onChange={(e) => setType(e.target.value)} data-testid="catalog-type">
+          <option value="">همه انواع</option>
+          {Object.entries(RESOURCE_TYPE_LABEL).map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </SelectField>
+      </div>
 
-      {!loading && !error && (
+      <QueryBoundary loading={loading} error={services.error ?? resources.error} deniedWhat="مشاهدهٔ خدمات و منابع" onRetry={() => setRefresh((v) => v + 1)}>
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card className="space-y-3">
-            <h3 className="font-semibold">خدمات ({formatCount(visibleServices.length)})</h3>
-            {!visibleServices.length && <EmptyState title="خدمتی موجود نیست" />}
+          <div className="ds-card space-y-3 p-5" data-testid="catalog-services">
+            <h2 className="ds-section-title">خدمات ({formatCount(visibleServices.length)})</h2>
+            {!visibleServices.length ? <EmptyState icon="catalog" title="خدمتی یافت نشد" description="عبارت جستجو را تغییر دهید." /> : null}
             <ul className="space-y-2">
               {visibleServices.map((service) => (
-                <li
-                  key={service.id}
-                  className="rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] px-3 py-2"
-                >
-                  <p className="font-medium">{service.service_name}</p>
-                  <p className="text-xs text-[var(--ds-text-muted)] tabular-nums">
-                    مدت پیش‌فرض: {formatCount(service.default_duration_minutes)} دقیقه
-                  </p>
+                <li key={service.id} className="flex items-center justify-between gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] px-3 py-2">
+                  <span className="font-medium">{service.service_name}</span>
+                  <StatusBadge>{formatCount(service.default_duration_minutes)} دقیقه</StatusBadge>
                 </li>
               ))}
             </ul>
-          </Card>
-          <Card className="space-y-3">
-            <h3 className="font-semibold">منابع ({formatCount(resources.length)})</h3>
-            {!resources.length && <EmptyState title="منبعی موجود نیست" />}
+          </div>
+          <div className="ds-card space-y-3 p-5" data-testid="catalog-resources">
+            <h2 className="ds-section-title">منابع ({formatCount(visibleResources.length)})</h2>
+            {!visibleResources.length ? <EmptyState icon="layers" title="منبعی یافت نشد" description="عبارت جستجو یا نوع منبع را تغییر دهید." /> : null}
             <ul className="space-y-2">
-              {resources.map((resource) => (
-                <li
-                  key={resource.id}
-                  className="rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] px-3 py-2"
-                >
-                  <p className="font-medium">{resource.resource_name}</p>
-                  <p className="text-xs text-[var(--ds-text-muted)]">{resource.resource_type}</p>
+              {visibleResources.map((resource) => (
+                <li key={resource.id} className="flex items-center justify-between gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] px-3 py-2">
+                  <span className="font-medium">{resource.resource_name}</span>
+                  <StatusBadge tone="info">{resourceTypeLabel(resource.resource_type)}</StatusBadge>
                 </li>
               ))}
             </ul>
-          </Card>
+          </div>
         </section>
-      )}
+      </QueryBoundary>
     </main>
   );
 }

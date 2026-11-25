@@ -7,7 +7,8 @@ import { useToast } from "@/components/feedback/Toast";
 import { useSession } from "@/components/session/SessionProvider";
 import { DataTable } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/Button";
-import { Dialog } from "@/components/ui/Dialog";
+import { Alert } from "@/components/feedback/Alert";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { apiJson } from "@/lib/api";
 import { formatCount } from "@/lib/format/numbers";
@@ -43,8 +44,8 @@ export function RolesTab() {
   return (
     <div className="space-y-4" role="tabpanel" id="panel-roles" aria-labelledby="tab-roles">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-[var(--ds-text-muted)]">نقش‌های سیستمی و سفارشی؛ مالک و مدیر فقط از بخش «حاکمیت» تغییر می‌کنند.</p>
-        {canManage && <Button onClick={() => setEditing("new")} data-testid="role-add">نقش جدید</Button>}
+        <p className="text-sm text-[var(--ds-text-muted)]">نقش مجموعه‌ای از مجوزهاست. مالک و مدیر کلینیک فقط از بخش «مالک و مدیران» تعیین می‌شوند.</p>
+        {canManage ? <Button icon="plus" onClick={() => setEditing("new")} data-testid="role-add">نقش جدید</Button> : null}
       </div>
       <QueryBoundary loading={(roles.loading && !roles.data) || (catalog.loading && !catalog.data)} error={roles.error ?? catalog.error} deniedWhat="مشاهدهٔ نقش‌ها" onRetry={roles.reload}>
         {roles.data && catalog.data && (
@@ -52,9 +53,9 @@ export function RolesTab() {
             rows={roles.data.items}
             rowKey={(r) => r.role_id}
             rowTestId="role-row"
-            empty={<EmptyState title="نقشی تعریف نشده است" />}
+            empty={<EmptyState icon="access" title="نقشی تعریف نشده است" />}
             columns={[
-              { key: "name", header: "نقش", cell: (r) => <span><span className="font-medium">{r.role_name}</span> <span className="text-xs text-[var(--ds-text-muted)]" dir="ltr">{r.role_code}</span></span> },
+              { key: "name", header: "نقش", cell: (r) => <span><span className="font-medium">{r.role_name}</span> <span className="text-xs text-[var(--ds-text-muted)]" dir="ltr" title="کد نقش">{r.role_code}</span></span> },
               { key: "type", header: "نوع", cell: (r) => <StatusBadge>{r.is_system_defined ? "سیستمی" : "سفارشی"}</StatusBadge> },
               { key: "perms", header: "مجوزها", cell: (r) => formatCount(r.permissions.length), className: "tabular-nums" },
               { key: "members", header: "اعضا", cell: (r) => formatCount(r.member_count), className: "tabular-nums" },
@@ -63,11 +64,11 @@ export function RolesTab() {
                 header: "",
                 cell: (r) =>
                   canManage ? (
-                    <span className="flex gap-3">
-                      <button type="button" className="text-[var(--ds-primary)] hover:underline" onClick={() => setEditing(r)} data-testid="role-edit">مجوزها</button>
-                      {!r.is_system_defined && r.member_count === 0 && (
-                        <button type="button" className="text-[var(--ds-danger)] hover:underline" onClick={() => { setDeleteError(null); setDeleting(r); }} data-testid="role-delete">حذف</button>
-                      )}
+                    <span className="inline-flex justify-end gap-1">
+                      <Button variant="subtle" size="sm" onClick={() => setEditing(r)} data-testid="role-edit">مجوزها</Button>
+                      {!r.is_system_defined && r.member_count === 0 ? (
+                        <Button variant="danger" size="sm" onClick={() => { setDeleteError(null); setDeleting(r); }} data-testid="role-delete">حذف</Button>
+                      ) : null}
                     </span>
                   ) : null,
               },
@@ -84,16 +85,20 @@ export function RolesTab() {
           onSaved={(message) => { setEditing(null); toast.success(message); setRefresh((v) => v + 1); }}
         />
       )}
-      {deleting && (
-        <Dialog open title="حذف نقش" onClose={() => setDeleting(null)} testId="role-delete-dialog">
-          <p className="mb-4 text-sm">نقش «{deleting.role_name}» حذف شود؟ این کار برگشت‌پذیر نیست و در گزارش ممیزی ثبت می‌شود.</p>
-          {deleteError && <p className="ds-alert-danger mb-3" role="alert">{deleteError}</p>}
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setDeleting(null)}>انصراف</Button>
-            <Button variant="ghost" className="ds-btn-danger" onClick={() => void confirmDelete()} data-testid="role-delete-confirm">حذف نقش</Button>
-          </div>
-        </Dialog>
-      )}
+      {deleting ? (
+        <ConfirmDialog
+          open
+          tone="danger"
+          title="حذف نقش"
+          confirmLabel="حذف نقش"
+          testId="role-delete-dialog"
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => void confirmDelete()}
+        >
+          <p>نقش «{deleting.role_name}» حذف شود؟ این کار برگشت‌پذیر نیست و در گزارش ممیزی ثبت می‌شود.</p>
+          {deleteError ? <Alert>{deleteError}</Alert> : null}
+        </ConfirmDialog>
+      ) : null}
     </div>
   );
 }

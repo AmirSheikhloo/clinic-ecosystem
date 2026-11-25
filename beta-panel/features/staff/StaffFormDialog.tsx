@@ -6,6 +6,7 @@ import { CheckboxField } from "@/components/forms/CheckboxField";
 import { SelectField } from "@/components/forms/SelectField";
 import { TextField } from "@/components/forms/TextField";
 import { Button } from "@/components/ui/Button";
+import { Collapsible } from "@/components/ui/Collapsible";
 import { Dialog } from "@/components/ui/Dialog";
 import { apiJson, type ApiFail } from "@/lib/api";
 import { useIdempotencyKey } from "@/lib/use-idempotency";
@@ -76,9 +77,9 @@ export function StaffFormDialog({ staff, canProvisionLogin, onClose, onSaved }: 
   const stale = failure?.status === 412;
 
   return (
-    <Dialog open title={editing ? "ویرایش عضو" : "افزودن عضو"} onClose={onClose} testId="staff-form-dialog">
+    <Dialog open placement="drawer" title={editing ? "ویرایش عضو" : "افزودن عضو"} description="پروفایل کارمندی؛ حساب ورود اختیاری و جداست." onClose={onClose} testId="staff-form-dialog">
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3">
           <TextField label="نام" value={firstName} onChange={(e) => setFirstName(e.target.value)} required maxLength={120} data-testid="staff-first-name" />
           <TextField label="نام خانوادگی" value={lastName} onChange={(e) => setLastName(e.target.value)} required maxLength={120} data-testid="staff-last-name" />
           <SelectField label="نوع" value={kind} onChange={(e) => setKind(e.target.value)} data-testid="staff-kind">
@@ -88,28 +89,28 @@ export function StaffFormDialog({ staff, canProvisionLogin, onClose, onSaved }: 
           </SelectField>
           <TextField label="کد نظام پزشکی (اختیاری)" value={council} onChange={(e) => setCouncil(e.target.value)} maxLength={64} data-testid="staff-council" />
         </div>
-        {!editing && canProvisionLogin && (
+        {!editing && canProvisionLogin ? (
           <div className="space-y-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] p-3">
             <CheckboxField
-              label="ایجاد حساب ورود برای این عضو"
-              hint="به‌صورت پیش‌فرض خاموش است؛ پروفایل کارمندی یا پزشک بودن به‌تنهایی دسترسی نمی‌دهد."
+              label="ایجاد حساب ورود به نرم‌افزار برای این عضو"
+              hint="به‌صورت پیش‌فرض خاموش است. حساب بدون نقش ساخته می‌شود و دسترسی را بعداً در «کاربران و دسترسی» تعیین می‌کنید."
               checked={withLogin}
               onChange={(e) => setWithLogin(e.target.checked)}
               data-testid="staff-create-login"
             />
-            {withLogin && (
+            <Collapsible open={withLogin}>
               <LoginFields idPrefix="new" login={login} password={password} onLoginChange={setLogin} onPasswordChange={setPassword} />
-            )}
+            </Collapsible>
           </div>
-        )}
+        ) : null}
         {failure && (
           <Alert testId="staff-form-error">
             {stale ? "این پروفایل در این فاصله تغییر کرده است؛ پنجره را بسته و دوباره باز کنید." : failure.message}
           </Alert>
         )}
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>انصراف</Button>
-          <Button type="submit" disabled={busy} data-testid="staff-submit">
+          <Button type="submit" loading={busy} data-testid="staff-submit">
             {busy ? "در حال ذخیره…" : editing ? "ذخیره" : "ثبت عضو"}
           </Button>
         </div>

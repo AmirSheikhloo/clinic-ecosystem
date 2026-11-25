@@ -40,13 +40,13 @@ export function ProvisionLoginDialog({ staff, onClose, onSaved }: Props) {
   }
 
   return (
-    <Dialog open title={`ایجاد حساب ورود — ${staff.first_name} ${staff.last_name}`} onClose={onClose} testId="provision-dialog">
+    <Dialog open placement="drawer" title={`ایجاد حساب ورود — ${staff.first_name} ${staff.last_name}`} onClose={onClose} testId="provision-dialog">
       <form onSubmit={submit} className="space-y-4">
         <LoginFields idPrefix="prov" login={login} password={password} onLoginChange={setLogin} onPasswordChange={setPassword} />
         {failure && <Alert testId="provision-error">{failure.message}</Alert>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>انصراف</Button>
-          <Button type="submit" disabled={busy} data-testid="provision-submit">
+          <Button type="submit" loading={busy} data-testid="provision-submit">
             {busy ? "در حال ایجاد…" : "ایجاد حساب"}
           </Button>
         </div>

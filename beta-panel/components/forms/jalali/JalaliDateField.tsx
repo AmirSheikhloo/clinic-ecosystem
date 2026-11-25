@@ -106,7 +106,6 @@ export function JalaliDateField({
           aria-describedby={message || hint ? noteId : undefined}
           aria-invalid={message ? true : undefined}
           aria-haspopup="dialog"
-          aria-expanded={open}
           data-testid={testId}
           onChange={onInput}
           onBlur={() => {

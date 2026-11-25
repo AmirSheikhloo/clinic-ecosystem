@@ -34,7 +34,7 @@ export function LoginFields({ login, password, onLoginChange, onPasswordChange, 
         required
         data-testid="staff-login-password"
       />
-      <p className="text-xs text-[var(--ds-text-muted)] sm:col-span-2">
+      <p className="text-xs text-[var(--ds-text-muted)] sm:col-span-2 ds-hint">
         حساب ورود بدون هیچ نقشی ساخته می‌شود؛ دسترسی فقط از بخش «کاربران و دسترسی» تخصیص داده می‌شود.
       </p>
     </div>

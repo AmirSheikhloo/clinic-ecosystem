@@ -10,6 +10,7 @@ import { SelectField } from "@/components/forms/SelectField";
 import { useSession } from "@/components/session/SessionProvider";
 import { DataTable } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { apiJson, type ApiFail } from "@/lib/api";
@@ -18,11 +19,18 @@ import type { Page } from "@/lib/types";
 import { useApiQuery } from "@/lib/use-api-query";
 import { accountDisplayName, governanceLabel, toggleInSet, type AccountRow, type GovernanceRow } from "./types";
 
+const GOVERNANCE_LEVELS = [
+  { title: "مالک کلینیک", body: "بالاترین سطح؛ فقط مالک می‌تواند مالک یا مدیر تعیین کند و آخرین مالک قابل حذف نیست." },
+  { title: "مدیر کلینیک", body: "مدیریت عملیات روزانه؛ معاون مدیر و پذیرش را می‌تواند تعیین کند، اما مالک و مدیر را نه." },
+  { title: "معاون مدیر و پذیرش", body: "برچسب سازمانی؛ به‌تنهایی مجوزی نمی‌دهد و دسترسی فقط از نقش‌ها می‌آید." },
+];
+
 type Target = { person_id: string; name: string; roles: string[] };
 
 function GovernanceDialog({ target, roles, onClose, onSaved }: { target: Target; roles: string[]; onClose: () => void; onSaved: () => void }) {
   const [selected, setSelected] = useState(target.roles);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [failure, setFailure] = useState<ApiFail | null>(null);
 
   async function save() {
@@ -34,6 +42,7 @@ function GovernanceDialog({ target, roles, onClose, onSaved }: { target: Target;
       fallbackMessage: "تغییر نقش حاکمیتی ناموفق بود",
     });
     setBusy(false);
+    setConfirming(false);
     if (!result.ok) {
       setFailure(result);
       return;
@@ -42,7 +51,7 @@ function GovernanceDialog({ target, roles, onClose, onSaved }: { target: Target;
   }
 
   return (
-    <Dialog open title={`نقش‌های حاکمیتی — ${target.name}`} onClose={onClose} testId="governance-dialog">
+    <Dialog open placement="drawer" title={`نقش‌های حاکمیتی — ${target.name}`} onClose={onClose} testId="governance-dialog">
       <div className="space-y-3">
         {roles.map((role) => (
           <CheckboxField
@@ -55,13 +64,25 @@ function GovernanceDialog({ target, roles, onClose, onSaved }: { target: Target;
             data-testid={`gov-${role}`}
           />
         ))}
-        <p className="text-xs text-[var(--ds-text-muted)]">نقش حاکمیتی به‌تنهایی مجوزی اعطا نمی‌کند؛ تغییر نقش خودتان و حذف آخرین مالک مجاز نیست.</p>
+        <p className="ds-hint">نقش حاکمیتی به‌تنهایی مجوزی اعطا نمی‌کند؛ تغییر نقش خودتان و حذف آخرین مالک مجاز نیست.</p>
         {failure && <Alert testId="governance-error">{failure.message}</Alert>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>انصراف</Button>
-          <Button disabled={busy} onClick={() => void save()} data-testid="governance-save">{busy ? "در حال ذخیره…" : "ذخیره"}</Button>
+          <Button loading={busy} onClick={() => setConfirming(true)} data-testid="governance-save">ذخیره</Button>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirming}
+        title="تأیید تغییر نقش حاکمیتی"
+        confirmLabel="تأیید و ذخیره"
+        tone="danger"
+        busy={busy}
+        testId="governance-apply-dialog"
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => void save()}
+      >
+        <p>نقش‌های «{target.name}» به: {selected.length ? selected.map(governanceLabel).join("، ") : "بدون نقش حاکمیتی"} تغییر می‌کند. این تغییر در گزارش ممیزی ثبت می‌شود.</p>
+      </ConfirmDialog>
     </Dialog>
   );
 }
@@ -80,9 +101,14 @@ export function GovernanceTab() {
 
   return (
     <div className="space-y-4" role="tabpanel" id="panel-governance" aria-labelledby="tab-governance">
-      <p className="text-sm text-[var(--ds-text-muted)]">
-        مالک و مدیر کلینیک فقط توسط مالک تغییر می‌کنند؛ معاون مدیر و پذیرش را مدیر نیز می‌تواند تعیین کند.
-      </p>
+      <section className="grid gap-3 md:grid-cols-3" aria-label="تفاوت سطوح مدیریتی" data-testid="governance-levels">
+        {GOVERNANCE_LEVELS.map((level) => (
+          <div key={level.title} className="ds-card space-y-1 p-3">
+            <p className="font-semibold text-[var(--ds-heading)]">{level.title}</p>
+            <p className="text-sm text-[var(--ds-text-muted)]">{level.body}</p>
+          </div>
+        ))}
+      </section>
       {canManage && accounts.data && (
         <div className="flex flex-wrap items-end gap-2">
           <SelectField label="افزودن نقش حاکمیتی به کاربر" value={pick} onChange={(e) => setPick(e.target.value)} data-testid="governance-pick">
@@ -108,7 +134,7 @@ export function GovernanceTab() {
             rows={list.data.items}
             rowKey={(r) => r.person_id}
             rowTestId="governance-row"
-            empty={<EmptyState title="هنوز نقش حاکمیتی تعریف نشده است" />}
+            empty={<EmptyState icon="access" title="هنوز نقش حاکمیتی تعریف نشده است" />}
             columns={[
               { key: "name", header: "شخص", cell: (r) => `${r.first_name} ${r.last_name}` },
               { key: "roles", header: "نقش‌ها", cell: (r) => <span className="flex flex-wrap gap-1">{r.roles.map((g) => <StatusBadge key={g} tone="warn">{governanceLabel(g)}</StatusBadge>)}</span> },
@@ -117,7 +143,7 @@ export function GovernanceTab() {
                 header: "",
                 cell: (r) =>
                   canManage ? (
-                    <button type="button" className="text-[var(--ds-primary)] hover:underline" onClick={() => setTarget({ person_id: r.person_id, name: `${r.first_name} ${r.last_name}`, roles: r.roles })} data-testid="governance-edit">ویرایش</button>
+                    <Button variant="subtle" size="sm" onClick={() => setTarget({ person_id: r.person_id, name: `${r.first_name} ${r.last_name}`, roles: r.roles })} data-testid="governance-edit">ویرایش</Button>
                   ) : null,
               },
             ]}

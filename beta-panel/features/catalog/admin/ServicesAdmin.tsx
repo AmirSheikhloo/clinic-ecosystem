@@ -9,7 +9,7 @@ import { useSession } from "@/components/session/SessionProvider";
 import { DataTable } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
-import { ActiveBadge } from "@/components/ui/StatusBadge";
+import { ActiveBadge, StatusBadge } from "@/components/ui/StatusBadge";
 import { apiJson, buildQuery } from "@/lib/api";
 import { formatCount } from "@/lib/format/numbers";
 import { P } from "@/lib/permissions";
@@ -70,7 +70,7 @@ export function ServicesAdmin({ initialQuery = "" }: { initialQuery?: string }) 
 
   return (
     <div className="space-y-4" role="tabpanel" id="panel-services" aria-labelledby="tab-services">
-      <form onSubmit={search} className="flex flex-wrap items-end gap-2">
+      <form onSubmit={search} className="ds-card flex flex-wrap items-end gap-3 p-3">
         <label className="block min-w-48 flex-1 space-y-1 text-sm">
           <span className="ds-field-label">نام یا کد خدمت</span>
           <input className="ds-input" value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={120} data-testid="services-search" aria-label="جستجوی خدمات" />
@@ -80,8 +80,8 @@ export function ServicesAdmin({ initialQuery = "" }: { initialQuery?: string }) 
           <option value="active">فعال</option>
           <option value="inactive">غیرفعال</option>
         </SelectField>
-        <Button type="submit">اعمال</Button>
-        <Button onClick={() => setModal({ kind: "form", service: null })} data-testid="service-add">خدمت جدید</Button>
+        <Button type="submit" variant="ghost">اعمال</Button>
+        <Button icon="plus" onClick={() => setModal({ kind: "form", service: null })} data-testid="service-add">خدمت جدید</Button>
       </form>
       <QueryBoundary loading={query.loading && !data} error={query.error} deniedWhat="مدیریت خدمات" onRetry={query.reload}>
         {data && (
@@ -90,21 +90,21 @@ export function ServicesAdmin({ initialQuery = "" }: { initialQuery?: string }) 
               rows={data.items}
               rowKey={(r) => r.service_id}
               rowTestId="service-row"
-              empty={<EmptyState title="خدمتی یافت نشد" />}
+              empty={<EmptyState icon="catalog" title="خدمتی یافت نشد" description="جستجو یا فیلتر وضعیت را تغییر دهید." />}
               columns={[
                 { key: "name", header: "خدمت", cell: (r) => <span><span className="font-medium">{r.service_name}</span>{r.service_code && <span className="ms-2 text-xs text-[var(--ds-text-muted)]" dir="ltr">{r.service_code}</span>}</span> },
                 { key: "dur", header: "مدت (دقیقه)", cell: (r) => formatCount(r.default_duration_minutes), className: "tabular-nums" },
                 { key: "price", header: "تعرفه (ریال)", cell: (r) => formatCount(r.default_price_irr), className: "tabular-nums" },
-                { key: "req", header: "الزامات", cell: (r) => formatCount(r.requirement_count ?? 0), className: "tabular-nums" },
+                { key: "req", header: "الزامات منابع", cell: (r) => formatCount(r.requirement_count ?? 0), className: "tabular-nums" },
                 { key: "status", header: "وضعیت", cell: (r) => <ActiveBadge active={r.is_active} /> },
                 {
                   key: "actions",
                   header: "",
                   cell: (r) => (
-                    <span className="flex flex-wrap gap-3 text-sm">
-                      <button type="button" className="text-[var(--ds-primary)] hover:underline" onClick={() => setModal({ kind: "form", service: r })} data-testid="service-edit">ویرایش</button>
-                      <button type="button" className="text-[var(--ds-primary)] hover:underline" onClick={() => setModal({ kind: "requirements", id: r.service_id })} data-testid="service-requirements">الزامات</button>
-                      <button type="button" className="text-[var(--ds-primary)] hover:underline disabled:opacity-50" disabled={busyId === r.service_id} onClick={() => void toggle(r)} data-testid="service-toggle">{r.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>
+                    <span className="inline-flex flex-wrap justify-end gap-1">
+                      <Button variant="subtle" size="sm" onClick={() => setModal({ kind: "form", service: r })} data-testid="service-edit">ویرایش</Button>
+                      <Button variant="subtle" size="sm" onClick={() => setModal({ kind: "requirements", id: r.service_id })} data-testid="service-requirements">الزامات</Button>
+                      <Button variant="ghost" size="sm" disabled={busyId === r.service_id} onClick={() => void toggle(r)} data-testid="service-toggle">{r.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</Button>
                     </span>
                   ),
                 },
