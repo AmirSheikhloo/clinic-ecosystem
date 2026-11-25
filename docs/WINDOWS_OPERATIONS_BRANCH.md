@@ -23,18 +23,29 @@ To remove everything afterwards: `git worktree remove $wt --force`.
 
 ## 2. Start the disposable stack
 
-Prerequisites: Docker Desktop running, Python 3.12, Node.js 22.
+Prerequisites: Docker Desktop running, Python 3.12, Node.js 22 (all on `PATH`).
+
+One command, repeatable. It creates `.venv` on first use, runs `pip install -e`, `npm ci` and
+`npm run build` only when their inputs changed (hash stamps in `.preview-cache\`, git-ignored),
+then starts the stack:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start_preview.ps1
+# add -Force to ignore the stamps and reinstall/rebuild everything
+```
+
+Manual equivalent:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-Set-Location beta-panel
-npm ci
-npm run build
-Set-Location ..
+$env:PYTHONPATH = "$PWD\src;$PWD"
+python scripts\prepare_preview.py          # skips unchanged steps; --check only reports
 python scripts\start_preview_stack.py
 ```
+
+The launcher puts `src` on `PYTHONPATH` for the API process, resolves `npm` through `shutil.which`
+(so `npm.cmd` works) and starts Next.js with `node` directly when the local build exists.
 
 The script starts a throw-away PostgreSQL 15 container, applies migrations `tp0001`-`tp0007`,
 seeds synthetic data, starts the API and the Next.js panel, and writes
@@ -61,7 +72,8 @@ and all data are deleted; the next start reseeds from scratch. Nothing persists 
 Set-Location beta-panel
 npm test; npx tsc --noEmit; npm run lint
 Set-Location ..
-$env:PYTHONPATH = "src;."
-python -m tests.e2e.beta01b.run_browser_e2e          # builds nothing; run `npm run build` first
+$env:PYTHONPATH = "$PWD\src;$PWD"
+python scripts\prepare_preview.py                    # make sure the production build is current
+python -m tests.e2e.beta01b.run_browser_e2e
 python -m pytest tests\unit tests\integration -q
 ```

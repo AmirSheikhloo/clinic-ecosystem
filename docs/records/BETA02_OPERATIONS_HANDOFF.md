@@ -55,3 +55,11 @@ Package 1 preflight is distinct from Package 4 Lease/Erasure tests; the latter w
 No independent security review was done by this session. An independent Gemini security review of the BFF proxy,
 access-administration service and anti-escalation rules is recommended before any further increment.
 No load or performance measurements were taken, so no performance claims are made.
+
+## UX refinement increment — backend contract dependencies (no backend change)
+
+The refinement is frontend-only. These items stay blocked on an approved contract (ACR-BETA02-001 is a
+proposal) and have no fake UI: granular department/service/provider scopes; patient notes, tags, alerts,
+phones and identifiers; staff-to-service links; check-in, complete and no-show transitions; forced
+password change; resource version column; cancelling online-pool appointments (server answers 409).
+Existing unresolved security-review items remain open and are not represented as resolved.

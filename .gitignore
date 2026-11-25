@@ -54,3 +54,6 @@ credentials/
 patient-data/
 real-patient-data/
 P03_HANDOFF/beta_panel_preview/preview.env
+
+# Local preview cache (dependency/build stamps)
+.preview-cache/

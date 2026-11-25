@@ -10,6 +10,7 @@ import asyncio
 import json
 import os
 import secrets
+import shutil
 import signal
 import socket
 import subprocess
@@ -42,6 +43,32 @@ from tests.integration.docker_probe import DOCKER_AVAILABLE, SKIP_REASON
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PANEL_DIR = REPO_ROOT / "beta-panel"
+
+
+SRC_DIR = REPO_ROOT / "src"
+
+
+def python_path_env(base: dict[str, str] | None = None) -> dict[str, str]:
+    """Environment whose PYTHONPATH exposes the src-layout package on every platform."""
+    env = dict(os.environ if base is None else base)
+    parts = [str(SRC_DIR), str(REPO_ROOT)]
+    existing = env.get("PYTHONPATH")
+    if existing:
+        parts.append(existing)
+    env["PYTHONPATH"] = os.pathsep.join(parts)
+    return env
+
+
+def panel_start_command(port: int) -> list[str]:
+    """Start `next start` without relying on bare `npm` resolving to npm.cmd on Windows."""
+    next_cli = PANEL_DIR / "node_modules" / "next" / "dist" / "bin" / "next"
+    node = shutil.which("node")
+    if node and next_cli.exists():
+        return [node, str(next_cli), "start", "--port", str(port), "--hostname", "127.0.0.1"]
+    npm = shutil.which("npm")
+    if not npm:
+        raise RuntimeError("Node.js/npm was not found on PATH; install Node.js 22 and retry.")
+    return [npm, "run", "start", "--", "--port", str(port), "--hostname", "127.0.0.1"]
 
 
 def _free_port() -> int:
@@ -205,7 +232,7 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
     api_base = f"http://127.0.0.1:{api_port}"
     panel_base = f"http://127.0.0.1:{panel_port}"
 
-    api_env = os.environ.copy()
+    api_env = python_path_env()
     api_env.update(
         {
             "CLINIC_ENV": "test",
@@ -251,7 +278,7 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
     )
     panel_log = (artifact_dir / "panel.log").open("w", encoding="utf-8")
     panel_proc = subprocess.Popen(
-        ["npm", "run", "start", "--", "--port", str(panel_port), "--hostname", "127.0.0.1"],
+        panel_start_command(panel_port),
         cwd=str(PANEL_DIR),
         env=panel_env,
         stdout=panel_log,

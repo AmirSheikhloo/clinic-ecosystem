@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO))
 
 from tests.e2e.beta01b.stack import start_browser_stack  # noqa: E402
