@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatTehranTime } from "@/lib/format/jalali";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/format/status";
@@ -19,17 +20,27 @@ const DEFAULT_LAST_HOUR = 20;
  * overlapping visits share the row side by side, and a dense day scrolls inside its own frame.
  */
 export function DayTimeline({ items, onOpen }: Props) {
+  const scroller = useRef<HTMLDivElement | null>(null);
   const placements = layoutDay(items);
+  const firstId = items.map((item) => item.appointment_id).sort().join(",");
+
+  // Bring the earliest visit into view; the frame itself scrolls when the day is long.
+  useEffect(() => {
+    const frame = scroller.current;
+    if (!frame) return;
+    const tops = Array.from(frame.querySelectorAll<HTMLElement>(".ds-day-event")).map((node) => node.offsetTop);
+    if (tops.length) frame.scrollTop = Math.max(0, Math.min(...tops) - 16);
+  }, [firstId]);
   const startHours = items.map((item) => Math.floor(minutesOfDay(item.scheduled_start_at_utc) / 60));
   const endHours = Array.from(placements.values()).map((place) => Math.ceil(place.endMinutes / 60) - 1);
-  const first = Math.min(DEFAULT_FIRST_HOUR, ...startHours);
-  const last = Math.min(23, Math.max(DEFAULT_LAST_HOUR, ...startHours, ...endHours));
+  const first = items.length ? Math.min(DEFAULT_FIRST_HOUR, ...startHours) : DEFAULT_FIRST_HOUR;
+  const last = items.length ? Math.min(23, Math.max(DEFAULT_LAST_HOUR, ...startHours, ...endHours)) : DEFAULT_LAST_HOUR;
   const hours = Array.from({ length: last - first + 1 }, (_, index) => first + index);
 
   return (
     <section className="ds-card p-4" data-testid="appointments-timeline" aria-label="جدول زمانی روزانه">
       <h2 className="ds-section-title mb-3">جدول زمانی روز</h2>
-      <div className="ds-day-scroll" tabIndex={0} aria-label="جدول زمانی؛ برای پیمایش از کلیدهای جهت‌نما استفاده کنید">
+      <div ref={scroller} className="ds-day-scroll" tabIndex={0} aria-label="جدول زمانی؛ برای پیمایش از کلیدهای جهت‌نما استفاده کنید">
         <div className="ds-day-grid" style={{ "--ds-hours": hours.length } as React.CSSProperties}>
           <ol className="ds-day-hours" aria-hidden="true">
             {hours.map((hour) => (

@@ -78,23 +78,24 @@ async function main() {
       const { tehranLocalToUtcIso } = await import("../../lib/tehran");
       const startIso = tehranLocalToUtcIso(`${addDays(today, offset)}T${time}`);
       const endIso = new Date(new Date(startIso).getTime() + 30 * 60_000).toISOString();
-      const booked = await bff(
-        page,
-        "POST",
-        "/api/appointments",
-        {
-          beneficiary_patient_id: patients[i % patients.length],
-          service_id: svc.id ?? svc.service_id,
-          resource_ids: [res.id],
-          start_at_utc: startIso,
-          end_at_utc: endIso,
-          booking_channel: "MANUAL_STAFF",
-          capacity_pool: "MANUAL",
-          acknowledge_overlap: true,
-          acknowledged_conflict_ids: [],
-        },
-        { "Idempotency-Key": `shot-${run}-${i}-xxxxxxxx` },
-      );
+      const payload: Record<string, unknown> = {
+        beneficiary_patient_id: patients[i % patients.length],
+        service_id: svc.id ?? svc.service_id,
+        resource_ids: [res.id],
+        start_at_utc: startIso,
+        end_at_utc: endIso,
+        booking_channel: "MANUAL_STAFF",
+        capacity_pool: "MANUAL",
+        acknowledge_overlap: false,
+        acknowledged_conflict_ids: [],
+      };
+      let booked = await bff(page, "POST", "/api/appointments", payload, { "Idempotency-Key": `shot-${run}-${i}-a` });
+      if (booked.status === 409) {
+        const detail = (booked.body?.detail ?? booked.body) as { conflicts?: Array<{ appointment_id?: string }> } | null;
+        payload.acknowledge_overlap = true;
+        payload.acknowledged_conflict_ids = (detail?.conflicts ?? []).map((c) => c.appointment_id!).filter(Boolean);
+        booked = await bff(page, "POST", "/api/appointments", payload, { "Idempotency-Key": `shot-${run}-${i}-b` });
+      }
       if (booked.status >= 300) console.log("booking", i, booked.status, JSON.stringify(booked.body).slice(0, 200));
     }
   }

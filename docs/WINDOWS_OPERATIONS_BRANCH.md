@@ -77,3 +77,10 @@ python scripts\prepare_preview.py                    # make sure the production 
 python -m tests.e2e.beta01b.run_browser_e2e
 python -m pytest tests\unit tests\integration -q
 ```
+
+## Layout geometry and preferences (Linux-validated)
+
+Linux cloud agent validated: shell geometry suite, preferences localStorage, dense calendar lanes.
+Windows behavior of the same UI is **unverified in this environment**. Use `scripts\start_preview.ps1` as before; no new Windows-only steps.
+Do not treat browser preferences as synchronized clinic settings.
+

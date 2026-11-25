@@ -22,6 +22,15 @@ resource version column, online-pool cancellation (returns 409 by design).
 `useReceptionDesk.ts` was split from 487 to 67 lines (feedback, booking state, catalog, patients, submit, API hooks).
 No new frontend or backend source file exceeds 300 lines.
 
+## Layout stability and preferences (this increment)
+
+* Persistent `(app)` shell: sidebar, top bar, search and account keep the same rectangles across navigation (Playwright geometry suite, real scrollbars).
+* Preferences workspace (`/preferences`): browser-local theme, appearance, density, sidebar and motion only — never clinic-wide or permission-linked.
+* Day calendar: proportional hour grid, overlap lanes, hour range expands for out-of-hours visits, dense days scroll inside their own frame.
+* Shared SearchField / SegmentedControl; directory tables use fixed column widths + `keepPrevious` busy dimming.
+* Tools: `e2e/tools/measure-layout.ts`, `measure-perf.ts`, `capture-screens.ts`, `dense-shots.ts`.
+* Known backend dependency: patient directory has no server-side sort parameter (UI sorting not offered).
+
 ## Security properties exercised
 
 * Server-side RBAC on every route; UI gating is advisory. Receptionist and deputy are denied direct API calls (403) in E2E.
