@@ -4,6 +4,7 @@
   .ds-shell {
     display: flex;
     min-height: 100vh;
+    min-height: 100dvh;
   }
 
   .ds-sidebar {
@@ -22,7 +23,7 @@
       background-color var(--ds-motion-theme) var(--ds-ease);
   }
 
-  .ds-sidebar[data-collapsed="true"] {
+  html[data-sidebar="collapsed"] .ds-sidebar {
     width: var(--ds-sidebar-width-rail);
   }
 
@@ -84,7 +85,7 @@
     letter-spacing: 0.02em;
   }
 
-  .ds-sidebar[data-collapsed="true"] .ds-nav-group-label {
+  html[data-sidebar="collapsed"] .ds-sidebar .ds-nav-group-label {
     height: 0;
     padding: 0.5rem 0 0;
     overflow: hidden;
@@ -130,22 +131,22 @@
     background: var(--ds-sidebar-text);
   }
 
-  .ds-sidebar[data-collapsed="true"] .ds-nav-link {
+  html[data-sidebar="collapsed"] .ds-sidebar .ds-nav-link {
     justify-content: center;
     padding-inline: 0;
   }
 
-  .ds-sidebar[data-collapsed="true"] .ds-brand {
+  html[data-sidebar="collapsed"] .ds-sidebar .ds-brand {
     display: none;
   }
 
-  .ds-sidebar[data-collapsed="true"] .ds-sidebar-head {
+  html[data-sidebar="collapsed"] .ds-sidebar .ds-sidebar-head {
     justify-content: center;
     padding-inline: 0;
   }
 
-  .ds-sidebar[data-collapsed="true"] .ds-nav-label,
-  .ds-sidebar[data-collapsed="true"] .ds-brand-text {
+  html[data-sidebar="collapsed"] .ds-sidebar .ds-nav-label,
+  html[data-sidebar="collapsed"] .ds-sidebar .ds-brand-text {
     display: none;
   }
 
@@ -178,27 +179,164 @@
     flex-direction: column;
   }
 
+  /*
+   * Header contract. Tracks are explicit, so the search and account areas never depend on
+   * breadcrumb or name length: the lead area takes whatever remains and truncates.
+   *   < 40rem : menu | lead | account, search on a second row
+   *   >= 40rem: menu | lead | search | account
+   *   >= 64rem: lead | search | account (the sidebar replaces the menu button)
+   */
   .ds-topbar {
     position: sticky;
     inset-block-start: 0;
     z-index: var(--ds-z-header);
-    display: flex;
-    min-height: var(--ds-header-height);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "menu lead account"
+      "search search search";
+    grid-template-rows: var(--ds-header-height) var(--ds-header-search-row);
     align-items: center;
-    gap: 0.75rem;
+    column-gap: 0.75rem;
     border-bottom: 1px solid var(--ds-border);
     background: color-mix(in srgb, var(--ds-surface) 88%, transparent);
     backdrop-filter: blur(10px);
-    padding: 0.5rem 1rem;
+    padding-inline: 1rem;
+  }
+
+  .ds-topbar-menu {
+    grid-area: menu;
+  }
+
+  .ds-topbar-lead {
+    grid-area: lead;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .ds-topbar-search {
+    grid-area: search;
+    min-width: 0;
+    padding-block-end: 0.5rem;
+  }
+
+  .ds-topbar-account {
+    grid-area: account;
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .ds-topbar-user {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    width: var(--ds-user-chip-width);
+    min-width: 0;
+  }
+
+  .ds-topbar-logout {
+    min-width: var(--ds-control-height);
+  }
+
+  .ds-topbar-logout-text {
+    display: none;
+  }
+
+  @media (min-width: 40rem) {
+    .ds-topbar {
+      grid-template-columns: auto minmax(0, 1fr) var(--ds-search-width) auto;
+      grid-template-areas: "menu lead search account";
+      grid-template-rows: var(--ds-header-height);
+    }
+
+    .ds-topbar-search {
+      padding-block-end: 0;
+    }
+
+    .ds-topbar-logout-text {
+      display: inline;
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .ds-topbar-user {
+      display: flex;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .ds-topbar {
+      grid-template-columns: minmax(0, 1fr) var(--ds-search-width) auto;
+      grid-template-areas: "lead search account";
+    }
+
+    .ds-topbar-menu {
+      display: none;
+    }
   }
 
   .ds-breadcrumbs {
+    min-width: 0;
+    flex: 1 1 0;
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-text-muted);
+  }
+
+  .ds-breadcrumbs-list {
     display: flex;
     min-width: 0;
     align-items: center;
     gap: 0.35rem;
-    font-size: var(--ds-font-size-sm);
-    color: var(--ds-text-muted);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .ds-crumb {
+    display: flex;
+    min-width: 0;
+    flex: 0 1 auto;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .ds-crumb > a,
+  .ds-crumb > span:not(.ds-icon) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ds-crumb svg {
+    flex: none;
+  }
+
+  .ds-crumb-home {
+    display: none;
+    flex: none;
+  }
+
+  .ds-crumb-sep-home {
+    display: none;
+  }
+
+  .ds-crumb-current {
+    flex-shrink: 1;
+    min-width: 3rem;
+  }
+
+  @media (min-width: 40rem) {
+    .ds-crumb-home {
+      display: flex;
+    }
+
+    .ds-crumb-sep-home {
+      display: block;
+    }
   }
 
   .ds-breadcrumbs a {
@@ -213,6 +351,11 @@
   .ds-breadcrumbs [aria-current="page"] {
     color: var(--ds-text);
     font-weight: var(--ds-font-weight-semibold);
+  }
+
+  .ds-page-content {
+    min-width: 0;
+    animation: ds-fade-soft var(--ds-motion-page) var(--ds-ease) backwards;
   }
 
   .ds-page {
@@ -237,12 +380,20 @@
 
   .ds-dev-notice {
     border-radius: 999px;
+    display: none;
+    flex: none;
     border: 1px solid color-mix(in srgb, var(--ds-warning) 35%, transparent);
     background: var(--ds-warning-soft);
     color: var(--ds-warning);
     padding: 0.1rem 0.6rem;
     font-size: var(--ds-font-size-xs);
     white-space: nowrap;
+  }
+
+  @media (min-width: 80rem) {
+    .ds-dev-notice {
+      display: inline-block;
+    }
   }
 
   .ds-avatar {

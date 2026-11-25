@@ -18,6 +18,12 @@
 
   html {
     color-scheme: light;
+    /* Reserve the scrollbar track on every page so short and long pages share one width. */
+    scrollbar-gutter: stable;
+  }
+
+  html[data-scroll-locked="true"] {
+    overflow: hidden;
   }
 
   html[data-appearance="dark"] {

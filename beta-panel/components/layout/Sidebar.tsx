@@ -9,6 +9,7 @@ type Props = {
   items: NavItem[];
   pathname: string;
   collapsed: boolean;
+  pending?: boolean;
   onToggle: () => void;
 };
 
@@ -23,7 +24,7 @@ export function SidebarBrand({ collapsed = false }: { collapsed?: boolean }) {
   );
 }
 
-export function Sidebar({ items, pathname, collapsed, onToggle }: Props) {
+export function Sidebar({ items, pathname, collapsed, pending = false, onToggle }: Props) {
   return (
     <aside className="ds-sidebar" data-collapsed={collapsed} data-testid="app-sidebar">
       <div className="ds-sidebar-inner">
@@ -40,7 +41,7 @@ export function Sidebar({ items, pathname, collapsed, onToggle }: Props) {
             <Icon name={collapsed ? "sidebarExpand" : "sidebarCollapse"} />
           </button>
         </div>
-        <NavList items={items} pathname={pathname} collapsed={collapsed} />
+        <NavList items={items} pathname={pathname} collapsed={collapsed} pending={pending} />
         <div className="ds-sidebar-foot">
           {collapsed ? <Icon name="info" size="sm" /> : <span>نسخهٔ توسعه — فقط داده مصنوعی</span>}
         </div>

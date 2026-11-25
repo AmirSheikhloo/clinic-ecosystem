@@ -1,127 +1,80 @@
 "use client";
 
+import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import type { Appearance, ThemeId } from "@/config/theme";
 import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+  resolveAppearance,
+  type AppearancePreference,
+  type Preferences,
+} from "@/config/preferences";
 import {
-  APPEARANCE_STORAGE_KEY,
-  DEFAULT_APPEARANCE,
-  DEFAULT_THEME,
-  THEME_STORAGE_KEY,
-  isAppearance,
-  isThemeId,
-  type Appearance,
-  type ThemeId,
-} from "@/config/theme";
+  applyPreferencesToDom,
+  getPreferencesSnapshot,
+  getServerPreferences,
+  getSystemDarkSnapshot,
+  persistPreferences,
+  resetPreferences,
+  setPreference,
+  subscribePreferences,
+} from "@/lib/preferences-store";
 
-type ThemeContextValue = {
-  theme: ThemeId;
+type PreferencesContextValue = {
+  preferences: Preferences;
+  /** Appearance after resolving "system". */
   appearance: Appearance;
+  theme: ThemeId;
+  setPreference: typeof setPreference;
+  resetPreferences: () => void;
   setTheme: (theme: ThemeId) => void;
-  setAppearance: (appearance: Appearance) => void;
+  setAppearance: (appearance: AppearancePreference) => void;
   toggleAppearance: () => void;
 };
 
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
-function readStoredTheme(): ThemeId {
-  if (typeof window === "undefined") return DEFAULT_THEME;
-  try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY) || "";
-    return isThemeId(stored) ? stored : DEFAULT_THEME;
-  } catch {
-    return DEFAULT_THEME;
-  }
-}
-
-function readStoredAppearance(): Appearance {
-  if (typeof window === "undefined") return DEFAULT_APPEARANCE;
-  try {
-    const stored = localStorage.getItem(APPEARANCE_STORAGE_KEY) || "";
-    return isAppearance(stored) ? stored : DEFAULT_APPEARANCE;
-  } catch {
-    return DEFAULT_APPEARANCE;
-  }
-}
-
-/** Brief class on <html> that enables the centralized theme color transition (see motion.css). */
-function markThemeSwitch() {
-  const root = document.documentElement;
-  root.classList.add("ds-theme-switching");
-  window.setTimeout(() => root.classList.remove("ds-theme-switching"), 360);
-}
-
-function applyDom(theme: ThemeId, appearance: Appearance) {
-  const root = document.documentElement;
-  root.dataset.theme = theme;
-  root.dataset.appearance = appearance;
-}
+const serverDark = () => false;
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeId>(readStoredTheme);
-  const [appearance, setAppearanceState] = useState<Appearance>(readStoredAppearance);
+  const preferences = useSyncExternalStore(subscribePreferences, getPreferencesSnapshot, getServerPreferences);
+  const systemDark = useSyncExternalStore(subscribePreferences, getSystemDarkSnapshot, serverDark);
+  const appearance = resolveAppearance(preferences.appearance, systemDark);
 
   useEffect(() => {
-    applyDom(theme, appearance);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, theme);
-      localStorage.setItem(APPEARANCE_STORAGE_KEY, appearance);
-    } catch {
-      /* non-sensitive preference only */
-    }
-  }, [theme, appearance]);
+    applyPreferencesToDom(preferences);
+    persistPreferences(preferences);
+  }, [preferences]);
 
-  const setTheme = useCallback((next: ThemeId) => {
-    markThemeSwitch();
-    setThemeState(next);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, next);
-    } catch {
-      /* non-sensitive preference only */
-    }
-  }, []);
-
-  const setAppearance = useCallback((next: Appearance) => {
-    markThemeSwitch();
-    setAppearanceState(next);
-    try {
-      localStorage.setItem(APPEARANCE_STORAGE_KEY, next);
-    } catch {
-      /* non-sensitive preference only */
-    }
-  }, []);
-
-  const toggleAppearance = useCallback(() => {
-    markThemeSwitch();
-    setAppearanceState((prev) => {
-      const next = prev === "light" ? "dark" : "light";
-      try {
-        localStorage.setItem(APPEARANCE_STORAGE_KEY, next);
-      } catch {
-        /* non-sensitive preference only */
-      }
-      return next;
-    });
-  }, []);
-
-  const value = useMemo(
-    () => ({ theme, appearance, setTheme, setAppearance, toggleAppearance }),
-    [theme, appearance, setTheme, setAppearance, toggleAppearance],
+  const setTheme = useCallback((theme: ThemeId) => setPreference("theme", theme), []);
+  const setAppearance = useCallback((value: AppearancePreference) => setPreference("appearance", value), []);
+  const toggleAppearance = useCallback(
+    () => setPreference("appearance", resolveAppearance(getPreferencesSnapshot().appearance, getSystemDarkSnapshot()) === "light" ? "dark" : "light"),
+    [],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  const value = useMemo<PreferencesContextValue>(
+    () => ({
+      preferences,
+      appearance,
+      theme: preferences.theme,
+      setPreference,
+      resetPreferences,
+      setTheme,
+      setAppearance,
+      toggleAppearance,
+    }),
+    [preferences, appearance, setTheme, setAppearance, toggleAppearance],
+  );
+
+  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }
 
-export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) {
-    throw new Error("useTheme must be used within ThemeProvider");
-  }
+export function usePreferences(): PreferencesContextValue {
+  const ctx = useContext(PreferencesContext);
+  if (!ctx) throw new Error("usePreferences must be used within ThemeProvider");
   return ctx;
+}
+
+/** Palette and appearance subset of the preferences, kept for the quick theme menu. */
+export function useTheme() {
+  return usePreferences();
 }

@@ -232,11 +232,25 @@
   }
 
   /* ---- Tables ---- */
+  .ds-table-wrap {
+    overflow-x: auto;
+    transition: opacity var(--ds-motion-dropdown) var(--ds-ease);
+  }
+
+  .ds-table-wrap[data-busy="true"] {
+    opacity: 0.6;
+  }
+
   .ds-table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     font-size: var(--ds-font-size-sm);
+  }
+
+  /* Explicit column widths: content length can no longer resize neighbouring columns. */
+  .ds-table-fixed {
+    table-layout: fixed;
   }
 
   .ds-table th {
@@ -253,6 +267,7 @@
     border-top: 1px solid var(--ds-border);
     padding: 0.7rem 1rem;
     vertical-align: middle;
+    overflow-wrap: anywhere;
   }
 
   .ds-table tbody tr {

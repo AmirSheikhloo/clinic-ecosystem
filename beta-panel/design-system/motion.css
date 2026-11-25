@@ -44,6 +44,15 @@
   }
 }
 
+@keyframes ds-fade-soft {
+  from {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes ds-fade-up {
   from {
     opacity: 0;

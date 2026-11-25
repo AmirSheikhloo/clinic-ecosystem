@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { lockPageScroll } from "@/lib/scroll-lock";
 import { Icon } from "./Icon";
 
 type Props = {
@@ -35,6 +36,7 @@ export function Dialog({ open, title, onClose, children, testId, size = "md", pl
     if (!open) return;
     const self = Symbol("dialog");
     openStack.push(self);
+    const unlockScroll = lockPageScroll();
     const previous = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
     const first =
@@ -69,6 +71,7 @@ export function Dialog({ open, title, onClose, children, testId, size = "md", pl
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
+      unlockScroll();
       const index = openStack.indexOf(self);
       if (index >= 0) openStack.splice(index, 1);
       previous?.focus?.();

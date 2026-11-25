@@ -7,14 +7,18 @@ type Props = {
   items: NavItem[];
   pathname: string;
   collapsed?: boolean;
+  /** Session still loading: only always-visible items are real; placeholders hold the rest of the space. */
+  pending?: boolean;
   onNavigate?: () => void;
 };
 
+const PENDING_ROWS = 4;
+
 /** Grouped navigation shared by the desktop sidebar and the mobile drawer. */
-export function NavList({ items, pathname, collapsed = false, onNavigate }: Props) {
+export function NavList({ items, pathname, collapsed = false, pending = false, onNavigate }: Props) {
   const current = activeNav(pathname, items);
   return (
-    <nav className="ds-nav" aria-label="ناوبری اصلی">
+    <nav className="ds-nav" aria-label="ناوبری اصلی" aria-busy={pending || undefined}>
       {NAV_GROUPS.map((group) => {
         const groupItems = items.filter((item) => item.group === group.id);
         if (!groupItems.length) return null;
@@ -40,6 +44,14 @@ export function NavList({ items, pathname, collapsed = false, onNavigate }: Prop
           </div>
         );
       })}
+      {pending
+        ? Array.from({ length: PENDING_ROWS }, (_, index) => (
+            <div key={index} className="ds-nav-link ds-nav-link-pending" aria-hidden="true">
+              <span className="ds-skeleton h-5 w-5 flex-none !rounded-md" />
+              <span className="ds-skeleton ds-nav-label h-3.5 flex-1" />
+            </div>
+          ))
+        : null}
     </nav>
   );
 }
