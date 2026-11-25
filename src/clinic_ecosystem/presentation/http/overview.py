@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -44,13 +44,25 @@ async def dashboard_summary(
     queries = SqlOverviewQueries(uow.session)
     tenant_id = principal.claims.tenant_id
     appointments = None
+    tomorrow_appointments = None
     if perm.APPOINTMENTS_LIST in granted:
         by_status = await queries.appointment_status_counts(
             tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
         )
         appointments = {"total": sum(by_status.values()), "by_status": by_status}
+        # Next calendar period of equal length (for "tomorrow" when the range is one Tehran day).
+        span = end - start
+        if span.total_seconds() > 0 and span <= timedelta(days=31):
+            tomorrow_by = await queries.appointment_status_counts(
+                tenant_id=tenant_id, start_at_utc=end, end_at_utc=end + span
+            )
+            tomorrow_appointments = {
+                "total": sum(tomorrow_by.values()),
+                "by_status": tomorrow_by,
+            }
     return {
         "appointments": appointments,
+        "tomorrow_appointments": tomorrow_appointments,
         "patients_active": await queries.active_patients(tenant_id)
         if perm.PATIENTS_SEARCH in granted else None,
         "staff_active": await queries.active_staff(tenant_id)

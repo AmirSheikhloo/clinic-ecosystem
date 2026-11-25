@@ -22,6 +22,21 @@ resource version column, online-pool cancellation (returns 409 by design).
 `useReceptionDesk.ts` was split from 487 to 67 lines (feedback, booking state, catalog, patients, submit, API hooks).
 No new frontend or backend source file exceeds 300 lines.
 
+## Dashboard-first D0.3 (this increment)
+
+* Fresh-stack Playwright (`run_browser_e2e`): **51 passed**, 0 failed, 0 skipped (includes dashboard-roles + layout geometry).
+* Frontend unit: **58 passed**. `tsc` / `eslint` / `next build`: clean.
+* Summary API integration asserts `tomorrow_appointments` under appointments-list permission.
+
+## Dashboard-first D0.3 details
+
+* Product requirements: `docs/product/CLINIC_PRODUCT_RECEPTION_REQUIREMENTS_D0.3.md`
+* Contract proposals: `docs/architecture_change_records/ACR-D0.3-DASHBOARD-FOUNDATIONS.md` (not approved)
+* Operational vs management dashboard compositions; receptionist metrics exclude staff/catalog admin cards
+* Summary API: `tomorrow_appointments` under the same appointments-list permission
+* Deep links: today / tomorrow / cancelled / confirmed / patient `?register=1`
+* Head receptionist approximated via RECEPTIONIST + supervision permissions (no new governance code)
+
 ## Layout stability and preferences (this increment)
 
 * Persistent `(app)` shell: sidebar, top bar, search and account keep the same rectangles across navigation (Playwright geometry suite, real scrollbars).
@@ -44,7 +59,7 @@ No new frontend or backend source file exceeds 300 lines.
 | Check | Command | Result |
 |-------|---------|--------|
 | Backend unit + PG15 integration (RLS, RBAC escalation, cross-tenant, idempotency, concurrency, overlap, migrations) | `python3 -m pytest tests/unit tests/integration -q` | 174 passed, 0 failed, 0 skipped |
-| Frontend unit | `npm test` in `beta-panel` | 42 passed, 0 failed, 0 skipped |
+| Frontend unit | `npm test` in `beta-panel` | 58 passed, 0 failed, 0 skipped |
 | TypeScript | `npx tsc --noEmit` | clean |
 | ESLint | `npx eslint .` | clean |
 | Next build | `npx next build` | succeeded |

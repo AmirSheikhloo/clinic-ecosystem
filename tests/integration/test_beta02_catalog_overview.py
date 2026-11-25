@@ -146,8 +146,10 @@ def test_dashboard_sections_follow_permissions(ops) -> None:
     full = ops.client.get("/api/v1/dashboard/summary", headers=ops.manager(), params=params).json()
     assert full["patients_active"] >= 1 and full["staff_active"] is not None
     assert full["appointments"] is not None and full["services_active"] >= 1
+    assert full["tomorrow_appointments"] is not None and "total" in full["tomorrow_appointments"]
     rec = ops.client.get("/api/v1/dashboard/summary", headers=ops.receptionist(), params=params).json()
     assert rec["staff_active"] is None and rec["patients_active"] >= 1
+    assert rec["tomorrow_appointments"] is not None
     none = ops.client.get("/api/v1/dashboard/summary", headers=ops.unauthorized(), params=params).json()
     assert set(none.values()) == {None}
     assert ops.client.get("/api/v1/dashboard/summary", headers=ops.manager(), params={

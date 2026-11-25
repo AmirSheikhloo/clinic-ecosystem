@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Alert } from "@/components/feedback/Alert";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { useSession } from "@/components/session/SessionProvider";
@@ -12,25 +12,30 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { buildQuery } from "@/lib/api";
-import { tehranDayBoundsUtc, tehranTodayYmd } from "@/lib/client";
+import { shiftTehranYmd, tehranDayBoundsUtc, tehranTodayYmd } from "@/lib/client";
 import { formatCount } from "@/lib/format/numbers";
-import { formatJalaliFromTehranYmd } from "@/lib/format/jalali";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/format/status";
 import { P } from "@/lib/permissions";
 import { useApiQuery } from "@/lib/use-api-query";
 import type { CalendarResponse } from "@/features/appointments/types";
+import { DashboardAlerts } from "./DashboardAlerts";
+import { DashboardGreeting } from "./DashboardGreeting";
 import { DashboardMetrics } from "./DashboardMetrics";
-import { QUICK_ACTIONS } from "./quick-actions";
+import { resolveDashboardAudience } from "./dashboard-role";
+import { buildMetricCards } from "./metric-cards";
+import { quickActionsFor } from "./quick-actions";
 import { TodaySchedule } from "./TodaySchedule";
 import { UPCOMING_LIMIT, type Summary } from "./types";
 
 export function DashboardView() {
-  const { can, status } = useSession();
+  const { can, status, me } = useSession();
   const [refresh, setRefresh] = useState(0);
   const today = tehranTodayYmd();
-  const { start, end } = useMemo(() => tehranDayBoundsUtc(today), [today]);
-  const range = { start_at_utc: start, end_at_utc: end };
+  const tomorrow = shiftTehranYmd(today, 1);
+  const bounds = tehranDayBoundsUtc(today);
+  const range = { start_at_utc: bounds.start, end_at_utc: bounds.end };
   const ready = status === "ready";
+  const audience = resolveDashboardAudience(me?.governance_roles ?? [], can);
 
   const summary = useApiQuery<Summary>(
     ready ? `/api/v1/dashboard/summary${buildQuery(range)}` : null,
@@ -47,15 +52,22 @@ export function DashboardView() {
   const loading = summary.loading;
   const data = summary.data;
   const byStatus = data?.appointments?.by_status ?? {};
-  const actions = QUICK_ACTIONS.filter((item) => item.allowed(can));
-  const nothingToShow =
-    !loading && data && !data.appointments && data.patients_active === null && data.staff_active === null && data.services_active === null && data.resources_active === null;
+  const cards = buildMetricCards(audience, can, today, tomorrow, data);
+  const actions = quickActionsFor(audience).filter((item) => item.allowed(can));
+  const nothingToShow = !loading && cards.length === 0 && actions.length === 0 && !can(P.appointmentsList);
 
   return (
-    <main className="space-y-6" data-testid="dashboard-page">
+    <main className="space-y-6" data-testid="dashboard-page" data-dashboard={audience.composition}>
       <PageHeader
-        title="داشبورد"
-        description={`خلاصهٔ امروز، ${formatJalaliFromTehranYmd(today)} — فقط دادهٔ مجاز برای حساب شما نمایش داده می‌شود.`}
+        title={audience.composition === "management" ? "داشبورد مدیریت" : "داشبورد عملیات"}
+        description={
+          <DashboardGreeting
+            todayYmd={today}
+            firstName={me?.first_name ?? ""}
+            roleLabel={audience.label}
+            composition={audience.composition}
+          />
+        }
         actions={
           <Button
             variant="ghost"
@@ -69,12 +81,12 @@ export function DashboardView() {
         }
       />
 
-      {summary.error ? <Alert>{summary.error.message}</Alert> : null}
+      {summary.error ? <Alert testId="dashboard-error">{summary.error.message}</Alert> : null}
 
       {actions.length ? (
         <section aria-label="دسترسی سریع" className="ds-quick-grid" data-testid="dashboard-quick-actions">
           {actions.map((item) => (
-            <Link key={item.href} href={item.href} className="ds-card ds-quick-action">
+            <Link key={`${item.href}-${item.label}`} href={item.href} className="ds-card ds-quick-action">
               <span className="ds-avatar !h-10 !w-10 !rounded-[var(--ds-radius-md)]">
                 <Icon name={item.icon} />
               </span>
@@ -87,7 +99,9 @@ export function DashboardView() {
         </section>
       ) : null}
 
-      <DashboardMetrics data={data} loading={loading} can={can} today={today} />
+      <DashboardMetrics cards={cards} loading={loading} />
+
+      <DashboardAlerts today={today} summary={data} calendar={upcoming.data} canList={can(P.appointmentsList)} />
 
       {can(P.appointmentsList) ? (
         <section aria-label="وضعیت نوبت‌های امروز" className="ds-status-row" data-testid="dashboard-by-status">

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { AccessDenied } from "@/components/feedback/AccessDenied";
 import { Alert } from "@/components/feedback/Alert";
@@ -22,7 +23,8 @@ export function PatientsView() {
   const { status, can } = useSession();
   const toast = useToast();
   const [registered, setRegistered] = useState<Registered | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
+  const params = useSearchParams();
+  const [formOpen, setFormOpen] = useState(() => params.get("register") === "1");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
