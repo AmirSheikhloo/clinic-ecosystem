@@ -1,0 +1,42 @@
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn var(--ds-motion-page) var(--ds-ease) forwards;
+  }
+
+  .animate-rise {
+    animation: rise var(--ds-motion-page) var(--ds-ease) forwards;
+  }
+
+  .motion-sidebar {
+    transition:
+      width var(--ds-motion-sidebar) var(--ds-ease),
+      transform var(--ds-motion-sidebar) var(--ds-ease),
+      opacity var(--ds-motion-dropdown) var(--ds-ease);
+  }
+
+  .motion-dialog {
+    animation: rise var(--ds-motion-dialog) var(--ds-ease) forwards;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

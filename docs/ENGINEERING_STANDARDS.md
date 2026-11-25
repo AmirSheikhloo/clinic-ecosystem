@@ -24,7 +24,9 @@ Pages compose features; do not invent unsupported backend contracts.
 
 ## Design system
 
-- Centralize semantic tokens (color, spacing, radius, shadow, typography, motion, z-index).
+- Centralize semantic tokens in `beta-panel/design-system/` (`tokens.css`, `base.css`, `components.css`, `motion.css`) imported from `app/globals.css`.
+- Shared primitives: `components/ui/`, `components/forms/`, `components/tables/`, `components/feedback/`, `components/layout/`.
+- Feature modules own their views under `features/{reception,dashboard,patients,appointments,catalog}/`.
 - Global themes (Ocean, Midnight, Emerald, Graphite) with light/dark appearance.
 - Theme preference may use `localStorage`; **never** store patient PII or auth tokens there.
 

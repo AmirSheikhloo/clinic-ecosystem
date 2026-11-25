@@ -62,6 +62,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     applyDom(theme, appearance);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+      localStorage.setItem(APPEARANCE_STORAGE_KEY, appearance);
+    } catch {
+      /* non-sensitive preference only */
+    }
   }, [theme, appearance]);
 
   const setTheme = useCallback((next: ThemeId) => {

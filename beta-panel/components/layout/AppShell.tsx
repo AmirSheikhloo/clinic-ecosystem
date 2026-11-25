@@ -63,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className={`motion-sidebar sticky top-0 z-[var(--ds-z-sidebar)] flex h-screen flex-col bg-[var(--ds-sidebar)] text-[var(--ds-sidebar-text)] ${
           collapsed ? "w-[4.5rem]" : "w-64"
         }`}
-        aria-label="ناوبری اصلی"
+        data-testid="app-sidebar"
       >
         <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-4">
           {!collapsed && (
@@ -76,12 +76,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="rounded-md px-2 py-1 text-sm hover:bg-white/10"
             aria-expanded={!collapsed}
             aria-label={collapsed ? "گسترش نوار کناری" : "جمع‌کردن نوار کناری"}
+            data-testid="sidebar-toggle"
             onClick={() => setCollapsed((value) => !value)}
           >
             {collapsed ? "»" : "«"}
           </button>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 p-2 text-sm">
+        <nav className="flex flex-1 flex-col gap-1 p-2 text-sm" aria-label="ناوبری اصلی">
           {NAV.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -110,6 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 value={theme}
                 onChange={(e) => setTheme(e.target.value as ThemeId)}
                 aria-label="انتخاب تم"
+                data-testid="theme-select"
               >
                 {(Object.keys(THEME_LABELS) as ThemeId[]).map((id) => (
                   <option key={id} value={id} className="text-black">
@@ -122,6 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
               className="w-full rounded-md border border-white/20 px-2 py-1.5 hover:bg-white/10"
               onClick={toggleAppearance}
+              data-testid="appearance-toggle"
             >
               {appearance === "light" ? "حالت تیره" : "حالت روشن"}
             </button>
