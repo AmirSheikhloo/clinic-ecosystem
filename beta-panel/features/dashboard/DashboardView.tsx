@@ -8,6 +8,8 @@ import { useSession } from "@/components/session/SessionProvider";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { buildQuery } from "@/lib/api";
 import { tehranDayBoundsUtc, tehranTodayYmd } from "@/lib/client";
@@ -41,7 +43,8 @@ export function DashboardView() {
     refresh,
   );
 
-  const loading = status === "loading" || summary.loading;
+  if (status === "loading") return <PageSkeleton />;
+  const loading = summary.loading;
   const data = summary.data;
   const byStatus = data?.appointments?.by_status ?? {};
   const actions = QUICK_ACTIONS.filter((item) => item.allowed(can));
@@ -86,16 +89,21 @@ export function DashboardView() {
 
       <DashboardMetrics data={data} loading={loading} can={can} today={today} />
 
-      {data?.appointments && Object.keys(byStatus).length > 0 ? (
-        <section aria-label="وضعیت نوبت‌های امروز" className="flex flex-wrap items-center gap-2" data-testid="dashboard-by-status">
-          <span className="text-sm text-[var(--ds-text-muted)]">به تفکیک وضعیت:</span>
-          {Object.entries(byStatus).map(([key, value]) => (
-            <Link key={key} href={`/appointments?date=${today}&view=day&status=${key}`} className="rounded-full" title="نمایش در تقویم">
-              <StatusBadge tone={appointmentStatusTone(key)}>
-                {appointmentStatusLabel(key)}: <span className="ms-1 tabular-nums">{formatCount(value)}</span>
-              </StatusBadge>
-            </Link>
-          ))}
+      {can(P.appointmentsList) ? (
+        <section aria-label="وضعیت نوبت‌های امروز" className="ds-status-row" data-testid="dashboard-by-status">
+          {loading ? <Skeleton className="h-6 w-56" /> : null}
+          {!loading && Object.keys(byStatus).length > 0 ? (
+            <>
+              <span className="text-sm text-[var(--ds-text-muted)]">به تفکیک وضعیت:</span>
+              {Object.entries(byStatus).map(([key, value]) => (
+                <Link key={key} href={`/appointments?date=${today}&view=day&status=${key}`} className="rounded-full" title="نمایش در تقویم">
+                  <StatusBadge tone={appointmentStatusTone(key)}>
+                    {appointmentStatusLabel(key)}: <span className="ms-1 tabular-nums">{formatCount(value)}</span>
+                  </StatusBadge>
+                </Link>
+              ))}
+            </>
+          ) : null}
         </section>
       ) : null}
 

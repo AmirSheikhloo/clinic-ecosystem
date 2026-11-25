@@ -114,6 +114,36 @@ async function main() {
     await page.waitForTimeout(1200);
     await page.screenshot({ path: path.join(out, `${name}.png`) });
   }
+  if (process.env.SHOT_EXTRA === "1") {
+    await page.goto("/preferences");
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(out, "preferences.png"), fullPage: true });
+    await page.goto("/desk");
+    await page.getByTestId("patient-search-query").fill(names[0][1]);
+    await page.getByTestId("patient-result").first().waitFor();
+    await page.getByTestId("patient-result").first().click();
+    await page.getByTestId("service-select").selectOption({ index: 1 });
+    await page.waitForTimeout(900);
+    const options = page.getByTestId("resource-option");
+    if (await options.count()) await options.first().locator("input").check();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(out, "desk-filled.png"), fullPage: true });
+    await page.goto("/access");
+    await page.getByRole("tab", { name: /نقش/ }).click();
+    await page.getByTestId("role-add").click();
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: path.join(out, "access-role-dialog.png") });
+    await page.keyboard.press("Escape");
+    await page.goto("/preferences");
+    await page.getByTestId("pref-appearance-dark").click();
+    for (const [name, url] of [["dark-dashboard", "/dashboard"], ["dark-appointments-day", "/appointments"]] as const) {
+      await page.goto(url);
+      await page.waitForTimeout(1200);
+      await page.screenshot({ path: path.join(out, `${name}.png`) });
+    }
+    await page.goto("/preferences");
+    await page.getByTestId("pref-appearance-light").click();
+  }
   await page.goto("/appointments");
   await page.waitForTimeout(800);
   for (const view of ["week", "month"]) {

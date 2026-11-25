@@ -56,7 +56,7 @@ export function OverlapDialog({
                 <div className="tabular-nums">زمان: {formatTehran(conflict.scheduled_start_at_utc)}</div>
               ) : null}
               {conflict.booking_channel ? <div>نوع ثبت: {bookingChannelLabel(conflict.booking_channel)}</div> : null}
-              <div className="text-xs text-[var(--ds-text-muted)]">کد نوبت: <span dir="ltr">{conflict.appointment_id}</span></div>
+              {conflict.display_safe_patient_name === undefined && !conflict.scheduled_start_at_utc ? <div>نوبت ثبت‌شدهٔ دیگر</div> : null}
             </li>
           ))}
         </ul>

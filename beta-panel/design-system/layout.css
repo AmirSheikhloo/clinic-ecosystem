@@ -374,7 +374,7 @@
   /* Dashboard grids: explicit tracks so cards keep their size whether values are loading or loaded. */
   .ds-quick-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 14.5rem), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));
     gap: 0.75rem;
   }
 
@@ -391,9 +391,17 @@
     border-color: var(--ds-primary);
   }
 
+  .ds-status-row {
+    display: flex;
+    min-height: 1.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
   .ds-metric-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
     gap: 1rem;
   }
 

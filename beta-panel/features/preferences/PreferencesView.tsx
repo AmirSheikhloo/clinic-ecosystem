@@ -22,9 +22,9 @@ function options<T extends string>(prefix: string, labels: Record<T, string>): S
   return (Object.keys(labels) as T[]).map((value) => ({ value, label: labels[value], testId: `${prefix}-${value}` }));
 }
 
-function Setting({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+function Setting({ title, description, stacked, children }: { title: string; description: string; stacked?: boolean; children: ReactNode }) {
   return (
-    <div className="ds-setting">
+    <div className="ds-setting" data-stacked={stacked || undefined}>
       <div className="min-w-0">
         <h3 className="font-semibold text-[var(--ds-heading)]">{title}</h3>
         <p className="ds-hint mt-0.5">{description}</p>
@@ -53,7 +53,7 @@ export function PreferencesView() {
       </Alert>
 
       <section className="ds-card ds-settings" aria-label="ظاهر">
-        <Setting title="پالت رنگی" description="برای همهٔ صفحه‌ها اعمال می‌شود.">
+        <Setting title="پالت رنگی" description="برای همهٔ صفحه‌ها اعمال می‌شود." stacked>
           <ThemeChoice value={preferences.theme} onChange={(theme) => setPreference("theme", theme)} />
         </Setting>
         <Setting

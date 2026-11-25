@@ -35,6 +35,7 @@ const PAGES: [label: string, path: string][] = [
   ["خدمات و منابع", "/catalog"],
   ["کارکنان", "/staff"],
   ["کاربران و دسترسی", "/access"],
+  ["ظاهر و ترجیحات", "/preferences"],
 ];
 const VIEWPORTS = [
   { width: 1280, height: 800 },

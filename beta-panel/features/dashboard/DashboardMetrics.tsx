@@ -22,7 +22,7 @@ export function DashboardMetrics({ data, loading, can, today }: Props) {
   const visible = cards.filter((card) => card.show);
   if (!visible.length) return null;
   return (
-    <section className="ds-metric-grid" aria-label="شاخص‌ها">
+    <section className="ds-metric-grid" aria-label="شاخص‌ها" data-testid="dashboard-metrics">
       {visible.map((card) => (
         <StatCard
           key={card.testId}

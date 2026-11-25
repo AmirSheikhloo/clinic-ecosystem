@@ -557,7 +557,7 @@
   }
 
   @media (min-width: 48rem) {
-    .ds-setting {
+    .ds-setting:not([data-stacked]) {
       grid-template-columns: minmax(0, 1fr) minmax(0, 28rem);
       align-items: center;
     }
@@ -569,7 +569,7 @@
 
   .ds-theme-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
     gap: 0.75rem;
   }
 

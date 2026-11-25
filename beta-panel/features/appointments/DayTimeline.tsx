@@ -44,6 +44,7 @@ export function DayTimeline({ items, onOpen }: Props) {
               const place = placements.get(item.appointment_id)!;
               const top = ((place.startMinutes - first * 60) / 60) * 100;
               const height = ((place.endMinutes - place.startMinutes) / 60) * 100;
+              const compact = place.endMinutes - place.startMinutes < 45;
               const label = `${item.patient_first_name} ${item.patient_last_name}`;
               return (
                 <button
@@ -67,8 +68,12 @@ export function DayTimeline({ items, onOpen }: Props) {
                     <span className="flex-none tabular-nums font-medium">{formatTehranTime(item.scheduled_start_at_utc)}</span>
                     <span className="truncate">{label}</span>
                   </span>
-                  <span className="ds-day-event-service truncate">{item.service_name}</span>
-                  <StatusBadge tone={appointmentStatusTone(item.status)}>{appointmentStatusLabel(item.status)}</StatusBadge>
+                  {compact ? null : (
+                    <>
+                      <span className="ds-day-event-service truncate">{item.service_name}</span>
+                      <StatusBadge tone={appointmentStatusTone(item.status)}>{appointmentStatusLabel(item.status)}</StatusBadge>
+                    </>
+                  )}
                 </button>
               );
             })}
