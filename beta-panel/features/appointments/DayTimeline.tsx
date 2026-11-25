@@ -1,55 +1,57 @@
 "use client";
 
-import { Card } from "@/components/ui/Card";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatTehranTime } from "@/lib/format/jalali";
+import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/format/status";
 import type { AppointmentItem } from "./types";
 
 type Props = {
   items: AppointmentItem[];
+  onOpen?: ((item: AppointmentItem) => void) | null;
 };
 
-export function DayTimeline({ items }: Props) {
-  const hours: { hour: number; slots: AppointmentItem[] }[] = [];
-  for (let hour = 8; hour <= 20; hour += 1) {
-    hours.push({
-      hour,
-      slots: items.filter((item) => {
-        const local = formatTehranTime(item.scheduled_start_at_utc);
-        const hh = Number(local.slice(0, 2));
-        return hh === hour;
-      }),
-    });
-  }
+const DEFAULT_FIRST_HOUR = 8;
+const DEFAULT_LAST_HOUR = 20;
+
+function hourOf(item: AppointmentItem): number {
+  return Number(formatTehranTime(item.scheduled_start_at_utc).slice(0, 2));
+}
+
+/** Working-hours grid that widens when an appointment falls outside it, so none is ever hidden. */
+export function DayTimeline({ items, onOpen }: Props) {
+  const hoursWithItems = items.map(hourOf);
+  const first = Math.min(DEFAULT_FIRST_HOUR, ...hoursWithItems);
+  const last = Math.max(DEFAULT_LAST_HOUR, ...hoursWithItems);
+  const rows = Array.from({ length: last - first + 1 }, (_, index) => {
+    const hour = first + index;
+    return { hour, slots: items.filter((item) => hourOf(item) === hour) };
+  });
 
   return (
-    <Card data-testid="appointments-timeline">
-      <h3 className="mb-3 font-semibold">جدول زمانی روزانه</h3>
-      <div className="space-y-2">
-        {hours.map(({ hour, slots }) => (
-          <div
-            key={hour}
-            className="grid grid-cols-[4rem_1fr] gap-3 border-b border-[var(--ds-border)] py-2 last:border-0"
-          >
-            <div className="tabular-nums text-sm text-[var(--ds-text-muted)]">
-              {String(hour).padStart(2, "0")}:00
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {!slots.length && (
-                <span className="text-xs text-[var(--ds-text-muted)]">—</span>
-              )}
+    <section className="ds-card p-4" data-testid="appointments-timeline" aria-label="جدول زمانی روزانه">
+      <h2 className="ds-section-title mb-3">جدول زمانی روز</h2>
+      <ol className="divide-y divide-[var(--ds-border)]">
+        {rows.map(({ hour, slots }) => (
+          <li key={hour} className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-start gap-3 py-2">
+            <span className="pt-1 text-sm tabular-nums text-[var(--ds-text-muted)]">{String(hour).padStart(2, "0")}:00</span>
+            <div className="flex min-h-8 flex-wrap gap-2">
               {slots.map((slot) => (
-                <span
+                <button
                   key={slot.appointment_id}
-                  className="rounded-md bg-[var(--ds-surface-muted)] px-2 py-1 text-xs tabular-nums"
+                  type="button"
+                  disabled={!onOpen}
+                  onClick={() => onOpen?.(slot)}
+                  className="flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] bg-[var(--ds-surface-muted)] px-2.5 py-1 text-xs hover:border-[var(--ds-primary)] disabled:cursor-default"
                 >
-                  {formatTehranTime(slot.scheduled_start_at_utc)} · {slot.patient_first_name}{" "}
-                  {slot.patient_last_name}
-                </span>
+                  <span className="tabular-nums font-medium">{formatTehranTime(slot.scheduled_start_at_utc)}</span>
+                  <span>{slot.patient_first_name} {slot.patient_last_name}</span>
+                  <StatusBadge tone={appointmentStatusTone(slot.status)}>{appointmentStatusLabel(slot.status)}</StatusBadge>
+                </button>
               ))}
             </div>
-          </div>
+          </li>
         ))}
-      </div>
-    </Card>
+      </ol>
+    </section>
   );
 }

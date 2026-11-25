@@ -2,7 +2,7 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { WEEKDAYS_SAT_FIRST, jalaliParts, JALALI_MONTHS } from "@/lib/calendar/jalali-grid";
 import { formatTehranTime } from "@/lib/format/jalali";
-import { appointmentStatusLabel } from "@/lib/format/status";
+import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/format/status";
 import type { CalendarItem } from "./types";
 
 type Props = {
@@ -16,7 +16,7 @@ export function WeekView({ days, groups, todayYmd, onOpen }: Props) {
   const total = Array.from(groups.values()).reduce((sum, list) => sum + list.length, 0);
   if (total === 0) return <EmptyState title="نوبتی برای این هفته ثبت نشده است" />;
   return (
-    <div className="grid gap-3 md:grid-cols-7" data-testid="week-view">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7" data-testid="week-view">
       {days.map((ymd, index) => {
         const { jd, jm } = jalaliParts(ymd);
         const items = groups.get(ymd) ?? [];
@@ -27,7 +27,7 @@ export function WeekView({ days, groups, todayYmd, onOpen }: Props) {
             className={`ds-card min-h-24 space-y-2 p-3 ${ymd === todayYmd ? "ring-2 ring-[var(--ds-primary)]" : ""}`}
             data-testid="week-day"
           >
-            <h4 className="text-sm font-semibold text-[var(--ds-primary-strong)]">
+            <h4 className="text-sm font-semibold text-[var(--ds-heading)]">
               {WEEKDAYS_SAT_FIRST[index]} <span className="tabular-nums">{jd}</span> {JALALI_MONTHS[jm - 1]}
             </h4>
             {items.length === 0 && <p className="text-xs text-[var(--ds-text-muted)]">—</p>}
@@ -38,12 +38,12 @@ export function WeekView({ days, groups, todayYmd, onOpen }: Props) {
                     type="button"
                     disabled={!onOpen}
                     onClick={() => onOpen?.(item)}
-                    className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] px-2 py-1 text-right text-xs hover:bg-[var(--ds-surface-muted)] disabled:cursor-default"
+                    className="w-full space-y-1 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] px-2 py-1.5 text-start text-xs transition-colors hover:border-[var(--ds-primary)] hover:bg-[var(--ds-surface-muted)] disabled:cursor-default"
                   >
                     <span className="tabular-nums font-medium">{formatTehranTime(item.scheduled_start_at_utc)}</span>{" "}
                     {item.patient_first_name} {item.patient_last_name}
                     <span className="block text-[var(--ds-text-muted)]">{item.service_name}</span>
-                    <StatusBadge>{appointmentStatusLabel(item.status)}</StatusBadge>
+                    <StatusBadge tone={appointmentStatusTone(item.status)}>{appointmentStatusLabel(item.status)}</StatusBadge>
                   </button>
                 </li>
               ))}

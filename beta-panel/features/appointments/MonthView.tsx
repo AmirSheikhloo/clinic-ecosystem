@@ -38,7 +38,7 @@ export function MonthView({ range, anchor, groups, todayYmd, onPickDay }: Props)
               data-testid="month-cell"
               data-count={items.length}
               aria-label={`${jd} — ${formatCount(items.length)} نوبت`}
-              className={`ds-card min-h-24 p-2 text-right align-top hover:bg-[var(--ds-surface-muted)] ${outside ? "opacity-50" : ""} ${ymd === todayYmd ? "ring-2 ring-[var(--ds-primary)]" : ""}`}
+              className={`ds-card min-h-24 p-2 text-start align-top hover:bg-[var(--ds-surface-muted)] ${outside ? "opacity-50" : ""} ${ymd === todayYmd ? "ring-2 ring-[var(--ds-primary)]" : ""}`}
             >
               <span className="flex items-center justify-between text-sm">
                 <span className="tabular-nums font-semibold">{jd}</span>

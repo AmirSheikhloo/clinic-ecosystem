@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AccessDenied } from "@/components/feedback/AccessDenied";
 import { Alert } from "@/components/feedback/Alert";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { QueryBoundary } from "@/components/feedback/QueryBoundary";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useSession } from "@/components/session/SessionProvider";
 import { buildQuery } from "@/lib/api";
 import { rangeBoundsUtc, visibleRange, type CalendarView } from "@/lib/calendar/jalali-grid";
@@ -63,17 +65,19 @@ export function AppointmentsView() {
   const canOpen = can(P.appointmentsDetails);
   const open = (item: { appointment_id: string }) => setOpenId(item.appointment_id);
 
-  if (status === "loading") return <p className="text-[var(--ds-text-muted)]">در حال آماده‌سازی…</p>;
+  if (status === "loading") return <Skeleton className="h-64" />;
   if (!allowed) return <AccessDenied what="مشاهدهٔ نوبت‌ها" />;
 
   return (
-    <main className="space-y-6 animate-rise" data-testid="appointments-page">
+    <main className="space-y-5" data-testid="appointments-page">
       <CalendarToolbar
         view={view}
         onViewChange={setView}
         anchor={anchor}
         onAnchorChange={setAnchor}
         count={items?.length ?? 0}
+        loading={calendar.loading}
+        onRefresh={() => setRefresh((v) => v + 1)}
         filters={filters}
         onFiltersChange={setFilters}
         services={serviceOptions}
@@ -89,11 +93,16 @@ export function AppointmentsView() {
         )}
         {calendar.data && view === "day" && (
           dayItems.length === 0 ? (
-            <EmptyState title="نوبتی برای این تاریخ ثبت نشده است" description="فیلترها را بررسی کنید یا از میز پذیرش نوبت دستی ثبت کنید." />
+            <EmptyState
+              icon="calendar"
+              title="نوبتی برای این تاریخ ثبت نشده است"
+              description="فیلترها را بررسی کنید یا از میز پذیرش نوبت دستی ثبت کنید."
+              action={<Link href="/desk" className="ds-btn ds-btn-primary">رفتن به میز پذیرش</Link>}
+            />
           ) : (
             <>
               <AppointmentTable items={dayItems} onOpen={canOpen ? open : null} />
-              <DayTimeline items={dayItems} />
+              <DayTimeline items={dayItems} onOpen={canOpen ? open : null} />
             </>
           )
         )}

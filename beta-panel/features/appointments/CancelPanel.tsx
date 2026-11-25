@@ -9,9 +9,9 @@ import { useIdempotencyKey } from "@/lib/use-idempotency";
 import { failureMessage } from "./action-errors";
 import type { AppointmentDetails } from "./types";
 
-type Props = { appointment: AppointmentDetails; onDone: (message: string) => void; onStale: () => void };
+type Props = { appointment: AppointmentDetails; onDone: (message: string) => void; onStale: () => void; onBack: () => void };
 
-export function CancelPanel({ appointment, onDone, onStale }: Props) {
+export function CancelPanel({ appointment, onDone, onStale, onBack }: Props) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<ApiFail | null>(null);
@@ -39,18 +39,22 @@ export function CancelPanel({ appointment, onDone, onStale }: Props) {
   }
 
   return (
-    <div className="space-y-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] p-3" data-testid="cancel-panel">
-      <h4 className="font-semibold">لغو نوبت</h4>
+    <section className="space-y-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-danger)] p-4" data-testid="cancel-panel" aria-label="لغو نوبت">
+      <h3 className="ds-section-title">لغو نوبت</h3>
+      <p className="text-sm text-[var(--ds-text-muted)]">با لغو، منابع تخصیص‌یافته آزاد می‌شود و این کار قابل بازگشت نیست.</p>
       <TextAreaField label="دلیل (اختیاری)" rows={2} maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="cancel-reason" />
-      {failure && (
+      {failure ? (
         <div className="space-y-2" data-testid="cancel-error">
           <Alert>{failureMessage(failure)}</Alert>
-          {failure.status === 412 && <Button variant="ghost" onClick={onStale}>بارگذاری مجدد جزئیات</Button>}
+          {failure.status === 412 ? <Button variant="ghost" onClick={onStale}>بارگذاری مجدد جزئیات</Button> : null}
         </div>
-      )}
-      <Button variant="ghost" className="ds-btn-danger" disabled={busy} onClick={() => void submit()} data-testid="cancel-confirm">
-        {busy ? "در حال لغو…" : "تأیید لغو نوبت"}
-      </Button>
-    </div>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="danger-solid" loading={busy} onClick={() => void submit()} data-testid="cancel-confirm">
+          {busy ? "در حال لغو…" : "تأیید لغو نوبت"}
+        </Button>
+        <Button variant="ghost" disabled={busy} onClick={onBack}>بازگشت</Button>
+      </div>
+    </section>
   );
 }

@@ -2,10 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { Alert } from "@/components/feedback/Alert";
+import { JalaliDateField } from "@/components/forms/jalali/JalaliDateField";
 import { TextField } from "@/components/forms/TextField";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { apiJson, type ApiFail } from "@/lib/api";
+import { tehranTodayYmd } from "@/lib/tehran";
 import type { PatientRow } from "./types";
 
 type Props = {
@@ -52,16 +54,14 @@ export function PatientEditForm({ patient, canUpdate, onSaved, onStale }: Props)
   return (
     <Card>
       <form onSubmit={save} className="space-y-3" data-testid="patient-edit-form">
-        <h3 className="font-semibold">اطلاعات اداری</h3>
+        <h2 className="ds-section-title">اطلاعات اداری</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField label="نام" value={firstName} onChange={(e) => setFirstName(e.target.value)} required disabled={!canUpdate} maxLength={120} data-testid="patient-first-name" />
           <TextField label="نام خانوادگی" value={lastName} onChange={(e) => setLastName(e.target.value)} required disabled={!canUpdate} maxLength={120} data-testid="patient-last-name" />
-          <TextField type="date" label="تاریخ تولد" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} disabled={!canUpdate} data-testid="patient-birth-date" />
+          <JalaliDateField label="تاریخ تولد" value={birthDate} onChange={setBirthDate} max={tehranTodayYmd()} disabled={!canUpdate} testId="patient-birth-date" allowClear />
           <TextField label="شماره پرونده" value={dossier} onChange={(e) => setDossier(e.target.value)} disabled={!canUpdate} maxLength={64} data-testid="patient-dossier" />
         </div>
-        <p className="text-xs text-[var(--ds-text-muted)]">
-          تلفن و شناسهٔ رسمی تا تأیید قرارداد رمزنگاری نمایش یا ویرایش نمی‌شوند؛ پرونده بالینی در این بخش وجود ندارد.
-        </p>
+        <p className="ds-hint">تلفن و شناسهٔ رسمی هنوز در این نسخه پشتیبانی نمی‌شود و پروندهٔ بالینی در این بخش وجود ندارد.</p>
         {failure && (
           <div className="space-y-2" data-testid="patient-edit-error">
             <Alert>{stale ? "این پرونده در این فاصله توسط کاربر دیگری تغییر کرده است." : failure.message}</Alert>
@@ -73,7 +73,7 @@ export function PatientEditForm({ patient, canUpdate, onSaved, onStale }: Props)
           </div>
         )}
         {canUpdate ? (
-          <Button type="submit" disabled={busy} data-testid="patient-save">
+          <Button type="submit" loading={busy} data-testid="patient-save">
             {busy ? "در حال ذخیره…" : "ذخیره تغییرات"}
           </Button>
         ) : (

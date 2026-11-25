@@ -1,27 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { Alert } from "@/components/feedback/Alert";
 import { AccessDenied } from "@/components/feedback/AccessDenied";
+import { Alert } from "@/components/feedback/Alert";
 import { useToast } from "@/components/feedback/Toast";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { useSession } from "@/components/session/SessionProvider";
+import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { apiJson } from "@/lib/api";
 import { P } from "@/lib/permissions";
 import { PatientDirectory } from "./PatientDirectory";
 import { PatientRegisterForm } from "./PatientRegisterForm";
 import type { PatientRow } from "./types";
 
-type Selected = Pick<PatientRow, "patient_profile_id" | "first_name" | "last_name">;
+type Registered = Pick<PatientRow, "patient_profile_id" | "first_name" | "last_name">;
 
 export function PatientsView() {
   const { status, can } = useSession();
   const toast = useToast();
-  const [selected, setSelected] = useState<Selected | null>(null);
+  const [registered, setRegistered] = useState<Registered | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -31,14 +35,9 @@ export function PatientsView() {
     if (busy) return;
     setBusy(true);
     setError(null);
-    setMessage(null);
-    const result = await apiJson<Selected>("/api/patients", {
+    const result = await apiJson<Registered>("/api/patients", {
       method: "POST",
-      body: {
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        birth_date: birthDate || null,
-      },
+      body: { first_name: firstName.trim(), last_name: lastName.trim(), birth_date: birthDate || null },
       fallbackMessage: "ثبت بیمار ناموفق بود",
     });
     setBusy(false);
@@ -47,60 +46,65 @@ export function PatientsView() {
       toast.failure(result.message);
       return;
     }
-    setSelected(result.data);
-    setMessage(`بیمار ثبت شد — شناسه پروفایل: ${result.data.patient_profile_id}`);
+    setRegistered(result.data);
     toast.success("بیمار با موفقیت ثبت شد");
     setFirstName("");
     setLastName("");
     setBirthDate("");
+    setFormOpen(false);
     setRefreshToken((value) => value + 1);
   }
 
-  if (status === "loading") {
-    return <p className="text-[var(--ds-text-muted)]">در حال آماده‌سازی…</p>;
-  }
+  if (status === "loading") return <Skeleton className="h-64" />;
   if (status === "error") return <Alert>نشست معتبر نیست</Alert>;
-  if (!can(P.patientsSearch) && !can(P.patientsRegister)) {
-    return <AccessDenied what="مدیریت بیماران" />;
-  }
+  if (!can(P.patientsSearch) && !can(P.patientsRegister)) return <AccessDenied what="مدیریت بیماران" />;
 
   return (
-    <main className="space-y-6 animate-rise" data-testid="patients-page">
+    <main className="space-y-5" data-testid="patients-page">
       <PageHeader
-        title="فضای بیماران"
-        description="فهرست، جستجو، ثبت و پرونده اداری بیماران — بدون داده بالینی؛ داده مصنوعی"
+        title="بیماران"
+        description="فهرست، جستجو، ثبت و پروندهٔ اداری بیماران. اطلاعات بالینی در این بخش نگهداری نمی‌شود."
+        actions={
+          can(P.patientsRegister) ? (
+            <Button icon="plus" onClick={() => { setError(null); setFormOpen(true); }} data-testid="patients-new">
+              بیمار جدید
+            </Button>
+          ) : null
+        }
       />
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        {can(P.patientsSearch) ? (
-          <PatientDirectory
-            selectedId={selected?.patient_profile_id ?? null}
-            onSelect={setSelected}
-            refreshToken={refreshToken}
-          />
-        ) : (
-          <AccessDenied what="مشاهدهٔ فهرست بیماران" />
-        )}
-        {can(P.patientsRegister) && (
-          <PatientRegisterForm
-            firstName={firstName}
-            lastName={lastName}
-            birthDate={birthDate}
-            onFirstNameChange={setFirstName}
-            onLastNameChange={setLastName}
-            onBirthDateChange={setBirthDate}
-            busy={busy}
-            onRegister={register}
-            selected={selected}
-            canOpenProfile={can(P.patientsViewProfile)}
-          />
-        )}
-      </section>
-      {message && (
+
+      {registered ? (
         <Alert tone="ok" testId="patients-status">
-          {message}
+          <p className="font-medium">بیمار ثبت شد: <span data-testid="patients-selected">{registered.first_name} {registered.last_name}</span></p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link href={`/desk?patient=${encodeURIComponent(registered.patient_profile_id)}`} className="ds-btn ds-btn-primary ds-btn-sm" data-testid="patients-to-desk">
+              ادامه در میز پذیرش
+            </Link>
+            {can(P.patientsViewProfile) ? (
+              <Link href={`/patients/${encodeURIComponent(registered.patient_profile_id)}`} className="ds-btn ds-btn-ghost ds-btn-sm" data-testid="patients-to-profile">
+                مشاهدهٔ پرونده
+              </Link>
+            ) : null}
+          </div>
         </Alert>
-      )}
-      {error && <Alert testId="patients-error">{error}</Alert>}
+      ) : null}
+
+      {can(P.patientsSearch) ? <PatientDirectory refreshToken={refreshToken} /> : <AccessDenied what="مشاهدهٔ فهرست بیماران" />}
+
+      <Dialog open={formOpen} placement="drawer" title="ثبت بیمار جدید" description="اطلاعات هویتی اولیهٔ بیمار را وارد کنید." onClose={() => !busy && setFormOpen(false)} testId="patients-register-dialog">
+        {error ? <div className="mb-3"><Alert testId="patients-error">{error}</Alert></div> : null}
+        <PatientRegisterForm
+          firstName={firstName}
+          lastName={lastName}
+          birthDate={birthDate}
+          onFirstNameChange={setFirstName}
+          onLastNameChange={setLastName}
+          onBirthDateChange={setBirthDate}
+          busy={busy}
+          onRegister={register}
+          onCancel={() => setFormOpen(false)}
+        />
+      </Dialog>
     </main>
   );
 }

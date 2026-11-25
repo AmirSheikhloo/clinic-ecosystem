@@ -10,7 +10,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { buildQuery } from "@/lib/api";
 import { formatTehran, tehranYmdOf } from "@/lib/client";
-import { appointmentStatusLabel } from "@/lib/format/status";
+import { appointmentStatusLabel, appointmentStatusTone, bookingChannelLabel } from "@/lib/format/status";
 import type { Page } from "@/lib/types";
 import { useApiQuery } from "@/lib/use-api-query";
 import type { PatientHistoryItem } from "./types";
@@ -26,7 +26,7 @@ export function PatientHistory({ patientId }: { patientId: string }) {
   const data = query.data;
   return (
     <Card className="space-y-3" data-testid="patient-history">
-      <h3 className="font-semibold">سابقهٔ نوبت‌ها و خدمات</h3>
+      <h2 className="ds-section-title">سابقهٔ نوبت‌ها</h2>
       <QueryBoundary loading={query.loading && !data} error={query.error} deniedWhat="مشاهدهٔ سابقهٔ نوبت‌ها" onRetry={query.reload}>
         {data && (
           <>
@@ -34,18 +34,18 @@ export function PatientHistory({ patientId }: { patientId: string }) {
               rowTestId="patient-history-row"
               rows={data.items}
               rowKey={(row) => row.appointment_id}
-              empty={<EmptyState title="هنوز نوبتی برای این بیمار ثبت نشده است" />}
+              empty={<EmptyState icon="calendar" title="هنوز نوبتی برای این بیمار ثبت نشده است" />}
               columns={[
-                { key: "time", header: "زمان (جلالی)", cell: (r) => formatTehran(r.scheduled_start_at_utc), className: "tabular-nums" },
+                { key: "time", header: "زمان", cell: (r) => formatTehran(r.scheduled_start_at_utc), className: "tabular-nums" },
                 { key: "service", header: "خدمت", cell: (r) => r.service_name },
-                { key: "channel", header: "کانال", cell: (r) => (r.booking_channel === "MANUAL" ? "دستی" : "آنلاین") },
-                { key: "status", header: "وضعیت", cell: (r) => <StatusBadge>{appointmentStatusLabel(r.status)}</StatusBadge> },
+                { key: "channel", header: "نوع ثبت", cell: (r) => bookingChannelLabel(r.booking_channel) },
+                { key: "status", header: "وضعیت", cell: (r) => <StatusBadge tone={appointmentStatusTone(r.status)}>{appointmentStatusLabel(r.status)}</StatusBadge> },
                 {
                   key: "calendar",
                   header: "",
                   cell: (r) => (
                     <Link
-                      className="text-[var(--ds-primary)] hover:underline"
+                      className="ds-btn ds-btn-subtle ds-btn-sm"
                       href={`/appointments?date=${tehranYmdOf(r.scheduled_start_at_utc)}`}
                       data-testid="history-calendar-link"
                     >

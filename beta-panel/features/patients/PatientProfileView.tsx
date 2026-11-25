@@ -8,9 +8,11 @@ import { QueryBoundary } from "@/components/feedback/QueryBoundary";
 import { useToast } from "@/components/feedback/Toast";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ActiveBadge } from "@/components/ui/StatusBadge";
 import { useSession } from "@/components/session/SessionProvider";
 import { apiJson } from "@/lib/api";
+import { formatJalaliDate, formatJalaliFromTehranYmd } from "@/lib/format/jalali";
 import { P } from "@/lib/permissions";
 import { useApiQuery } from "@/lib/use-api-query";
 import { PatientEditForm } from "./PatientEditForm";
@@ -26,7 +28,7 @@ export function PatientProfileView({ patientId }: { patientId: string }) {
   const allowed = can(P.patientsViewProfile);
   const query = useApiQuery<PatientRow>(allowed ? `/api/v1/patients/${patientId}` : null, "بارگذاری پرونده ناموفق بود");
 
-  if (status === "loading") return <p className="text-[var(--ds-text-muted)]">در حال آماده‌سازی…</p>;
+  if (status === "loading") return <Skeleton className="h-64" />;
   if (!allowed) return <AccessDenied what="مشاهدهٔ پروندهٔ بیمار" />;
 
   const patient = override && query.data && override.aggregate_version >= query.data.aggregate_version ? override : query.data;
@@ -57,28 +59,33 @@ export function PatientProfileView({ patientId }: { patientId: string }) {
   }
 
   return (
-    <main className="space-y-6 animate-rise" data-testid="patient-profile-page">
+    <main className="space-y-6 " data-testid="patient-profile-page">
       <QueryBoundary loading={query.loading && !patient} error={query.error} deniedWhat="مشاهدهٔ پروندهٔ بیمار" onRetry={query.reload}>
         {patient && (
           <>
             <PageHeader
               title={`${patient.first_name} ${patient.last_name}`}
               description={
-                <span className="inline-flex items-center gap-2">
+                <span className="inline-flex flex-wrap items-center gap-x-4 gap-y-1">
                   <ActiveBadge active={patient.is_active} />
                   <span className="tabular-nums">شماره پرونده: {patient.dossier_number ?? "—"}</span>
+                  <span className="tabular-nums">تاریخ تولد: {patient.birth_date ? formatJalaliFromTehranYmd(patient.birth_date) : "ثبت نشده"}</span>
+                  <span className="tabular-nums">ثبت: {formatJalaliDate(patient.created_at_utc)}</span>
                 </span>
               }
               actions={
                 <>
-                  <Link href="/patients" className="ds-btn ds-btn-ghost">بازگشت به فهرست</Link>
+                  <Link href="/patients" className="ds-btn ds-btn-ghost">فهرست بیماران</Link>
+                  {can(P.appointmentsList) && (
+                    <Link href="/appointments" className="ds-btn ds-btn-ghost" data-testid="patient-calendar">تقویم نوبت‌ها</Link>
+                  )}
                   {patient.is_active && can(P.appointmentsSchedule) && (
                     <Link href={`/desk?patient=${patient.patient_profile_id}`} className="ds-btn ds-btn-primary" data-testid="patient-book">
-                      نوبت‌دهی دستی
+                      نوبت‌دهی در میز پذیرش
                     </Link>
                   )}
                   {can(P.patientsSetActive) && (
-                    <Button variant="ghost" disabled={busy} onClick={() => void toggleActive(patient)} data-testid="patient-toggle-active">
+                    <Button variant={patient.is_active ? "danger" : "ghost"} loading={busy} onClick={() => void toggleActive(patient)} data-testid="patient-toggle-active">
                       {patient.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}
                     </Button>
                   )}

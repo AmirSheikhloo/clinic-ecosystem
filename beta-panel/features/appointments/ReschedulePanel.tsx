@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { Alert } from "@/components/feedback/Alert";
+import { JalaliDateTimeField } from "@/components/forms/jalali/JalaliDateTimeField";
 import { TextField } from "@/components/forms/TextField";
 import { Button } from "@/components/ui/Button";
 import { apiJson, type ApiFail } from "@/lib/api";
 import {
   extractOverlapConflicts,
+  formatTehran,
   sortedConflictIds,
   tehranLocalToUtcIso,
   utcIsoToTehranLocal,
@@ -18,9 +20,9 @@ import { addMinutesIso, durationMinutes } from "./calendar-model";
 import { failureMessage } from "./action-errors";
 import type { AppointmentDetails } from "./types";
 
-type Props = { appointment: AppointmentDetails; onDone: (message: string) => void; onStale: () => void };
+type Props = { appointment: AppointmentDetails; onDone: (message: string) => void; onStale: () => void; onCancel: () => void };
 
-export function ReschedulePanel({ appointment, onDone, onStale }: Props) {
+export function ReschedulePanel({ appointment, onDone, onStale, onCancel }: Props) {
   const [startLocal, setStartLocal] = useState(utcIsoToTehranLocal(appointment.scheduled_start_at_utc));
   const [minutes, setMinutes] = useState(
     durationMinutes(appointment.scheduled_start_at_utc, appointment.scheduled_end_at_utc),
@@ -29,6 +31,9 @@ export function ReschedulePanel({ appointment, onDone, onStale }: Props) {
   const [failure, setFailure] = useState<ApiFail | null>(null);
   const [conflicts, setConflicts] = useState<OverlapConflict[] | null>(null);
   const idem = useIdempotencyKey();
+  const unchanged = startLocal === utcIsoToTehranLocal(appointment.scheduled_start_at_utc)
+    && minutes === durationMinutes(appointment.scheduled_start_at_utc, appointment.scheduled_end_at_utc);
+  const canSubmit = !busy && !!startLocal && minutes >= 1 && !unchanged;
 
   async function submit(acknowledge: boolean) {
     if (busy || !startLocal || minutes < 1) return;
@@ -65,22 +70,26 @@ export function ReschedulePanel({ appointment, onDone, onStale }: Props) {
   }
 
   return (
-    <div className="space-y-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] p-3" data-testid="reschedule-panel">
-      <h4 className="font-semibold">جابه‌جایی نوبت</h4>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <TextField type="datetime-local" label="شروع جدید (وقت تهران)" value={startLocal} onChange={(e) => setStartLocal(e.target.value)} data-testid="reschedule-start" />
-        <TextField type="number" min={1} max={1440} label="مدت (دقیقه)" value={minutes} onChange={(e) => setMinutes(Math.max(0, Math.floor(Number(e.target.value) || 0)))} data-testid="reschedule-minutes" />
+    <section className="space-y-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] p-4" data-testid="reschedule-panel" aria-label="جابه‌جایی نوبت">
+      <h3 className="ds-section-title">جابه‌جایی نوبت</h3>
+      <p className="text-sm text-[var(--ds-text-muted)] tabular-nums">زمان فعلی: {formatTehran(appointment.scheduled_start_at_utc)}</p>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <JalaliDateTimeField label="شروع جدید" testId="reschedule-start" value={startLocal} onChange={setStartLocal} />
+        <TextField type="number" inputMode="numeric" min={1} max={1440} label="مدت (دقیقه)" value={minutes} onChange={(e) => setMinutes(Math.max(0, Math.floor(Number(e.target.value) || 0)))} data-testid="reschedule-minutes" />
       </div>
-      {failure && (
+      {failure ? (
         <div className="space-y-2" data-testid="reschedule-error">
           <Alert>{failureMessage(failure)}</Alert>
-          {failure.status === 412 && <Button variant="ghost" onClick={onStale}>بارگذاری مجدد جزئیات</Button>}
+          {failure.status === 412 ? <Button variant="ghost" onClick={onStale}>بارگذاری مجدد جزئیات</Button> : null}
         </div>
-      )}
-      <Button disabled={busy || !startLocal || minutes < 1} onClick={() => void submit(false)} data-testid="reschedule-submit">
-        {busy ? "در حال جابه‌جایی…" : "ثبت زمان جدید"}
-      </Button>
-      {conflicts && (
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button loading={busy} disabled={!canSubmit} onClick={() => void submit(false)} data-testid="reschedule-submit">
+          {busy ? "در حال جابه‌جایی…" : "ثبت زمان جدید"}
+        </Button>
+        <Button variant="ghost" disabled={busy} onClick={onCancel}>انصراف</Button>
+      </div>
+      {conflicts ? (
         <OverlapDialog
           conflicts={conflicts}
           submitting={busy}
@@ -88,7 +97,7 @@ export function ReschedulePanel({ appointment, onDone, onStale }: Props) {
           onConfirm={() => void submit(true)}
           onDismiss={() => setConflicts(null)}
         />
-      )}
-    </div>
+      ) : null}
+    </section>
   );
 }

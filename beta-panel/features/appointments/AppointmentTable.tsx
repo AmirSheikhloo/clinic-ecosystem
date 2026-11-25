@@ -1,8 +1,11 @@
 "use client";
 
 import { DataTable } from "@/components/tables/DataTable";
+import { Button } from "@/components/ui/Button";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatTehran } from "@/lib/client";
-import { appointmentStatusLabel } from "@/lib/format/status";
+import { formatTehranTime } from "@/lib/format/jalali";
+import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/format/status";
 import type { AppointmentItem } from "./types";
 
 type Props = {
@@ -20,37 +23,34 @@ export function AppointmentTable({ items, onOpen }: Props) {
         {
           key: "time",
           header: "زمان",
-          className: "tabular-nums",
-          cell: (item) => formatTehran(item.scheduled_start_at_utc),
+          className: "tabular-nums whitespace-nowrap",
+          cell: (item) => (
+            <span title={formatTehran(item.scheduled_start_at_utc)}>
+              {formatTehranTime(item.scheduled_start_at_utc)} – {formatTehranTime(item.scheduled_end_at_utc)}
+            </span>
+          ),
         },
         {
           key: "patient",
           header: "بیمار",
+          className: "font-medium",
           cell: (item) => `${item.patient_first_name} ${item.patient_last_name}`,
         },
-        {
-          key: "service",
-          header: "خدمت",
-          cell: (item) => item.service_name,
-        },
+        { key: "service", header: "خدمت", cell: (item) => item.service_name },
         {
           key: "status",
           header: "وضعیت",
-          cell: (item) => appointmentStatusLabel(item.status),
+          cell: (item) => <StatusBadge tone={appointmentStatusTone(item.status)}>{appointmentStatusLabel(item.status)}</StatusBadge>,
         },
         {
           key: "open",
           header: "",
+          className: "text-end",
           cell: (item) =>
             onOpen ? (
-              <button
-                type="button"
-                className="text-[var(--ds-primary)] hover:underline"
-                onClick={() => onOpen(item)}
-                data-testid="appointment-open"
-              >
+              <Button variant="subtle" size="sm" onClick={() => onOpen(item)} data-testid="appointment-open">
                 جزئیات
-              </button>
+              </Button>
             ) : null,
         },
       ]}
