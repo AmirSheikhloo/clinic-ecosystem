@@ -19,6 +19,14 @@ export function useReceptionDesk() {
     selectedPatient: patients.selectedPatient,
   });
 
+  /** Next-patient shortcut: keeps service and resources, clears patient, time and banners. */
+  function startNext() {
+    patients.clearSelection();
+    booking.setLocalStart("");
+    feedback.setMessage(null);
+    feedback.setError(null);
+  }
+
   const ready = catalog.sessionStatus === "ready" && catalog.catalogReady;
   const bootError =
     catalog.sessionStatus === "error" ? "نشست معتبر نیست" : catalog.catalogError;
@@ -56,6 +64,11 @@ export function useReceptionDesk() {
     pendingConflicts: booking.pendingConflicts,
     durationMinutes: catalog.durationMinutes,
     canSubmit: submit.canSubmit,
+    patientSearching: patients.searching,
+    patientSearched: patients.searched,
+    clearPatient: patients.clearSelection,
+    lastBooking: booking.lastBooking,
+    startNext,
     searchPatients: patients.searchPatients,
     registerPatient: patients.registerPatient,
     submitAppointment: submit.submitAppointment,

@@ -1,3 +1,5 @@
+import { RESOURCE_TYPE_LABEL } from "@/lib/resources";
+
 export type ServiceAdminRow = {
   service_id: string;
   service_code: string | null;
@@ -27,12 +29,7 @@ export type ResourceAdminRow = {
   is_active: boolean;
 };
 
-export const RESOURCE_TYPE_LABEL: Record<string, string> = {
-  PRACTITIONER: "ارائه‌دهنده",
-  ROOM: "اتاق",
-  DEVICE: "دستگاه",
-};
-
+export { RESOURCE_TYPE_LABEL };
 export const RESOURCE_TYPES = Object.keys(RESOURCE_TYPE_LABEL);
 
 export const ADMIN_PAGE_SIZE = 25;

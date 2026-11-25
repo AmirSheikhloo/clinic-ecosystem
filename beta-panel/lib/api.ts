@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch, type ApiErrorBody } from "./client";
+import { describeError } from "./error-messages";
 
 export const SESSION_EXPIRED_EVENT = "ce:session-expired";
 
@@ -35,12 +36,11 @@ export type ApiJsonOptions = {
 };
 
 export function messageFromBody(body: ApiErrorBody, fallback: string): string {
-  if (body.message) return body.message;
-  if (typeof body.detail === "object" && body.detail && "message" in body.detail) {
-    const message = (body.detail as { message?: string }).message;
-    if (message) return message;
-  }
-  return fallback;
+  const nested =
+    typeof body.detail === "object" && body.detail && "message" in body.detail
+      ? (body.detail as { message?: string }).message
+      : undefined;
+  return describeError(body.error, body.message ?? nested, fallback);
 }
 
 function currentVersionOf(body: ApiErrorBody): number | null {

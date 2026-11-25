@@ -3,23 +3,57 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, formatApiError, type ApiErrorBody } from "@/lib/client";
+import { apiJson, buildQuery } from "@/lib/api";
 import { useSession } from "@/components/session/SessionProvider";
 import type { DeskFeedback } from "./useDeskFeedback";
 import type { Patient } from "./types";
 
-/** Patient search, quick registration and `?patient=<id>` deep-link selection. */
+const SEARCH_DEBOUNCE_MS = 300;
+export const PATIENT_SEARCH_MIN = 2;
+
+type SearchState = { q: string; items: Patient[] } | null;
+
+/** Patient search (debounced, cancellable), quick registration and `?patient=<id>` deep-link selection. */
 export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () => void) {
   const router = useRouter();
   const { status } = useSession();
   const requestedPatientId = useSearchParams().get("patient");
   const { setError, setMessage } = feedback;
   const [query, setQuery] = useState("");
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [searchState, setSearchState] = useState<SearchState>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [registering, setRegistering] = useState(false);
+
+  const term = query.trim();
+  const searchable = term.length >= PATIENT_SEARCH_MIN;
+  const patients = searchState?.q === term ? searchState.items : [];
+  const searching = status === "ready" && searchable && searchState?.q !== term;
+
+  useEffect(() => {
+    if (status !== "ready" || term.length < PATIENT_SEARCH_MIN) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void apiJson<{ items?: Patient[] }>(`/api/patients${buildQuery({ q: term, limit: 20 })}`, {
+        signal: controller.signal,
+        fallbackMessage: "جستجوی بیمار ناموفق بود",
+      }).then((result) => {
+        if (!result.ok) {
+          if (result.aborted) return;
+          setError(result.message);
+          setSearchState({ q: term, items: [] });
+          return;
+        }
+        setSearchState({ q: term, items: result.data.items ?? [] });
+      });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [term, status, setError]);
 
   useEffect(() => {
     if (status !== "ready" || !requestedPatientId) return;
@@ -57,23 +91,28 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
     onSelectionChange();
   }
 
+  function clearSelection() {
+    setSelectedPatient(null);
+    setQuery("");
+    setSearchState(null);
+    onSelectionChange();
+  }
+
+  /** Immediate search for the Search button / Enter; short terms are explained, not sent. */
   async function searchPatients() {
     setError(null);
-    try {
-      const response = await apiFetch(`/api/patients?q=${encodeURIComponent(query.trim())}`);
-      if (response.status === 401) {
-        router.replace("/login?expired=1");
-        return;
-      }
-      const data = (await response.json().catch(() => ({}))) as ApiErrorBody & { items?: Patient[] };
-      if (!response.ok) {
-        setError(formatApiError(data, "جستجوی بیمار ناموفق بود"));
-        return;
-      }
-      setPatients(data.items || []);
-    } catch {
-      setError("ارتباط برای جستجوی بیمار برقرار نشد");
+    if (!searchable) {
+      setError(`برای جستجو حداقل ${PATIENT_SEARCH_MIN} حرف وارد کنید`);
+      return;
     }
+    const result = await apiJson<{ items?: Patient[] }>(`/api/patients${buildQuery({ q: term, limit: 20 })}`, {
+      fallbackMessage: "جستجوی بیمار ناموفق بود",
+    });
+    if (!result.ok) {
+      if (result.status !== 401) setError(result.message);
+      return;
+    }
+    setSearchState({ q: term, items: result.data.items ?? [] });
   }
 
   async function registerPatient(event: FormEvent) {
@@ -103,12 +142,12 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
       }
       setSelectedPatient(data);
       onSelectionChange();
-      setMessage(`بیمار ثبت شد — شناسه پروفایل: ${data.patient_profile_id}`);
+      setMessage(`بیمار ثبت شد: ${data.first_name} ${data.last_name}`);
       setFirstName("");
       setLastName("");
       setBirthDate("");
     } catch {
-      setError("ارتباط برای ثبت بیمار برقرار نشد — نتیجه نامشخص است؛ از تکرار کور خودداری کنید");
+      setError("ارتباط برای ثبت بیمار برقرار نشد — نتیجه نامشخص است؛ پیش از ثبت دوباره، جستجو کنید");
     } finally {
       setRegistering(false);
     }
@@ -118,8 +157,11 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
     query,
     setQuery,
     patients,
+    searching,
+    searched: searchState?.q === term && searchable,
     selectedPatient,
     selectPatient,
+    clearSelection,
     firstName,
     setFirstName,
     lastName,

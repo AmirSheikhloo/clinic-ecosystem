@@ -1,10 +1,11 @@
-type Tone = "neutral" | "ok" | "warn" | "danger";
+type Tone = "neutral" | "ok" | "warn" | "danger" | "info";
 
 const CLASS: Record<Tone, string> = {
   neutral: "ds-badge",
   ok: "ds-badge ds-badge-ok",
   warn: "ds-badge ds-badge-warn",
   danger: "ds-badge ds-badge-danger",
+  info: "ds-badge ds-badge-info",
 };
 
 export function StatusBadge({ tone = "neutral", children, testId }: { tone?: Tone; children: React.ReactNode; testId?: string }) {

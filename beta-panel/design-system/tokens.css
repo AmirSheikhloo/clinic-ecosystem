@@ -100,18 +100,6 @@
   --ds-shadow: 0 16px 40px rgba(71, 85, 105, 0.12);
 }
 
-[data-appearance="dark"] {
-  --ds-bg: #0f1720;
-  --ds-bg-accent: rgba(148, 163, 184, 0.08);
-  --ds-surface: #162032;
-  --ds-surface-muted: #1c2a3d;
-  --ds-text: #e8eef4;
-  --ds-text-muted: rgba(232, 238, 244, 0.7);
-  --ds-border: #2a3a4f;
-  --ds-border-strong: #3a4d66;
-  --ds-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-}
-
 :root {
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;
@@ -123,22 +111,57 @@
   --ds-space-5: 1.25rem;
   --ds-space-6: 1.5rem;
   --ds-space-8: 2rem;
-  --ds-font-size-sm: 0.875rem;
+  --ds-font-size-xs: 0.75rem;
+  --ds-font-size-sm: 0.8125rem;
   --ds-font-size-md: 0.9375rem;
-  --ds-font-size-lg: 1.125rem;
-  --ds-font-size-xl: 1.5rem;
+  --ds-font-size-lg: 1.0625rem;
+  --ds-font-size-xl: 1.375rem;
+  --ds-font-size-2xl: 1.75rem;
+  --ds-font-weight-medium: 500;
+  --ds-font-weight-semibold: 600;
+  --ds-font-weight-bold: 700;
+  --ds-icon-sm: 1rem;
+  --ds-icon-md: 1.25rem;
+  --ds-icon-lg: 1.5rem;
+  --ds-control-height: 2.5rem;
+  --ds-control-height-sm: 2rem;
+  --ds-sidebar-width: 15rem;
+  --ds-sidebar-width-rail: 4.25rem;
+  --ds-header-height: 3.75rem;
+  --ds-content-max: 80rem;
   --ds-line-height-tight: 1.25;
   --ds-line-height-body: 1.6;
   --ds-z-sidebar: 40;
+  --ds-z-popover: 65;
+  --ds-z-tooltip: 80;
   --ds-z-header: 50;
   --ds-z-overlay: 60;
   --ds-z-toast: 70;
   --ds-motion-micro: 140ms;
-  --ds-motion-dropdown: 200ms;
+  --ds-motion-dropdown: 180ms;
+  --ds-motion-expand: 220ms;
+  --ds-motion-toast: 200ms;
   --ds-motion-page: 220ms;
-  --ds-motion-dialog: 240ms;
-  --ds-motion-sidebar: 280ms;
+  --ds-motion-dialog: 220ms;
+  --ds-motion-drawer: 260ms;
+  --ds-motion-sidebar: 260ms;
+  --ds-motion-theme: 240ms;
   --ds-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ds-ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  --ds-heading: var(--ds-primary-strong);
+  --ds-link: var(--ds-primary);
+  --ds-on-primary: #ffffff;
+  --ds-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --ds-primary-soft: color-mix(in srgb, var(--ds-primary) 12%, var(--ds-surface));
+  --ds-success-soft: color-mix(in srgb, var(--ds-success) 14%, var(--ds-surface));
+  --ds-warning-soft: color-mix(in srgb, var(--ds-warning) 14%, var(--ds-surface));
+  --ds-danger-soft: color-mix(in srgb, var(--ds-danger) 14%, var(--ds-surface));
+  --ds-info-soft: color-mix(in srgb, var(--ds-info) 14%, var(--ds-surface));
+  --ds-sidebar-hover: color-mix(in srgb, var(--ds-sidebar-text) 10%, transparent);
+  --ds-sidebar-active: color-mix(in srgb, var(--ds-sidebar-text) 18%, transparent);
+  --ds-sidebar-border: color-mix(in srgb, var(--ds-sidebar-text) 14%, transparent);
+  --ds-font-sans: var(--ds-font-family);
 
   --color-ink: var(--ds-text);
   --color-mist: var(--ds-surface-muted);
@@ -147,5 +170,26 @@
   --color-sand: var(--ds-bg);
   --color-alert: var(--ds-danger);
   --color-ok: var(--ds-success);
-  --font-sans: var(--font-vazirmatn), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Appearance overrides come last so they win over :root defaults. */
+[data-appearance="dark"] {
+  --ds-bg: #0f1720;
+  --ds-bg-accent: rgba(148, 163, 184, 0.08);
+  --ds-surface: #162032;
+  --ds-surface-muted: #1c2a3d;
+  --ds-text: #e8eef4;
+  --ds-text-muted: rgba(232, 238, 244, 0.7);
+  --ds-border: #2a3a4f;
+  --ds-border-strong: #3a4d66;
+  --ds-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  --ds-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ds-heading: var(--ds-text);
+  --ds-link: color-mix(in srgb, var(--ds-primary) 45%, #ffffff);
+  --ds-success: #4ade80;
+  --ds-warning: #fbbf24;
+  --ds-danger: #f87171;
+  --ds-info: #7dd3fc;
+  --ds-on-primary: #ffffff;
+  --ds-sidebar: color-mix(in srgb, var(--ds-primary-strong) 35%, #0b121b);
 }

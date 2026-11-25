@@ -12,7 +12,7 @@ test("navigation is filtered by permission and never grants anything itself", ()
   const reception = new Set([P.patientsSearch, P.appointmentsList, P.appointmentsSchedule, P.catalogServicesRead]);
   assert.deepEqual(
     visibleNav(reception).map((i) => i.href),
-    ["/dashboard", "/desk", "/patients", "/appointments", "/catalog"],
+    ["/dashboard", "/desk", "/appointments", "/patients", "/catalog"],
   );
 
   const admin = new Set([P.staffView, P.rolesView]);
@@ -21,8 +21,8 @@ test("navigation is filtered by permission and never grants anything itself", ()
   assert.equal(hasAny(none, [P.staffView]), false);
 });
 
-test("the appointments nav label keeps its stable accessible name", () => {
-  assert.equal(NAV_ITEMS.find((i) => i.href === "/appointments")?.label, "نوبت‌های روز");
+test("the calendar nav label is stable", () => {
+  assert.equal(NAV_ITEMS.find((i) => i.href === "/appointments")?.label, "تقویم نوبت‌ها");
 });
 
 test("activeNav matches by path segment, not raw prefix", () => {
@@ -53,4 +53,12 @@ test("search hit links encode untrusted text", () => {
 test("buildQuery skips empty values and encodes", () => {
   assert.equal(buildQuery({ q: "", a: undefined, b: null }), "");
   assert.equal(buildQuery({ q: "a b", limit: 20, flag: false }), "?q=a+b&limit=20&flag=false");
+});
+
+test("describeError maps codes to Persian and never leaks raw English text", async () => {
+  const { describeError } = await import("./error-messages.ts");
+  assert.match(describeError("privilege_escalation_denied", "Cannot grant", "x"), /مجوزی/);
+  assert.equal(describeError("unknown_code", "Some English text", "پیام عمومی"), "پیام عمومی");
+  assert.equal(describeError("unknown_code", "خطای فارسی", "x"), "خطای فارسی");
+  assert.equal(describeError(undefined, undefined, "fallback"), "fallback");
 });

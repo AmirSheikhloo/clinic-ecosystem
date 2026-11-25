@@ -1,15 +1,23 @@
+import type { ReactNode } from "react";
+import { Icon } from "@/components/ui/Icon";
+import type { IconName } from "@/components/ui/icon-paths";
+
 type Props = {
   title: string;
   description?: string;
+  icon?: IconName;
+  action?: ReactNode;
 };
 
-export function EmptyState({ title, description }: Props) {
+export function EmptyState({ title, description, icon = "info", action }: Props) {
   return (
-    <div className="rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--ds-border-strong)] bg-[var(--ds-surface)]/70 px-4 py-10 text-center">
-      <p className="font-medium text-[var(--ds-text)]">{title}</p>
-      {description && (
-        <p className="mt-2 text-sm text-[var(--ds-text-muted)]">{description}</p>
-      )}
+    <div className="ds-empty">
+      <span className="ds-empty-icon">
+        <Icon name={icon} />
+      </span>
+      <p className="font-semibold text-[var(--ds-text)]">{title}</p>
+      {description && <p className="max-w-md text-sm text-[var(--ds-text-muted)]">{description}</p>}
+      {action ? <div className="mt-2">{action}</div> : null}
     </div>
   );
 }

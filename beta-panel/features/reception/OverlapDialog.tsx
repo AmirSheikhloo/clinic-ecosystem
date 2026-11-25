@@ -1,8 +1,10 @@
 "use client";
 
+import { Alert } from "@/components/feedback/Alert";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { formatTehran, type OverlapConflict } from "@/lib/client";
+import { bookingChannelLabel } from "@/lib/format/status";
 
 type Props = {
   conflicts: OverlapConflict[];
@@ -20,43 +22,44 @@ export function OverlapDialog({
   confirmLabel = "تأیید تداخل و ثبت نوبت",
 }: Props) {
   return (
-    <Dialog open title="تأیید صریح تداخل نوبت دستی" onClose={onDismiss} testId="overlap-dialog">
+    <Dialog
+      open
+      title="تداخل با نوبت‌های موجود"
+      description="زمان یا منبع انتخاب‌شده با نوبت‌های زیر هم‌پوشانی دارد."
+      onClose={onDismiss}
+      testId="overlap-dialog"
+      footer={
+        <>
+          <Button variant="ghost" disabled={submitting} onClick={onDismiss}>
+            انصراف
+          </Button>
+          <Button loading={submitting} onClick={onConfirm} data-testid="overlap-confirm">
+            {submitting ? "در حال تأیید…" : confirmLabel}
+          </Button>
+        </>
+      }
+    >
       <div className="space-y-3">
-        <p className="text-sm text-[var(--ds-text)]">
-          این نوبت با نوبت‌های موجود هم‌پوشانی دارد. فقط داده‌های مجاز سرور نمایش داده می‌شود.
-          ادامه فقط با تأیید آگاهانه و مجوز ALLOW_MANUAL_OVERBOOKING ممکن است.
-        </p>
+        <Alert tone="warn">
+          ادامه فقط با تأیید آگاهانه شما و داشتن مجوز «تأیید تداخل نوبت دستی» ممکن است. در غیر این صورت انصراف دهید و زمان یا منبع دیگری انتخاب کنید.
+        </Alert>
         <ul className="space-y-2 text-sm">
           {conflicts.map((conflict) => (
             <li
               key={conflict.appointment_id}
               className="rounded-[var(--ds-radius-md)] border border-[var(--ds-warning)] bg-[color-mix(in_srgb,var(--ds-warning)_10%,var(--ds-surface))] px-3 py-2"
             >
-              <div>شناسه نوبت: {conflict.appointment_id}</div>
-              {conflict.display_safe_patient_name !== undefined && (
-                <div>بیمار: {conflict.display_safe_patient_name || "—"}</div>
-              )}
-              {conflict.scheduled_start_at_utc && (
+              {conflict.display_safe_patient_name !== undefined ? (
+                <div className="font-medium">بیمار: {conflict.display_safe_patient_name || "—"}</div>
+              ) : null}
+              {conflict.scheduled_start_at_utc ? (
                 <div className="tabular-nums">زمان: {formatTehran(conflict.scheduled_start_at_utc)}</div>
-              )}
-              {conflict.booking_channel && <div>کانال: {conflict.booking_channel}</div>}
+              ) : null}
+              {conflict.booking_channel ? <div>نوع ثبت: {bookingChannelLabel(conflict.booking_channel)}</div> : null}
+              <div className="text-xs text-[var(--ds-text-muted)]">کد نوبت: <span dir="ltr">{conflict.appointment_id}</span></div>
             </li>
           ))}
         </ul>
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            data-testid="overlap-confirm"
-            disabled={submitting}
-            onClick={onConfirm}
-            className="ds-btn ds-btn-primary"
-          >
-            {submitting ? "در حال تأیید…" : confirmLabel}
-          </button>
-          <Button variant="ghost" disabled={submitting} onClick={onDismiss}>
-            انصراف
-          </Button>
-        </div>
       </div>
     </Dialog>
   );

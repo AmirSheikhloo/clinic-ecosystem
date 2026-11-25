@@ -1,6 +1,7 @@
 "use client";
 
 import { CSRF_COOKIE } from "./constants";
+import { describeError } from "./error-messages";
 
 export {
   formatTehran,
@@ -96,11 +97,9 @@ export async function apiFetch(
 }
 
 export function formatApiError(data: ApiErrorBody, fallback: string): string {
-  if (data.message) return data.message;
-  if (typeof data.detail === "object" && data.detail && "message" in data.detail) {
-    const message = (data.detail as { message?: string }).message;
-    if (message) return message;
-  }
-  if (data.error) return data.error;
-  return fallback;
+  const nested =
+    typeof data.detail === "object" && data.detail && "message" in data.detail
+      ? (data.detail as { message?: string }).message
+      : undefined;
+  return describeError(data.error, data.message ?? nested, fallback);
 }

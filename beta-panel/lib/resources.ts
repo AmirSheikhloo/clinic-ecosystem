@@ -1,5 +1,15 @@
 /** Client-side helpers to mirror backend resource requirement matching. */
 
+export const RESOURCE_TYPE_LABEL: Record<string, string> = {
+  PRACTITIONER: "ارائه‌دهنده",
+  ROOM: "اتاق",
+  DEVICE: "دستگاه",
+};
+
+export function resourceTypeLabel(type: string): string {
+  return RESOURCE_TYPE_LABEL[type] ?? type;
+}
+
 export type Resource = {
   id: string;
   resource_type: string;

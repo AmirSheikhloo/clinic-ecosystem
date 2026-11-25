@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import type { ApiFail } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 import { Alert } from "./Alert";
 import { AccessDenied } from "./AccessDenied";
 
@@ -14,22 +16,23 @@ type Props = {
 /** Consistent loading / denied / error presentation for server-backed regions. */
 export function QueryBoundary({ loading, error, children, deniedWhat, onRetry }: Props) {
   if (loading) {
-    return (
-      <p className="text-[var(--ds-text-muted)]" role="status" data-testid="loading">
-        در حال بارگذاری…
-      </p>
-    );
+    return <SkeletonRows testId="loading" />;
   }
   if (error?.status === 403) return <AccessDenied what={deniedWhat} />;
   if (error) {
     return (
       <div className="space-y-2" data-testid="query-error">
-        <Alert>{error.message}</Alert>
-        {onRetry ? (
-          <button type="button" className="ds-btn ds-btn-ghost text-sm" onClick={onRetry}>
-            تلاش دوباره
-          </button>
-        ) : null}
+        <Alert
+          action={
+            onRetry ? (
+              <Button variant="ghost" size="sm" icon="refresh" onClick={onRetry}>
+                تلاش دوباره
+              </Button>
+            ) : undefined
+          }
+        >
+          {error.message}
+        </Alert>
       </div>
     );
   }

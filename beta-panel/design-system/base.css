@@ -1,5 +1,5 @@
 @theme {
-  --font-sans: var(--font-vazirmatn), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--ds-font-family);
   --color-ink: var(--ds-text);
   --color-mist: var(--ds-surface-muted);
   --color-sea: var(--ds-primary);
@@ -25,17 +25,29 @@
   }
 
   body {
-    background:
-      radial-gradient(circle at 12% 8%, var(--ds-bg-accent), transparent 42%),
-      linear-gradient(180deg, var(--ds-bg) 0%, var(--ds-surface-muted) 100%);
+    background-color: var(--ds-bg);
+    background-image: radial-gradient(circle at 88% 0%, var(--ds-bg-accent), transparent 38%);
+    background-attachment: fixed;
     color: var(--ds-text);
     font-family: var(--font-sans);
     font-size: var(--ds-font-size-md);
     line-height: var(--ds-line-height-body);
     min-height: 100vh;
-    transition:
-      background var(--ds-motion-page) var(--ds-ease),
-      color var(--ds-motion-page) var(--ds-ease);
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--ds-heading);
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--ds-primary) 30%, transparent);
   }
 
   :focus-visible {

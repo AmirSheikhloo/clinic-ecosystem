@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Icon } from "@/components/ui/Icon";
 import { apiJson, buildQuery } from "@/lib/api";
 import {
   SEARCH_KIND_LABEL,
@@ -82,12 +83,13 @@ export function GlobalSearch() {
   }
 
   return (
-    <div className="relative w-full max-w-sm" data-testid="global-search">
+    <div className="relative w-full" data-testid="global-search">
+      <Icon name="search" size="sm" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ds-text-muted)]" />
       <input
         ref={inputRef}
         type="search"
-        className="ds-input"
-        placeholder="جستجوی سراسری ( / )"
+        className="ds-input !ps-9"
+        placeholder="جستجوی بیمار، خدمت، منبع… ( / )"
         aria-label="جستجوی سراسری"
         role="combobox"
         aria-expanded={open && searchable}
@@ -108,7 +110,7 @@ export function GlobalSearch() {
         <ul
           id={listId}
           role="listbox"
-          className="ds-card absolute inset-x-0 top-full z-[var(--ds-z-overlay)] mt-1 max-h-72 overflow-auto p-1 text-sm"
+          className="ds-card absolute inset-x-0 top-full z-[var(--ds-z-popover)] mt-1 max-h-80 overflow-auto p-1 text-sm shadow-[var(--ds-shadow)] animate-fade-in"
           data-testid="global-search-results"
         >
           {!current ? <li className="px-3 py-2 text-[var(--ds-text-muted)]">در حال جستجو…</li> : null}
@@ -123,7 +125,7 @@ export function GlobalSearch() {
               aria-selected={index === active}
               data-testid="global-search-hit"
               className={`flex cursor-pointer items-center justify-between gap-2 rounded-md px-3 py-2 ${
-                index === active ? "bg-[var(--ds-surface-muted)]" : ""
+                index === active ? "bg-[var(--ds-primary-soft)]" : ""
               }`}
               onMouseDown={(event) => {
                 event.preventDefault();

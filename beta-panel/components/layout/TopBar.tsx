@@ -2,11 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { apiFetch, formatApiError, type ApiErrorBody } from "@/lib/client";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { Button } from "@/components/ui/Button";
 import { useSession } from "@/components/session/SessionProvider";
+import { breadcrumbsFor } from "@/lib/breadcrumbs";
+import { apiFetch, formatApiError, type ApiErrorBody } from "@/lib/client";
 import { GlobalSearch } from "./GlobalSearch";
+import { ThemeMenu } from "./ThemeMenu";
 
-export function TopBar({ title }: { title: string }) {
+function initials(first: string, last: string, fallback: string): string {
+  const letters = `${first.trim().charAt(0)}${last.trim().charAt(0)}`.trim();
+  return letters || fallback.charAt(0).toUpperCase();
+}
+
+export function TopBar({ pathname, onOpenNav }: { pathname: string; onOpenNav: () => void }) {
   const router = useRouter();
   const { me } = useSession();
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -34,37 +43,48 @@ export function TopBar({ title }: { title: string }) {
   const displayName = me ? `${me.first_name} ${me.last_name}`.trim() || me.login_identifier : "";
 
   return (
-    <header className="sticky top-0 z-[var(--ds-z-header)] border-b border-[var(--ds-border)] bg-[var(--ds-surface)]/80 backdrop-blur-md">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <div>
-          <h1 className="text-lg font-bold text-[var(--ds-primary-strong)]">{title}</h1>
-          <p className="text-xs text-[var(--ds-text-muted)]">محیط توسعه — داده مصنوعی</p>
-        </div>
-        <div className="order-3 w-full sm:order-none sm:w-auto sm:flex-1 sm:px-4 sm:flex sm:justify-center">
-          <GlobalSearch />
-        </div>
-        <div className="flex items-center gap-3">
-          {displayName && (
-            <span className="hidden text-sm text-[var(--ds-text-muted)] md:inline" data-testid="current-user">
-              {displayName}
-            </span>
-          )}
-          {logoutError && (
-            <span className="max-w-xs text-xs text-[var(--ds-danger)]" role="alert">
-              {logoutError}
-            </span>
-          )}
-          <button
-            type="button"
-            data-testid="logout-button"
-            onClick={logout}
-            disabled={loggingOut}
-            className="ds-btn ds-btn-ghost text-sm"
-          >
-            {loggingOut ? "خروج…" : "خروج"}
-          </button>
-        </div>
+    <header className="ds-topbar">
+      <Button
+        variant="ghost"
+        icon="menu"
+        className="lg:!hidden"
+        aria-label="باز کردن منو"
+        onClick={onOpenNav}
+        data-testid="mobile-nav-open"
+      />
+      <Breadcrumbs items={breadcrumbsFor(pathname)} />
+      <span className="ds-dev-notice hidden xl:inline" data-testid="dev-notice">
+        نسخهٔ توسعه — داده مصنوعی
+      </span>
+      <div className="order-last w-full sm:order-none sm:mx-auto sm:w-auto sm:flex-1 sm:max-w-md">
+        <GlobalSearch />
       </div>
+      <div className="ms-auto flex items-center gap-2 sm:ms-0">
+        <ThemeMenu />
+        {displayName ? (
+          <span className="hidden items-center gap-2 md:flex" data-testid="current-user" title={me?.login_identifier}>
+            <span className="ds-avatar" aria-hidden="true">
+              {initials(me?.first_name ?? "", me?.last_name ?? "", displayName)}
+            </span>
+            <span className="max-w-40 truncate text-sm">{displayName}</span>
+          </span>
+        ) : null}
+        <Button
+          variant="ghost"
+          icon="logout"
+          onClick={logout}
+          loading={loggingOut}
+          data-testid="logout-button"
+          aria-label="خروج از حساب"
+        >
+          <span className="hidden sm:inline">خروج</span>
+        </Button>
+      </div>
+      {logoutError ? (
+        <p className="w-full text-xs text-[var(--ds-danger)]" role="alert">
+          {logoutError}
+        </p>
+      ) : null}
     </header>
   );
 }

@@ -27,8 +27,8 @@ const replayNote = (replayed?: boolean) => (replayed ? " (بازیابی تکر�
 export function useDeskSubmit({ feedback, state, catalog, selectedPatient }: Inputs) {
   const router = useRouter();
   const { setError, setMessage } = feedback;
-  const { selectedResourceIds, localStart, pendingConflicts, setPendingConflicts, keyStore } = state;
-  const { serviceId, requirements, requirementsReady, resources, durationMinutes } = catalog;
+  const { selectedResourceIds, localStart, pendingConflicts, setPendingConflicts, setLastBooking, keyStore } = state;
+  const { serviceId, requirements, requirementsReady, resources, durationMinutes, services } = catalog;
   const [submitting, setSubmitting] = useState(false);
   const confirmingRef = useRef(false);
 
@@ -42,6 +42,19 @@ export function useDeskSubmit({ feedback, state, catalog, selectedPatient }: Inp
     [requirements, selectedResourceIds, resourcesById],
   );
   const neededCount = requiredSelectionCount(requirements);
+
+  function recordBooking(appointmentId: string, startIso: string, flags: { overlapAcknowledged: boolean; replayed?: boolean }) {
+    if (!selectedPatient) return;
+    setLastBooking({
+      appointmentId,
+      startIso,
+      patientId: selectedPatient.patient_profile_id,
+      patientName: `${selectedPatient.first_name} ${selectedPatient.last_name}`,
+      serviceName: services.find((item) => item.id === serviceId)?.service_name ?? "",
+      overlapAcknowledged: flags.overlapAcknowledged,
+      replayed: !!flags.replayed,
+    });
+  }
 
   function baseIntent(overrides: Partial<BookingIntent> = {}): BookingIntent | null {
     if (!selectedPatient || !serviceId || !localStart) return null;
@@ -105,9 +118,10 @@ export function useDeskSubmit({ feedback, state, catalog, selectedPatient }: Inp
         return;
       }
       setPendingConflicts(null);
-      setMessage(`نوبت ثبت شد — شناسه: ${data.appointment_id}${replayNote(data.replayed)} — ${formatTehran(startIso)}`);
+      setMessage(`نوبت ثبت شد — کد پیگیری: ${data.appointment_id}${replayNote(data.replayed)} — ${formatTehran(startIso)}`);
+      recordBooking(String(data.appointment_id), startIso, { overlapAcknowledged: false, replayed: data.replayed });
     } catch {
-      setError("ارتباط برای ثبت نوبت برقرار نشد — نتیجه نامشخص است؛ همان درخواست را با همان کلید می‌توانید تکرار کنید");
+      setError("ارتباط با سرور برقرار نشد و نتیجه نامشخص است. می‌توانید دوباره «ثبت نوبت» را بزنید؛ نوبت تکراری ایجاد نمی‌شود.");
     } finally {
       setSubmitting(false);
     }
@@ -152,10 +166,11 @@ export function useDeskSubmit({ feedback, state, catalog, selectedPatient }: Inp
       }
       setPendingConflicts(null);
       setMessage(
-        `نوبت با تأیید تداخل ثبت شد — شناسه: ${data.appointment_id}${replayNote(data.replayed)} — ${formatTehran(startIso)}`,
+        `نوبت با تأیید تداخل ثبت شد — کد پیگیری: ${data.appointment_id}${replayNote(data.replayed)} — ${formatTehran(startIso)}`,
       );
+      recordBooking(String(data.appointment_id), startIso, { overlapAcknowledged: true, replayed: data.replayed });
     } catch {
-      setError("ارتباط برای تأیید تداخل برقرار نشد — نتیجه نامشخص است؛ همان تأیید را می‌توانید تکرار کنید");
+      setError("ارتباط با سرور برقرار نشد و نتیجه نامشخص است. می‌توانید دوباره تأیید کنید؛ نوبت تکراری ایجاد نمی‌شود.");
     } finally {
       confirmingRef.current = false;
       setSubmitting(false);

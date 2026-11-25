@@ -4,6 +4,7 @@ export function AccessDenied({ what }: { what?: string }) {
   return (
     <div data-testid="access-denied" role="alert">
       <EmptyState
+        icon="lock"
         title="دسترسی به این بخش مجاز نیست"
         description={
           what

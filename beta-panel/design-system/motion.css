@@ -1,42 +1,137 @@
+/*
+ * Centralized motion. Durations/easing come from --ds-motion-* tokens.
+ * Reduced-motion collapse lives in base.css and also covers these keyframes.
+ */
 @layer utilities {
   .animate-fade-in {
-    animation: fadeIn var(--ds-motion-page) var(--ds-ease) forwards;
+    animation: ds-fade-up var(--ds-motion-page) var(--ds-ease) both;
   }
 
   .animate-rise {
-    animation: rise var(--ds-motion-page) var(--ds-ease) forwards;
+    animation: ds-fade-up var(--ds-motion-page) var(--ds-ease) both;
   }
 
   .motion-sidebar {
     transition:
       width var(--ds-motion-sidebar) var(--ds-ease),
-      transform var(--ds-motion-sidebar) var(--ds-ease),
       opacity var(--ds-motion-dropdown) var(--ds-ease);
   }
 
   .motion-dialog {
-    animation: rise var(--ds-motion-dialog) var(--ds-ease) forwards;
+    animation: ds-rise var(--ds-motion-dialog) var(--ds-ease) both;
   }
 
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  /* Applied to <html> for one theme-change; opacity/transform are never animated here. */
+  html.ds-theme-switching,
+  html.ds-theme-switching *,
+  html.ds-theme-switching *::before,
+  html.ds-theme-switching *::after {
+    transition:
+      background-color var(--ds-motion-theme) var(--ds-ease),
+      border-color var(--ds-motion-theme) var(--ds-ease),
+      color var(--ds-motion-theme) var(--ds-ease),
+      fill var(--ds-motion-theme) var(--ds-ease),
+      stroke var(--ds-motion-theme) var(--ds-ease) !important;
   }
+}
 
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+@keyframes ds-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ds-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ds-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ds-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ds-drawer-in-end {
+  from {
+    opacity: 0.6;
+    transform: translateX(-2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ds-drawer-in-start {
+  from {
+    opacity: 0.6;
+    transform: translateX(2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ds-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ds-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes ds-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ds-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
   }
 }

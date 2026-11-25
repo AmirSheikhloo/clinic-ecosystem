@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { Icon } from "./Icon";
 
 type Props = {
   open: boolean;
@@ -9,6 +10,10 @@ type Props = {
   children: ReactNode;
   testId?: string;
   size?: "md" | "lg";
+  /** "center" modal, "drawer" slides from the inline-end edge (left in RTL), "drawer-start" from the right. */
+  placement?: "center" | "drawer" | "drawer-start";
+  description?: string;
+  footer?: ReactNode;
 };
 
 const FOCUSABLE =
@@ -17,7 +22,8 @@ const FOCUSABLE =
 /** Open dialogs, innermost last: only the top one handles Escape and focus trapping. */
 const openStack: symbol[] = [];
 
-export function Dialog({ open, title, onClose, children, testId, size = "md" }: Props) {
+export function Dialog({ open, title, onClose, children, testId, size = "md", placement = "center", description, footer }: Props) {
+  const descriptionId = useId();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -31,7 +37,10 @@ export function Dialog({ open, title, onClose, children, testId, size = "md" }: 
     openStack.push(self);
     const previous = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
-    const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
+    const first =
+      panel?.querySelector<HTMLElement>("[data-autofocus]") ??
+      panel?.querySelector<HTMLElement>(".ds-dialog-body")?.querySelector<HTMLElement>(FOCUSABLE) ??
+      panel?.querySelector<HTMLElement>(FOCUSABLE);
     (first ?? panel)?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
@@ -67,9 +76,19 @@ export function Dialog({ open, title, onClose, children, testId, size = "md" }: 
   }, [open]);
 
   if (!open) return null;
+  const drawer = placement !== "center";
+  const overlayClass = `ds-overlay ${drawer ? "ds-overlay-drawer" : ""} ${placement === "drawer-start" ? "ds-overlay-drawer-start" : ""}`.trim();
+  const panelClass = [
+    "ds-dialog",
+    placement === "drawer" ? "ds-drawer" : "",
+    placement === "drawer-start" ? "ds-drawer ds-drawer-start" : "",
+    size === "lg" && !drawer ? "ds-dialog-lg" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
     <div
-      className="ds-overlay"
+      className={overlayClass}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -79,24 +98,33 @@ export function Dialog({ open, title, onClose, children, testId, size = "md" }: 
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         data-testid={testId}
-        className={`ds-dialog motion-dialog ${size === "lg" ? "!w-[min(100%,56rem)]" : ""}`}
+        className={panelClass}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 id={titleId} className="text-lg font-bold text-[var(--ds-primary-strong)]">
-            {title}
-          </h3>
+        <div className="ds-dialog-head">
+          <div className="min-w-0">
+            <h3 id={titleId} className="text-lg font-bold">
+              {title}
+            </h3>
+            {description ? (
+              <p id={descriptionId} className="mt-0.5 text-sm text-[var(--ds-text-muted)]">
+                {description}
+              </p>
+            ) : null}
+          </div>
           <button
             type="button"
-            className="rounded-md px-2 text-xl leading-none text-[var(--ds-text-muted)] hover:text-[var(--ds-text)]"
+            className="ds-btn ds-btn-subtle ds-btn-sm ds-btn-icon !text-[var(--ds-text-muted)]"
             aria-label="بستن"
             onClick={onClose}
           >
-            ×
+            <Icon name="close" size="sm" />
           </button>
         </div>
-        {children}
+        <div className="ds-dialog-body">{children}</div>
+        {footer ? <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--ds-border)] px-5 py-3">{footer}</div> : null}
       </div>
     </div>
   );

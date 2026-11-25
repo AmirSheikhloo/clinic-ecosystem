@@ -50,6 +50,13 @@ function readStoredAppearance(): Appearance {
   }
 }
 
+/** Brief class on <html> that enables the centralized theme color transition (see motion.css). */
+function markThemeSwitch() {
+  const root = document.documentElement;
+  root.classList.add("ds-theme-switching");
+  window.setTimeout(() => root.classList.remove("ds-theme-switching"), 360);
+}
+
 function applyDom(theme: ThemeId, appearance: Appearance) {
   const root = document.documentElement;
   root.dataset.theme = theme;
@@ -71,6 +78,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme, appearance]);
 
   const setTheme = useCallback((next: ThemeId) => {
+    markThemeSwitch();
     setThemeState(next);
     try {
       localStorage.setItem(THEME_STORAGE_KEY, next);
@@ -80,6 +88,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setAppearance = useCallback((next: Appearance) => {
+    markThemeSwitch();
     setAppearanceState(next);
     try {
       localStorage.setItem(APPEARANCE_STORAGE_KEY, next);
@@ -89,6 +98,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleAppearance = useCallback(() => {
+    markThemeSwitch();
     setAppearanceState((prev) => {
       const next = prev === "light" ? "dark" : "light";
       try {

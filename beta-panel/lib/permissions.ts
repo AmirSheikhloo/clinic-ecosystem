@@ -1,3 +1,5 @@
+import type { IconName } from "@/components/ui/icon-paths";
+
 /** Permission codes mirror src/clinic_ecosystem/domain/access/permissions.py. */
 
 export const P = {
@@ -29,23 +31,32 @@ export const P = {
   appointmentsReschedule: "BETA02_APPOINTMENTS_RESCHEDULE",
 } as const;
 
+export type NavGroupId = "work" | "clinic" | "admin";
+
 export type NavItem = {
   href: string;
   label: string;
-  icon: string;
+  icon: IconName;
+  group: NavGroupId;
   /** Visible when the user holds at least one of these; empty means always visible. */
   anyOf: readonly string[];
 };
 
+export const NAV_GROUPS: readonly { id: NavGroupId; label: string }[] = [
+  { id: "work", label: "کار روزانه" },
+  { id: "clinic", label: "کلینیک" },
+  { id: "admin", label: "مدیریت" },
+];
+
 /** UI visibility only; the server remains the sole authority for every action. */
 export const NAV_ITEMS: readonly NavItem[] = [
-  { href: "/dashboard", label: "داشبورد", icon: "◆", anyOf: [] },
-  { href: "/desk", label: "میز پذیرش", icon: "▣", anyOf: [P.appointmentsSchedule, P.patientsSearch] },
-  { href: "/patients", label: "بیماران", icon: "◎", anyOf: [P.patientsSearch, P.patientsRegister] },
-  { href: "/appointments", label: "نوبت‌های روز", icon: "▤", anyOf: [P.appointmentsList] },
-  { href: "/catalog", label: "فهرست خدمات", icon: "▥", anyOf: [P.catalogServicesRead, P.resourcesRead, P.servicesManage, P.resourcesManage] },
-  { href: "/staff", label: "کارکنان", icon: "◐", anyOf: [P.staffView] },
-  { href: "/access", label: "کاربران و دسترسی", icon: "◈", anyOf: [P.accountsView, P.rolesView, P.governanceView] },
+  { href: "/dashboard", label: "داشبورد", icon: "dashboard", group: "work", anyOf: [] },
+  { href: "/desk", label: "میز پذیرش", icon: "desk", group: "work", anyOf: [P.appointmentsSchedule, P.patientsSearch] },
+  { href: "/appointments", label: "تقویم نوبت‌ها", icon: "calendar", group: "work", anyOf: [P.appointmentsList] },
+  { href: "/patients", label: "بیماران", icon: "patients", group: "clinic", anyOf: [P.patientsSearch, P.patientsRegister] },
+  { href: "/catalog", label: "خدمات و منابع", icon: "catalog", group: "clinic", anyOf: [P.catalogServicesRead, P.resourcesRead, P.servicesManage, P.resourcesManage] },
+  { href: "/staff", label: "کارکنان", icon: "staff", group: "admin", anyOf: [P.staffView] },
+  { href: "/access", label: "کاربران و دسترسی", icon: "access", group: "admin", anyOf: [P.accountsView, P.rolesView, P.governanceView] },
 ];
 
 export function hasAny(granted: ReadonlySet<string>, codes: readonly string[]): boolean {
