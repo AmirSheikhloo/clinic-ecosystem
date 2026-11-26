@@ -25,6 +25,8 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [nationalId, setNationalId] = useState("");
+  const [identityExceptionReason, setIdentityExceptionReason] = useState("");
   const [registering, setRegistering] = useState(false);
 
   const term = query.trim();
@@ -129,6 +131,8 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           birth_date: birthDate || null,
+          national_id: nationalId.trim() || null,
+          identity_exception_reason: nationalId.trim() ? null : (identityExceptionReason.trim() || null),
         }),
       });
       if (response.status === 401) {
@@ -146,6 +150,8 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
       setFirstName("");
       setLastName("");
       setBirthDate("");
+      setNationalId("");
+      setIdentityExceptionReason("");
     } catch {
       setError("ارتباط برای ثبت بیمار برقرار نشد — نتیجه نامشخص است؛ پیش از ثبت دوباره، جستجو کنید");
     } finally {
@@ -168,6 +174,10 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
     setLastName,
     birthDate,
     setBirthDate,
+    nationalId,
+    setNationalId,
+    identityExceptionReason,
+    setIdentityExceptionReason,
     registering,
     searchPatients,
     registerPatient,

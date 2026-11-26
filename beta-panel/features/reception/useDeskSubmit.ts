@@ -12,19 +12,28 @@ import { postManualAppointment } from "./desk-booking-api";
 import type { DeskBookingState } from "./useDeskBookingState";
 import type { DeskCatalog } from "./useDeskCatalog";
 import type { DeskFeedback } from "./useDeskFeedback";
-import type { Patient } from "./types";
+import type { DraftServiceLine, Patient } from "./types";
 
 type Inputs = {
   feedback: DeskFeedback;
   state: DeskBookingState;
   catalog: DeskCatalog;
   selectedPatient: Patient | null;
+  draftLines?: DraftServiceLine[];
+  clearDraftLines?: () => void;
 };
 
 const replayNote = (replayed?: boolean) => (replayed ? " (بازیابی تکرار)" : "");
 
 /** Validation, submit and explicit overlap confirmation for manual bookings. */
-export function useDeskSubmit({ feedback, state, catalog, selectedPatient }: Inputs) {
+export function useDeskSubmit({
+  feedback,
+  state,
+  catalog,
+  selectedPatient,
+  draftLines = [],
+  clearDraftLines,
+}: Inputs) {
   const router = useRouter();
   const { setError, setMessage } = feedback;
   const { selectedResourceIds, localStart, pendingConflicts, setPendingConflicts, setLastBooking, keyStore } = state;
@@ -182,6 +191,71 @@ export function useDeskSubmit({ feedback, state, catalog, selectedPatient }: Inp
     keyStore.current.clear();
   }
 
+  /**
+   * Submit queued service lines as independent appointments (sequential).
+   * Partial success is reported honestly — each line keeps its own idempotency key.
+   */
+  async function submitGroup() {
+    if (submitting || !selectedPatient || draftLines.length === 0) return;
+    setError(null);
+    setMessage(null);
+    setSubmitting(true);
+    const created: string[] = [];
+    try {
+      for (const line of draftLines) {
+        const intent: BookingIntent = {
+          patientId: selectedPatient.patient_profile_id,
+          serviceId: line.serviceId,
+          resourceIds: line.resourceIds,
+          startLocal: line.localStart,
+          durationMinutes: line.durationMinutes,
+          acknowledgeOverlap: false,
+          acknowledgedConflictIds: [],
+        };
+        const { response, data, startIso, conflicts } = await postManualAppointment(
+          intent,
+          keyStore.current.keyFor(intent),
+        );
+        if (response.status === 401) {
+          router.replace("/login?expired=1");
+          return;
+        }
+        if (conflicts) {
+          setPendingConflicts(conflicts);
+          setError(
+            created.length
+              ? `تداخل برای «${line.serviceName}» — ${created.length} نوبت قبلاً ثبت شد`
+              : `تداخل برای «${line.serviceName}»؛ گروه متوقف شد`,
+          );
+          return;
+        }
+        if (!response.ok) {
+          setError(
+            created.length
+              ? `${formatApiError(data, "ثبت گروه ناقص ماند")} — ${created.length} نوبت ثبت شد`
+              : formatApiError(data, "ثبت گروه ناموفق بود"),
+          );
+          return;
+        }
+        created.push(String(data.appointment_id));
+        recordBooking(String(data.appointment_id), startIso, {
+          overlapAcknowledged: false,
+          replayed: data.replayed,
+        });
+      }
+      clearDraftLines?.();
+      setMessage(`گروه پذیرش ثبت شد — ${created.length} نوبت مستقل: ${created.join("، ")}`);
+    } catch {
+      setError(
+        created.length
+          ? `ارتباط قطع شد؛ ${created.length} نوبت ممکن است ثبت شده باشد — پیش از تکرار، فهرست نوبت‌ها را بررسی کنید`
+          : "ارتباط با سرور برقرار نشد و نتیجه نامشخص است",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return {
     eligibleResources,
     selectionCheck,
@@ -191,5 +265,6 @@ export function useDeskSubmit({ feedback, state, catalog, selectedPatient }: Inp
     submitAppointment,
     confirmOverlap,
     dismissOverlap,
+    submitGroup,
   };
 }

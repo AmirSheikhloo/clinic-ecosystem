@@ -1,9 +1,0 @@
-PANEL_URL=http://127.0.0.1:48841/login
-API_URL=http://127.0.0.1:35965/health
-RECEPTIONIST_LOGIN=receptionist@beta01b.test
-OWNER_LOGIN=owner@beta02.test
-MANAGER_LOGIN=manager@beta02.test
-DEPUTY_LOGIN=deputy@beta02.test
-PASSWORD=see preview.env (chmod 600)
-SERVICE=Tenant A Consultation
-RESOURCE=Room Alpha

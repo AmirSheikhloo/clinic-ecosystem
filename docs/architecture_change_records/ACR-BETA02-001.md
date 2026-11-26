@@ -27,9 +27,9 @@ ratify, rename or replace them with the approved catalog before any non-syntheti
 |---|------|-------------|-------------------|
 | 1 | Granular department / service / provider permission scopes | No approved scope table or claim | `role_permission_scopes(tenant_id, role_id, permission_code, scope_kind, scope_ref)` with RLS; scope-aware checks in the permission resolver |
 | 2 | Patient staff-only notes, tags, alerts | No schema | `patient_notes`, `patient_tags`, `patient_alerts` tables with encryption classification |
-| 3 | Patient phones and official identifiers | Encryption, blind index and shared-phone contract not wired for the panel | Reuse the approved encrypted-field + blind-index contract; panel exposes none today |
+| 3 | Patient phones and official identifiers | Encryption / blind-index persistence still blocked; **syntax validation + Clause 755 exception path IMPLEMENTED (D0.4 PARTIAL)** — National ID validated, not stored as ciphertext until keys exist | Wire production KMS + panel lookup |
 | 4 | Staff-to-service and staff-to-resource links | No link table | `staff_service_links` / `staff_resource_links` |
-| 5 | Check-in, complete, no-show transitions | Lifecycle transitions not approved | Approve the state machine and permission codes first |
+| 5 | ~~Check-in, complete, no-show transitions~~ | **IMPLEMENTED (D0.4)** on existing status CHECK values + provisional BETA02_* perms; no new migration | Ratify permission codes |
 | 6 | Forced password change at first login | No `must_change_password` contract | Add column plus login-flow contract |
 | 7 | Server-side `staff_kind` enum | Kind list is currently an application constant | DB enum or lookup table |
 | 8 | Resource optimistic-concurrency version | `resources` has no version column; resource edits are idempotent but last-writer-wins | Add `row_version` to `resources` |

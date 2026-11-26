@@ -28,6 +28,8 @@ export function PatientsView() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [nationalId, setNationalId] = useState("");
+  const [identityExceptionReason, setIdentityExceptionReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -39,7 +41,13 @@ export function PatientsView() {
     setError(null);
     const result = await apiJson<Registered>("/api/patients", {
       method: "POST",
-      body: { first_name: firstName.trim(), last_name: lastName.trim(), birth_date: birthDate || null },
+      body: {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        birth_date: birthDate || null,
+        national_id: nationalId.trim() || null,
+        identity_exception_reason: nationalId.trim() ? null : (identityExceptionReason.trim() || null),
+      },
       fallbackMessage: "ثبت بیمار ناموفق بود",
     });
     setBusy(false);
@@ -53,6 +61,8 @@ export function PatientsView() {
     setFirstName("");
     setLastName("");
     setBirthDate("");
+    setNationalId("");
+    setIdentityExceptionReason("");
     setFormOpen(false);
     setRefreshToken((value) => value + 1);
   }
@@ -99,9 +109,13 @@ export function PatientsView() {
           firstName={firstName}
           lastName={lastName}
           birthDate={birthDate}
+          nationalId={nationalId}
+          identityExceptionReason={identityExceptionReason}
           onFirstNameChange={setFirstName}
           onLastNameChange={setLastName}
           onBirthDateChange={setBirthDate}
+          onNationalIdChange={setNationalId}
+          onIdentityExceptionReasonChange={setIdentityExceptionReason}
           busy={busy}
           onRegister={register}
           onCancel={() => setFormOpen(false)}

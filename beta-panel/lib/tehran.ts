@@ -44,6 +44,11 @@ export function tehranTodayYmd(now: Date = new Date()): string {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+/** Current Tehran wall clock as `YYYY-MM-DDTHH:mm` for datetime-local fields. */
+export function tehranNowLocalInput(now: Date = new Date()): string {
+  return utcIsoToTehranLocal(now.toISOString());
+}
+
 /** UTC instant -> `YYYY-MM-DDTHH:mm` Tehran wall clock, the inverse of tehranLocalToUtcIso. */
 export function utcIsoToTehranLocal(isoUtc: string): string {
   const parts = tehranParts(new Date(isoUtc));

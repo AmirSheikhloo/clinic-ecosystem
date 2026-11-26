@@ -8,6 +8,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from clinic_ecosystem.domain.identity.national_id import (
+    is_valid_national_id_checksum,
+    normalize_national_id,
+)
+
 from clinic_ecosystem.infrastructure.auth.settings import PATIENTS_REGISTER, PATIENTS_SEARCH
 from clinic_ecosystem.infrastructure.persistence.audit import SqlAuditStore
 from clinic_ecosystem.infrastructure.persistence.patients import SqlPatientRepository
@@ -26,6 +31,9 @@ class RegisterPatientRequest(BaseModel):
     first_name: str = Field(min_length=1, max_length=120)
     last_name: str = Field(min_length=1, max_length=120)
     birth_date: date | None = None
+    # Optional; validated when present. Encrypted persistence awaits production key management (D0.4 PARTIAL).
+    national_id: str | None = Field(default=None, max_length=20)
+    identity_exception_reason: str | None = Field(default=None, max_length=200)
 
 
 class PatientResponse(BaseModel):
@@ -58,6 +66,20 @@ async def register_patient(
                 "message": "First name and last name are required",
             },
         )
+    national = (body.national_id or "").strip() or None
+    if national:
+        try:
+            national = normalize_national_id(national)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "national_id_invalid", "message": "National ID must be at most 10 digits"},
+            )
+        if not is_valid_national_id_checksum(national):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "national_id_checksum_invalid", "message": "National ID check digit is invalid"},
+            )
     repo = SqlPatientRepository(uow.session)
     try:
         record = await repo.register(
@@ -73,7 +95,7 @@ async def register_patient(
             operation="patient.registered",
             target_type="patient_profile",
             target_id=record.patient_profile_id,
-            details={},
+            details={"national_id_validated": bool(national), "national_id_stored": False, "identity_exception_reason": (body.identity_exception_reason or "").strip() or None},
         )
         await uow.commit()
     except Exception:

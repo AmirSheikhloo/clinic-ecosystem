@@ -24,5 +24,17 @@ if ($Force) { $prepare += "--force" }
 & $venvPython @prepare
 if ($LASTEXITCODE -ne 0) { throw "prepare_preview failed" }
 
+Write-Host "Checking Docker Desktop readiness ..."
+docker info 1>$null 2>$null
+if ($LASTEXITCODE -ne 0) {
+  Write-Error @"
+Docker Desktop is not available or not ready.
+Start Docker Desktop, wait until the engine is healthy, then re-run:
+  powershell -ExecutionPolicy Bypass -File scripts\start_preview.ps1
+Do not bypass security settings or kill unrelated containers.
+"@
+  exit 2
+}
+
 Write-Host "Starting the preview stack (Ctrl+C stops it and deletes all data) ..."
 & $venvPython scripts\start_preview_stack.py

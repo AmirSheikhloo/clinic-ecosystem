@@ -50,9 +50,9 @@ The launcher puts `src` on `PYTHONPATH` for the API process, resolves `npm` thro
 The script starts a throw-away PostgreSQL 15 container, applies migrations `tp0001`-`tp0007`,
 seeds synthetic data, starts the API and the Next.js panel, and writes
 `P03_HANDOFF\beta_panel_preview\preview.env` (passwords; git-ignored; never commit or share it)
-and `PREVIEW_URL.txt` (URLs and login names only).
+and gitignored `runtime/PREVIEW_URL.txt` (URLs and login names only; also mirrored as ignored `PREVIEW_URL.txt`).
 
-Open `PANEL_URL` from `PREVIEW_URL.txt`. Logins from `preview.env`:
+Open `PANEL_URL` from `P03_HANDOFF/beta_panel_preview/runtime/PREVIEW_URL.txt`. Logins from `runtime/preview.env`:
 
 | Persona | Variables | What to look at |
 |---------|-----------|-----------------|

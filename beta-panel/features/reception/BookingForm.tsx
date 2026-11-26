@@ -32,6 +32,12 @@ type Props = {
   canSubmit: boolean;
   submitting: boolean;
   onSubmit: (event: FormEvent) => void;
+  onAddToInvoice?: () => void;
+  canAddToInvoice?: boolean;
+  onSetWalkInNow?: () => void;
+  queuedCount?: number;
+  onSubmitGroup?: () => void;
+  canSubmitGroup?: boolean;
 };
 
 function describeRequirements(items: Requirement[], resources: Resource[]): string[] {
@@ -81,6 +87,12 @@ export function BookingForm(props: Props) {
     canSubmit,
     submitting,
     onSubmit,
+    onAddToInvoice,
+    canAddToInvoice,
+    onSetWalkInNow,
+    queuedCount = 0,
+    onSubmitGroup,
+    canSubmitGroup,
   } = props;
   const requirements = requirementsState.status === "ready" ? requirementsState.items : [];
   const requirementLines = describeRequirements(requirements, eligibleResources);
@@ -166,15 +178,24 @@ export function BookingForm(props: Props) {
         ) : null}
       </fieldset>
 
-      <JalaliDateTimeField
-        label="زمان شروع"
-        testId="appointment-start"
-        value={localStart}
-        onChange={onLocalStartChange}
-        required
-        disabled={!!pendingConflicts}
-        hint="تاریخ شمسی، ساعت به وقت تهران"
-      />
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-[12rem] flex-1">
+          <JalaliDateTimeField
+            label="زمان شروع"
+            testId="appointment-start"
+            value={localStart}
+            onChange={onLocalStartChange}
+            required
+            disabled={!!pendingConflicts}
+            hint="تاریخ شمسی، ساعت به وقت تهران"
+          />
+        </div>
+        {onSetWalkInNow ? (
+          <Button type="button" variant="ghost" disabled={!!pendingConflicts || submitting} onClick={onSetWalkInNow} data-testid="walk-in-now">
+            پذیرش فوری (الان)
+          </Button>
+        ) : null}
+      </div>
       {serviceId ? (
         <p className="text-sm text-[var(--ds-text-muted)] tabular-nums" data-testid="booking-duration">
           مدت خدمت: {durationMinutes} دقیقه{endLabel ? ` — پایان تقریبی: ${endLabel}` : ""}
@@ -196,9 +217,21 @@ export function BookingForm(props: Props) {
             برای ثبت نوبت لازم است: {missing.join("، ")}
           </p>
         ) : null}
-        <Button type="submit" icon="check" loading={submitting && !pendingConflicts} disabled={!canSubmit} data-testid="appointment-submit" className="w-full">
-          {submitting && !pendingConflicts ? "در حال ثبت…" : "ثبت نوبت"}
-        </Button>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {onAddToInvoice ? (
+            <Button type="button" variant="ghost" disabled={!canAddToInvoice || submitting} onClick={onAddToInvoice} data-testid="add-service-line">
+              افزودن خدمت به پیش‌فاکتور
+            </Button>
+          ) : null}
+          <Button type="submit" icon="check" loading={submitting && !pendingConflicts && queuedCount === 0} disabled={!canSubmit || queuedCount > 0} data-testid="appointment-submit" className="w-full">
+            {submitting && !pendingConflicts && queuedCount === 0 ? "در حال ثبت…" : "ثبت تک‌نوبت"}
+          </Button>
+        </div>
+        {queuedCount > 0 && onSubmitGroup ? (
+          <Button type="button" icon="check" loading={submitting} disabled={!canSubmitGroup} onClick={onSubmitGroup} data-testid="group-submit" className="w-full">
+            {submitting ? "در حال ثبت گروه…" : `ثبت ${queuedCount} نوبت مستقل`}
+          </Button>
+        ) : null}
       </div>
     </form>
   );

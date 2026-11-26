@@ -8,6 +8,7 @@ import { BookingConfirmation } from "./BookingConfirmation";
 import { BookingForm } from "./BookingForm";
 import { OverlapDialog } from "./OverlapDialog";
 import { PatientPicker } from "./PatientPicker";
+import { InvoicePreview } from "./InvoicePreview";
 import { PatientQuickRegister } from "./PatientQuickRegister";
 import { useReceptionDesk } from "./useReceptionDesk";
 
@@ -75,7 +76,7 @@ export function DeskView() {
         </Alert>
       ) : null}
 
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
         <section className="ds-card space-y-4 p-5" aria-label="انتخاب بیمار">
           <StepHeading step={1} title="بیمار" done={!!desk.selectedPatient} />
           <PatientPicker
@@ -97,9 +98,13 @@ export function DeskView() {
             firstName={desk.firstName}
             lastName={desk.lastName}
             birthDate={desk.birthDate}
+            nationalId={desk.nationalId}
+            identityExceptionReason={desk.identityExceptionReason}
             onFirstNameChange={desk.setFirstName}
             onLastNameChange={desk.setLastName}
             onBirthDateChange={desk.setBirthDate}
+            onNationalIdChange={desk.setNationalId}
+            onIdentityExceptionReasonChange={desk.setIdentityExceptionReason}
             registering={desk.registering}
             onRegister={desk.registerPatient}
           />
@@ -126,8 +131,21 @@ export function DeskView() {
             canSubmit={desk.canSubmit}
             submitting={desk.submitting}
             onSubmit={desk.submitAppointment}
+            onAddToInvoice={desk.addDraftLine}
+            canAddToInvoice={desk.canAddDraftLine}
+            onSetWalkInNow={desk.setWalkInNow}
+            queuedCount={desk.draftLines.length}
+            onSubmitGroup={desk.submitGroup}
+            canSubmitGroup={desk.canSubmitGroup}
           />
         </section>
+
+        <InvoicePreview
+          patient={desk.selectedPatient}
+          lines={desk.draftLines}
+          draft={desk.liveDraftLine}
+          onRemove={desk.removeDraftLine}
+        />
       </div>
 
       {desk.pendingConflicts ? (

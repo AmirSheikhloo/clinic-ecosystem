@@ -12,7 +12,20 @@ export type Service = {
   id: string;
   service_name: string;
   default_duration_minutes: number;
+  default_price_irr: number;
   is_active: boolean;
+};
+
+/** One draft service row on the reception desk (independent appointment identity on submit). */
+export type DraftServiceLine = {
+  key: string;
+  serviceId: string;
+  serviceName: string;
+  resourceIds: string[];
+  resourceNames: string[];
+  localStart: string;
+  durationMinutes: number;
+  priceIrr: number;
 };
 
 export type RequirementsState =

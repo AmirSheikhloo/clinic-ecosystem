@@ -57,3 +57,9 @@ P03_HANDOFF/beta_panel_preview/preview.env
 
 # Local preview cache (dependency/build stamps)
 .preview-cache/
+
+# Generated preview runtime (do not commit mutable URLs/credentials)
+P03_HANDOFF/beta_panel_preview/PREVIEW_URL.txt
+P03_HANDOFF/beta_panel_preview/preview.env
+P03_HANDOFF/beta_panel_preview/*.log
+P03_HANDOFF/beta_panel_preview/runtime/

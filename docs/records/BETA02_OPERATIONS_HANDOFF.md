@@ -87,3 +87,38 @@ proposal) and have no fake UI: granular department/service/provider scopes; pati
 phones and identifiers; staff-to-service links; check-in, complete and no-show transitions; forced
 password change; resource version column; cancelling online-pool appointments (server answers 409).
 Existing unresolved security-review items remain open and are not represented as resolved.
+
+
+## Task 26 / D0.4 reception operations (this increment)
+
+Product record: `docs/product/CLINIC_PRODUCT_RECEPTION_REQUIREMENTS_D0.4.md` (full requirements preserved).
+
+### Capability classification (not production approval)
+
+| Capability | Status |
+|------------|--------|
+| Role-aware dashboards + deep links (D0.3) | IMPLEMENTED / TESTED |
+| Appointment list-first management | IMPLEMENTED / TESTED |
+| Lifecycle check-in / complete / no-show | IMPLEMENTED / TESTED (unit + E2E lifecycle) |
+| Server-side upcoming appointments query | IMPLEMENTED |
+| National ID normalize + checksum + UI/API validation | IMPLEMENTED / TESTED (unit); encrypted storage PARTIAL / BLOCKED (no KMS) |
+| Clause 755 exceptional registration reason | IMPLEMENTED (audit detail; no fabricated IDs) |
+| Multi-service reception + invoice preview (tariff) | IMPLEMENTED (sequential group submit; honest partial success) |
+| Walk-in “now” time shortcut | IMPLEMENTED |
+| Section 50 billing / discounts / refunds / ledger | BLOCKED (no approved DDL / migrations beyond tp0007) |
+| Inventory / stock movements | BLOCKED |
+| Encrypted phone + shared-family phone search | BLOCKED (crypto + schema wiring) |
+| Scoped receptionist server enforcement | BLOCKED (ACR scope table) |
+| Staff↔service eligibility links | BLOCKED (no link table) |
+| Historical late-entry workflow (separate recording timestamps) | BLOCKED / PARTIAL (manual past schedule possible; dedicated audited late-entry reason not yet) |
+| Management audit review workspace | PARTIAL (append-only audit exists; dedicated filtered UI not complete) |
+| Windows Docker readiness + untracked PREVIEW_URL | IMPLEMENTED |
+
+### Migrations
+
+Lineage unchanged: `tp0001`–`tp0007`. No unapproved migrations executed or invented.
+
+### Preview / Windows
+
+* Docker readiness checked before stack start (`scripts/start_preview_stack.py`, `scripts/start_preview.ps1`).
+* Runtime URLs/credentials under `P03_HANDOFF/beta_panel_preview/runtime/` (gitignored); legacy `PREVIEW_URL.txt` also gitignored.

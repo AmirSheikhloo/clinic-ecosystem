@@ -16,15 +16,37 @@ sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO))
 
 from tests.e2e.beta01b.stack import start_browser_stack  # noqa: E402
+from tests.integration.docker_probe import DOCKER_AVAILABLE, SKIP_REASON  # noqa: E402
+
+
+def docker_ready() -> bool:
+    """Fail fast with an actionable message before expensive stack start."""
+    if DOCKER_AVAILABLE:
+        return True
+    print(
+        "Docker is not available or not ready.\n"
+        f"Detail: {SKIP_REASON}\n"
+        "On Windows: start Docker Desktop, wait until it is healthy, then re-run\n"
+        "  powershell -ExecutionPolicy Bypass -File scripts\\start_preview.ps1\n"
+        "Do not bypass security settings or kill unrelated containers.",
+        file=sys.stderr,
+    )
+    return False
 
 
 def main() -> int:
+    if not docker_ready():
+        return 2
     artifact = REPO / "P03_HANDOFF" / "beta_panel_preview"
+    runtime = artifact / "runtime"
     artifact.mkdir(parents=True, exist_ok=True)
+    runtime.mkdir(parents=True, exist_ok=True)
     stack = start_browser_stack(artifact_dir=artifact)
-    env_path = artifact / "preview.env"
+    env_path = runtime / "preview.env"
     stack.write_env_file(env_path)
-    summary = artifact / "PREVIEW_URL.txt"
+    # Also write legacy path as gitignored runtime copy for older docs.
+    summary = runtime / "PREVIEW_URL.txt"
+    legacy = artifact / "PREVIEW_URL.txt"
     summary.write_text(
         "\n".join(
             [
@@ -42,6 +64,7 @@ def main() -> int:
         + "\n",
         encoding="utf-8",
     )
+    legacy.write_text(summary.read_text(encoding="utf-8"), encoding="utf-8")
     print(f"PANEL_URL={stack.panel_base_url}/login")
     print(f"API_HEALTH={stack.api_base_url}/health")
     print(f"CREDENTIALS_FILE={env_path}")
