@@ -77,3 +77,46 @@ def fingerprint_schedule_request(body: dict[str, Any]) -> str:
 
 def fingerprint_from_schedule_fields(**kwargs: Any) -> str:
     return fingerprint_schedule_request(canonical_schedule_request_object(**kwargs))
+
+
+def canonical_group_schedule_request_object(
+    *,
+    beneficiary_patient_id: UUID | str,
+    booker_person_id: UUID | str | None,
+    booking_channel: str,
+    capacity_pool: str,
+    immediate_check_in: bool,
+    lines: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """RFC8785-ready object for atomic group schedule idempotency."""
+    normalized_lines = []
+    for line in lines:
+        normalized_lines.append(
+            {
+                "acknowledge_overlap": bool(line.get("acknowledge_overlap", False)),
+                "acknowledged_conflict_ids": sorted(
+                    str(x) for x in line.get("acknowledged_conflict_ids", [])
+                ),
+                "client_line_id": str(line["client_line_id"]),
+                "end_at_utc": line["end_at_utc"],
+                "patient_booking_note": line.get("patient_booking_note"),
+                "resource_ids": sorted(str(x) for x in line["resource_ids"]),
+                "service_id": line["service_id"],
+                "start_at_utc": line["start_at_utc"],
+            }
+        )
+    normalized_lines.sort(key=lambda item: item["client_line_id"])
+    return _jsonable(
+        {
+            "beneficiary_patient_id": beneficiary_patient_id,
+            "booker_person_id": booker_person_id,
+            "booking_channel": booking_channel,
+            "capacity_pool": capacity_pool,
+            "immediate_check_in": bool(immediate_check_in),
+            "lines": normalized_lines,
+        }
+    )
+
+
+def fingerprint_from_group_fields(**kwargs: Any) -> str:
+    return fingerprint_schedule_request(canonical_group_schedule_request_object(**kwargs))

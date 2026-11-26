@@ -44,3 +44,11 @@ class ManualOverlapAcknowledgementRequired(ApplicationError):
     def __init__(self, conflicts: list[ConflictDisplayItem]) -> None:
         self.conflicts = conflicts
         super().__init__("manual_overlap_acknowledgement_required")
+
+
+class GroupManualOverlapAcknowledgementRequired(ApplicationError):
+    """Group MANUAL booking has overlap(s); ack required per client_line_id."""
+
+    def __init__(self, conflicts_by_line: dict[str, list[ConflictDisplayItem]]) -> None:
+        self.conflicts_by_line = conflicts_by_line
+        super().__init__("manual_overlap_acknowledgement_required")

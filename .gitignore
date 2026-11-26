@@ -28,6 +28,10 @@ Thumbs.db
 *.log
 tmp/
 temp/
+artifacts/
+beta-panel/test-results/
+beta-panel/playwright-report/
+beta-panel/blob-report/
 
 # Local databases and backups
 *.db
@@ -49,3 +53,13 @@ credentials/
 # Real patient data
 patient-data/
 real-patient-data/
+P03_HANDOFF/beta_panel_preview/preview.env
+
+# Local preview cache (dependency/build stamps)
+.preview-cache/
+
+# Generated preview runtime (do not commit mutable URLs/credentials)
+P03_HANDOFF/beta_panel_preview/PREVIEW_URL.txt
+P03_HANDOFF/beta_panel_preview/preview.env
+P03_HANDOFF/beta_panel_preview/*.log
+P03_HANDOFF/beta_panel_preview/runtime/

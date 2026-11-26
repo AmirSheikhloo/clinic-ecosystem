@@ -1,0 +1,5 @@
+Vazirmatn variable font (subsets: arabic, latin, latin-ext)
+Copyright 2015 The Vazirmatn Project Authors (https://github.com/rastikerdar/vazirmatn)
+Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org).
+The font is redistributed unmodified apart from subsetting/compression to WOFF2.
+To change the application font, edit design-system/fonts.css only.

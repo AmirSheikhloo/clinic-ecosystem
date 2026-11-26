@@ -1,0 +1,265 @@
+/* Dialogs, drawers, popovers, tooltips, toasts, expandable sections, Jalali picker. */
+
+@layer components {
+  .ds-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--ds-z-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: var(--ds-overlay);
+    animation: ds-fade var(--ds-motion-dialog) var(--ds-ease) both;
+  }
+
+  .ds-overlay-drawer {
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
+  }
+
+  .ds-overlay-drawer-start {
+    justify-content: flex-end;
+  }
+
+  .ds-dialog {
+    display: flex;
+    max-height: 90vh;
+    width: min(100%, 40rem);
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--ds-border-strong);
+    border-radius: var(--ds-radius-lg);
+    background: var(--ds-surface);
+    color: var(--ds-text);
+    box-shadow: var(--ds-shadow);
+    animation: ds-rise var(--ds-motion-dialog) var(--ds-ease) both;
+  }
+
+  .ds-dialog:focus {
+    outline: none;
+  }
+
+  .ds-dialog-lg {
+    width: min(100%, 56rem);
+  }
+
+  .ds-dialog-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--ds-border);
+    padding: 1rem 1.25rem;
+  }
+
+  .ds-dialog-body {
+    overflow-y: auto;
+    padding: 1.25rem;
+  }
+
+  .ds-drawer {
+    width: min(100%, 30rem);
+    max-height: none;
+    height: 100%;
+    border-radius: 0;
+    border-block: 0;
+    border-inline-start: 0;
+    animation: ds-drawer-in-end var(--ds-motion-drawer) var(--ds-ease) both;
+  }
+
+  .ds-drawer-start {
+    width: min(86vw, 18rem);
+    border-inline-start: 1px solid var(--ds-border-strong);
+    border-inline-end: 0;
+    animation: ds-drawer-in-start var(--ds-motion-drawer) var(--ds-ease) both;
+  }
+
+  /* ---- Popover and tooltip ---- */
+  .ds-popover {
+    position: fixed;
+    z-index: var(--ds-z-popover);
+    min-width: 12rem;
+    max-width: calc(100vw - 1rem);
+    border: 1px solid var(--ds-border-strong);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-surface);
+    color: var(--ds-text);
+    box-shadow: var(--ds-shadow);
+    animation: ds-pop var(--ds-motion-dropdown) var(--ds-ease) both;
+  }
+
+  .ds-menu-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: var(--ds-radius-sm);
+    padding: 0.5rem 0.7rem;
+    text-align: right;
+    font-size: var(--ds-font-size-sm);
+    transition: background-color var(--ds-motion-micro) var(--ds-ease);
+  }
+
+  .ds-menu-item:hover,
+  .ds-menu-item:focus-visible {
+    background: var(--ds-surface-muted);
+  }
+
+  .ds-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .ds-tooltip {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: calc(100% + 0.5rem);
+    z-index: var(--ds-z-tooltip);
+    transform: translateY(-50%);
+    border-radius: var(--ds-radius-sm);
+    background: var(--ds-text);
+    color: var(--ds-surface);
+    padding: 0.25rem 0.6rem;
+    font-size: var(--ds-font-size-xs);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--ds-motion-dropdown) var(--ds-ease);
+  }
+
+  .ds-tooltip-below {
+    inset-block-start: calc(100% + 0.4rem);
+    inset-inline-end: auto;
+    transform: none;
+  }
+
+  .ds-tooltip-wrap:hover > .ds-tooltip,
+  .ds-tooltip-wrap:focus-within > .ds-tooltip {
+    opacity: 1;
+  }
+
+  /* ---- Toasts ---- */
+  .ds-toast-region {
+    position: fixed;
+    inset-block-end: 1rem;
+    inset-inline-start: 1rem;
+    z-index: var(--ds-z-toast);
+    display: flex;
+    max-width: min(26rem, calc(100vw - 2rem));
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .ds-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    border: 1px solid var(--ds-border-strong);
+    border-inline-start-width: 4px;
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-surface);
+    box-shadow: var(--ds-shadow);
+    padding: 0.7rem 0.9rem;
+    font-size: var(--ds-font-size-sm);
+    animation: ds-toast-in var(--ds-motion-toast) var(--ds-ease) both;
+  }
+
+  .ds-toast-leaving {
+    animation: ds-toast-out var(--ds-motion-toast) var(--ds-ease-in) both;
+  }
+
+  .ds-toast-ok {
+    border-inline-start-color: var(--ds-success);
+  }
+
+  .ds-toast-danger {
+    border-inline-start-color: var(--ds-danger);
+  }
+
+  .ds-toast-info {
+    border-inline-start-color: var(--ds-info);
+  }
+
+  /* ---- Expandable sections ---- */
+  .ds-collapsible {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--ds-motion-expand) var(--ds-ease);
+  }
+
+  .ds-collapsible[data-open="true"] {
+    grid-template-rows: 1fr;
+  }
+
+  .ds-collapsible > div {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .ds-collapsible[data-open="false"] > div {
+    visibility: hidden;
+    transition: visibility 0s linear var(--ds-motion-expand);
+  }
+
+  /* ---- Jalali date picker ---- */
+  .ds-date-trigger {
+    display: flex;
+    width: 100%;
+    min-height: var(--ds-control-height);
+    align-items: center;
+    gap: 0.5rem;
+    text-align: right;
+  }
+
+  .ds-cal {
+    width: 18.5rem;
+    padding: 0.75rem;
+  }
+
+  .ds-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
+  }
+
+  .ds-cal-weekday {
+    padding-block: 0.25rem;
+    text-align: center;
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-text-muted);
+  }
+
+  .ds-cal-day {
+    aspect-ratio: 1;
+    border-radius: var(--ds-radius-sm);
+    font-size: var(--ds-font-size-sm);
+    font-variant-numeric: tabular-nums;
+    transition: background-color var(--ds-motion-micro) var(--ds-ease);
+  }
+
+  .ds-cal-day:hover:not(:disabled) {
+    background: var(--ds-surface-muted);
+  }
+
+  .ds-cal-day[data-outside="true"] {
+    color: var(--ds-text-muted);
+    opacity: 0.55;
+  }
+
+  .ds-cal-day[data-today="true"] {
+    border: 1px solid var(--ds-primary);
+  }
+
+  .ds-cal-day[aria-pressed="true"] {
+    background: var(--ds-primary);
+    color: var(--ds-on-primary);
+    opacity: 1;
+  }
+
+  .ds-cal-day:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}

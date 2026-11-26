@@ -1,15 +1,20 @@
-"""ScheduleAppointmentHandler — clauses 185–201 / 779 / 782–783."""
+"""ScheduleAppointmentHandler — clauses 185–201 / 779 / 782–783 + atomic groups."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid5, NAMESPACE_URL
 
-from clinic_ecosystem.application.scheduling.commands import ScheduleAppointmentCommand
+from clinic_ecosystem.application.scheduling.commands import (
+    ScheduleAppointmentCommand,
+    ScheduleAppointmentGroupCommand,
+    ScheduleGroupLine,
+)
 from clinic_ecosystem.application.scheduling.exceptions import (
     ConflictDisplayItem,
+    GroupManualOverlapAcknowledgementRequired,
     IdempotencyConflict,
     IdempotencyInProgress,
     ManualOverlapAcknowledgementRequired,
@@ -25,6 +30,7 @@ from clinic_ecosystem.application.scheduling.ports import (
     UnitOfWork,
     validate_resource_set,
 )
+from clinic_ecosystem.domain.access.permissions import APPOINTMENTS_CHECK_IN
 from clinic_ecosystem.domain.scheduling.conflicts import OverlapConflictFact
 from clinic_ecosystem.domain.scheduling.exceptions import CapacityConflictException
 from clinic_ecosystem.domain.scheduling.model import (
@@ -41,6 +47,20 @@ EXCLUDE_CONSTRAINT_NAME = "ex_online_resource_time"
 @dataclass(slots=True)
 class ScheduleAppointmentResult:
     appointment_id: UUID
+    replayed: bool
+    status: str | None = None
+
+
+@dataclass(slots=True)
+class ScheduleGroupLineResult:
+    client_line_id: str
+    appointment_id: UUID
+    status: str
+
+
+@dataclass(slots=True)
+class ScheduleAppointmentGroupResult:
+    lines: list[ScheduleGroupLineResult]
     replayed: bool
 
 
@@ -79,9 +99,11 @@ class ScheduleAppointmentHandler:
             status = claim["status"]
             if status == "COMPLETED":
                 await uow.commit()
+                payload = claim["response_payload"]
                 return ScheduleAppointmentResult(
-                    appointment_id=UUID(claim["response_payload"]["appointment_id"]),
+                    appointment_id=UUID(payload["appointment_id"]),
                     replayed=True,
+                    status=payload.get("status"),
                 )
             if status == "IN_PROGRESS":
                 await uow.rollback()
@@ -104,16 +126,235 @@ class ScheduleAppointmentHandler:
                 operation_scope=command.operation_scope,
                 idempotency_key=command.idempotency_key,
                 owner_token=owner_token,
-                response_payload={"appointment_id": str(result.appointment_id)},
+                response_payload={
+                    "appointment_id": str(result.appointment_id),
+                    "status": result.status,
+                },
             )
             await uow.commit()
             return result
 
+    async def handle_group(
+        self, command: ScheduleAppointmentGroupCommand
+    ) -> ScheduleAppointmentGroupResult:
+        """Persist all group lines in one UoW; fail together on any line error."""
+        if not command.lines:
+            raise CapacityConflictException("group requires at least one line")
+        owner_token = new_uuid7()
+        async with self._uow_factory() as uow:
+            await uow.bind_tenant(command.tenant_id)
+            claim = await self._idempotency.claim(
+                tenant_id=command.tenant_id,
+                principal_id=command.principal_id,
+                operation_scope=command.operation_scope,
+                idempotency_key=command.idempotency_key,
+                request_fingerprint=command.request_fingerprint,
+                owner_token=owner_token,
+            )
+            status = claim["status"]
+            if status == "COMPLETED":
+                await uow.commit()
+                payload = claim["response_payload"]
+                return ScheduleAppointmentGroupResult(
+                    lines=[
+                        ScheduleGroupLineResult(
+                            client_line_id=item["client_line_id"],
+                            appointment_id=UUID(item["appointment_id"]),
+                            status=item["status"],
+                        )
+                        for item in payload["lines"]
+                    ],
+                    replayed=True,
+                )
+            if status == "IN_PROGRESS":
+                await uow.rollback()
+                raise IdempotencyInProgress("idempotency owner active")
+            if status == "FINGERPRINT_CONFLICT":
+                await uow.rollback()
+                raise IdempotencyConflict("idempotency fingerprint mismatch")
+
+            try:
+                result = await self._execute_group_business(uow, command)
+            except Exception:
+                await uow.rollback()
+                raise
+
+            await self._idempotency.complete(
+                tenant_id=command.tenant_id,
+                principal_id=command.principal_id,
+                operation_scope=command.operation_scope,
+                idempotency_key=command.idempotency_key,
+                owner_token=owner_token,
+                response_payload={
+                    "lines": [
+                        {
+                            "client_line_id": line.client_line_id,
+                            "appointment_id": str(line.appointment_id),
+                            "status": line.status,
+                        }
+                        for line in result.lines
+                    ]
+                },
+            )
+            await uow.commit()
+            return result
+
+    async def _execute_group_business(
+        self, uow: UnitOfWork, command: ScheduleAppointmentGroupCommand
+    ) -> ScheduleAppointmentGroupResult:
+        if command.immediate_check_in:
+            await self._require_check_in_permission(command.tenant_id, command.principal_id)
+
+        # Clause 783: collect ALL resource IDs across lines, sort ASC, lock once.
+        all_resource_ids = sorted({rid for line in command.lines for rid in line.resource_ids})
+        await self._appointments.lock_resources(command.tenant_id, list(all_resource_ids))
+
+        # Pre-validate overlaps for every line before any insert (all-or-nothing ack).
+        # Also detect MANUAL overlaps *between draft lines* in this group (no DB row yet).
+        audit_by_line: dict[str, list[dict[str, Any]] | None] = {}
+        conflicts_by_line: dict[str, list[ConflictDisplayItem]] = {}
+        self._merge_intra_group_overlaps(command, conflicts_by_line)
+        for line in command.lines:
+            line_cmd = self._line_to_command(command, line)
+            try:
+                audit_by_line[line.client_line_id] = await self._manual_overlap_gate(
+                    line_cmd, resource_ids=sorted(line.resource_ids)
+                )
+            except ManualOverlapAcknowledgementRequired as exc:
+                existing = conflicts_by_line.setdefault(line.client_line_id, [])
+                existing.extend(exc.conflicts)
+
+        conflicts_by_line = {k: v for k, v in conflicts_by_line.items() if v}
+        if conflicts_by_line:
+            raise GroupManualOverlapAcknowledgementRequired(conflicts_by_line)
+
+        results: list[ScheduleGroupLineResult] = []
+        for line in command.lines:
+            line_cmd = self._line_to_command(command, line)
+            persisted = await self._persist_appointment(
+                uow,
+                line_cmd,
+                resource_ids=sorted(line.resource_ids),
+                audit_conflict_snapshot=audit_by_line[line.client_line_id],
+                skip_resource_lock=True,
+            )
+            results.append(
+                ScheduleGroupLineResult(
+                    client_line_id=line.client_line_id,
+                    appointment_id=persisted.appointment_id,
+                    status=persisted.status or AppointmentStatus.CONFIRMED.value,
+                )
+            )
+        return ScheduleAppointmentGroupResult(lines=results, replayed=False)
+
+    @staticmethod
+    def _peer_conflict_id(peer_client_line_id: str) -> UUID:
+        """Stable synthetic conflict id for an unpersisted peer draft line."""
+        return uuid5(NAMESPACE_URL, f"clinic-ecosystem:group-peer:{peer_client_line_id}")
+
+    def _merge_intra_group_overlaps(
+        self,
+        command: ScheduleAppointmentGroupCommand,
+        conflicts_by_line: dict[str, list[ConflictDisplayItem]],
+    ) -> None:
+        """Pairwise MANUAL overlaps among queued lines that share a resource."""
+        if command.capacity_pool != CapacityPool.MANUAL:
+            return
+        lines = list(command.lines)
+        for i, left in enumerate(lines):
+            left_resources = set(left.resource_ids)
+            for right in lines[i + 1 :]:
+                if not left_resources.intersection(right.resource_ids):
+                    continue
+                if left.end_at_utc <= right.start_at_utc or right.end_at_utc <= left.start_at_utc:
+                    continue
+                # Overlap: each side must ack the peer as a conflict snapshot.
+                for owner, peer in ((left, right), (right, left)):
+                    peer_id = self._peer_conflict_id(peer.client_line_id)
+                    item = ConflictDisplayItem(
+                        appointment_id=peer_id,
+                        display_safe_patient_name=f"ردیف صف پذیرش ({peer.client_line_id})",
+                        booking_channel=command.booking_channel.value,
+                        scheduled_start_at_utc=peer.start_at_utc,
+                        scheduled_end_at_utc=peer.end_at_utc,
+                    )
+                    if owner.acknowledge_overlap and peer_id in set(
+                        owner.acknowledged_conflict_ids
+                    ):
+                        continue
+                    bucket = conflicts_by_line.setdefault(owner.client_line_id, [])
+                    if all(c.appointment_id != peer_id for c in bucket):
+                        bucket.append(item)
+
+    def _line_to_command(
+        self, group: ScheduleAppointmentGroupCommand, line: ScheduleGroupLine
+    ) -> ScheduleAppointmentCommand:
+        return ScheduleAppointmentCommand(
+            correlation_id=group.correlation_id,
+            idempotency_key=group.idempotency_key,
+            request_fingerprint=group.request_fingerprint,
+            principal_id=group.principal_id,
+            actor_type=group.actor_type,
+            tenant_id=group.tenant_id,
+            beneficiary_patient_id=group.beneficiary_patient_id,
+            booker_person_id=group.booker_person_id,
+            patient_booking_note=line.patient_booking_note,
+            service_id=line.service_id,
+            booking_channel=group.booking_channel,
+            capacity_pool=group.capacity_pool,
+            resource_ids=tuple(sorted(line.resource_ids)),
+            start_at_utc=line.start_at_utc,
+            end_at_utc=line.end_at_utc,
+            hold_expires_at_utc=None,
+            acknowledge_overlap=line.acknowledge_overlap,
+            acknowledged_conflict_ids=line.acknowledged_conflict_ids,
+            immediate_check_in=group.immediate_check_in,
+        )
+
     async def _execute_business(
         self, uow: UnitOfWork, command: ScheduleAppointmentCommand
     ) -> ScheduleAppointmentResult:
-        now = datetime.now(timezone.utc)
+        if command.immediate_check_in:
+            await self._require_check_in_permission(command.tenant_id, command.principal_id)
+
         resource_ids = sorted(command.resource_ids)
+        await self._appointments.lock_resources(command.tenant_id, list(resource_ids))
+
+        audit_conflict_snapshot: list[dict[str, Any]] | None = None
+        if command.capacity_pool == CapacityPool.ONLINE:
+            now = datetime.now(timezone.utc)
+            await self._appointments.expire_conflicting_holds(
+                tenant_id=command.tenant_id,
+                resource_ids=list(resource_ids),
+                start_at_utc=command.start_at_utc,
+                end_at_utc=command.end_at_utc,
+                now_utc=now,
+            )
+        else:
+            audit_conflict_snapshot = await self._manual_overlap_gate(
+                command, resource_ids=list(resource_ids)
+            )
+
+        return await self._persist_appointment(
+            uow,
+            command,
+            resource_ids=list(resource_ids),
+            audit_conflict_snapshot=audit_conflict_snapshot,
+            skip_resource_lock=True,
+        )
+
+    async def _persist_appointment(
+        self,
+        uow: UnitOfWork,
+        command: ScheduleAppointmentCommand,
+        *,
+        resource_ids: list[UUID],
+        audit_conflict_snapshot: list[dict[str, Any]] | None,
+        skip_resource_lock: bool,
+    ) -> ScheduleAppointmentResult:
+        now = datetime.now(timezone.utc)
+        if not skip_resource_lock:
+            await self._appointments.lock_resources(command.tenant_id, list(resource_ids))
 
         requirements = await self._appointments.get_service_requirements(
             command.tenant_id, command.service_id
@@ -129,34 +370,7 @@ class ScheduleAppointmentHandler:
             requirements, resource_types, list(resource_ids)
         )
 
-        # Clause 783 step 1: BookableResource rows ASC.
-        await self._appointments.lock_resources(command.tenant_id, list(resource_ids))
-
-        audit_conflict_snapshot: list[dict[str, Any]] | None = None
-
-        if command.capacity_pool == CapacityPool.ONLINE:
-            await self._appointments.expire_conflicting_holds(
-                tenant_id=command.tenant_id,
-                resource_ids=list(resource_ids),
-                start_at_utc=command.start_at_utc,
-                end_at_utc=command.end_at_utc,
-                now_utc=now,
-            )
-        else:
-            audit_conflict_snapshot = await self._manual_overlap_gate(
-                command, resource_ids=list(resource_ids)
-            )
-
-        initial_status = (
-            AppointmentStatus.PENDING_PAYMENT_HOLD
-            if command.capacity_pool == CapacityPool.ONLINE
-            and command.hold_expires_at_utc is not None
-            else AppointmentStatus.CONFIRMED
-            if command.capacity_pool == CapacityPool.MANUAL
-            else AppointmentStatus.PENDING_PAYMENT_HOLD
-        )
-        if command.capacity_pool == CapacityPool.ONLINE and command.hold_expires_at_utc is None:
-            initial_status = AppointmentStatus.CONFIRMED
+        initial_status = self._initial_status(command)
 
         appointment = Appointment.schedule(
             tenant_id=command.tenant_id,
@@ -199,6 +413,32 @@ class ScheduleAppointmentHandler:
                 payload=event,
             )
 
+        if appointment.status == AppointmentStatus.CHECKED_IN:
+            await self._outbox.stage(
+                tenant_id=command.tenant_id,
+                message_type="appointment.checked_in",
+                payload={
+                    "event_type": "appointment.checked_in",
+                    "appointment_id": str(appointment.id),
+                    "aggregate_version": appointment.aggregate_version,
+                    "immediate_check_in": True,
+                },
+            )
+            await self._audit.append(
+                tenant_id=command.tenant_id,
+                actor_type=command.actor_type,
+                actor_id=command.principal_id,
+                operation="appointment.checked_in",
+                target_type="appointment",
+                target_id=appointment.id,
+                details={
+                    "correlation_id": str(command.correlation_id),
+                    "immediate_check_in": True,
+                    "from_status": AppointmentStatus.CONFIRMED.value,
+                    "to_status": AppointmentStatus.CHECKED_IN.value,
+                },
+            )
+
         if audit_conflict_snapshot is not None:
             await self._audit.append(
                 tenant_id=command.tenant_id,
@@ -216,7 +456,32 @@ class ScheduleAppointmentHandler:
                 },
             )
 
-        return ScheduleAppointmentResult(appointment_id=appointment.id, replayed=False)
+        return ScheduleAppointmentResult(
+            appointment_id=appointment.id,
+            replayed=False,
+            status=appointment.status.value,
+        )
+
+    @staticmethod
+    def _initial_status(command: ScheduleAppointmentCommand) -> AppointmentStatus:
+        if command.capacity_pool == CapacityPool.MANUAL:
+            if command.immediate_check_in:
+                return AppointmentStatus.CHECKED_IN
+            return AppointmentStatus.CONFIRMED
+        if command.hold_expires_at_utc is not None:
+            return AppointmentStatus.PENDING_PAYMENT_HOLD
+        return AppointmentStatus.CONFIRMED
+
+    async def _require_check_in_permission(
+        self, tenant_id: UUID, principal_id: UUID
+    ) -> None:
+        allowed = await self._permissions.principal_has(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            permission_code=APPOINTMENTS_CHECK_IN,
+        )
+        if not allowed:
+            raise UnauthorizedScheduling(APPOINTMENTS_CHECK_IN)
 
     async def _manual_overlap_gate(
         self, command: ScheduleAppointmentCommand, *, resource_ids: list[UUID]
