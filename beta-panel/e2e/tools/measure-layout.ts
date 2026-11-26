@@ -26,7 +26,7 @@ function loadEnv(file: string) {
 const PAGES = [
   ["داشبورد", "/dashboard"],
   ["میز پذیرش", "/desk"],
-  ["تقویم نوبت‌ها", "/appointments"],
+  ["مدیریت نوبت‌ها", "/appointments"],
   ["بیماران", "/patients"],
   ["خدمات و منابع", "/catalog"],
   ["کارکنان", "/staff"],

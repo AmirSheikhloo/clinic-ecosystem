@@ -83,7 +83,7 @@ async function main() {
     if (booked.status >= 300) console.log("booking", index, booked.status, JSON.stringify(booked.body).slice(0, 160));
   }
   for (const [name, url, full] of [
-    ["day", "/appointments", true],
+    ["day", "/appointments?view=day", true],
     ["week", "/appointments?view=week", false],
     ["month", "/appointments?view=month", false],
     ["patients", "/patients", false],

@@ -80,7 +80,7 @@ export function PatientProfileView({ patientId }: { patientId: string }) {
                 <>
                   <Link href="/patients" className="ds-btn ds-btn-ghost">فهرست بیماران</Link>
                   {can(P.appointmentsList) && (
-                    <Link href="/appointments" className="ds-btn ds-btn-ghost" data-testid="patient-calendar">تقویم نوبت‌ها</Link>
+                    <Link href="/appointments" className="ds-btn ds-btn-ghost" data-testid="patient-calendar">مدیریت نوبت‌ها</Link>
                   )}
                   {patient.is_active && can(P.appointmentsSchedule) && (
                     <Link href={`/desk?patient=${patient.patient_profile_id}`} className="ds-btn ds-btn-primary" data-testid="patient-book">

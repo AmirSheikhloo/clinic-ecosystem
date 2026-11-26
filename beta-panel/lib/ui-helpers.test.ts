@@ -21,8 +21,8 @@ test("navigation is filtered by permission and never grants anything itself", ()
   assert.equal(hasAny(none, [P.staffView]), false);
 });
 
-test("the calendar nav label is stable", () => {
-  assert.equal(NAV_ITEMS.find((i) => i.href === "/appointments")?.label, "تقویم نوبت‌ها");
+test("the appointments nav label is list-first management", () => {
+  assert.equal(NAV_ITEMS.find((i) => i.href === "/appointments")?.label, "مدیریت نوبت‌ها");
 });
 
 test("activeNav matches by path segment, not raw prefix", () => {

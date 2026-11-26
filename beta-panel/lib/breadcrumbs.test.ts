@@ -4,7 +4,7 @@ import { breadcrumbsFor } from "./breadcrumbs.ts";
 
 test("top-level screens have a single current crumb", () => {
   assert.deepEqual(breadcrumbsFor("/dashboard"), [{ label: "داشبورد" }]);
-  assert.deepEqual(breadcrumbsFor("/appointments"), [{ label: "تقویم نوبت‌ها" }]);
+  assert.deepEqual(breadcrumbsFor("/appointments"), [{ label: "مدیریت نوبت‌ها" }]);
 });
 
 test("nested screens link back to their workspace", () => {

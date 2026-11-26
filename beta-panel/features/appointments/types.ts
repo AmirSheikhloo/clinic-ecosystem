@@ -30,9 +30,24 @@ export type AppointmentDetails = CalendarItem & {
   }>;
   can_cancel: boolean;
   can_reschedule: boolean;
+  can_check_in: boolean;
+  can_complete: boolean;
+  can_mark_no_show: boolean;
 };
 
+export type ManagementResponse = {
+  items: CalendarItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  truncated: boolean;
+};
+
+export type UpcomingResponse = { items: CalendarItem[]; limit: number };
+
 export type SortKey = "time" | "patient" | "service";
+
+export type WorkspaceMode = "list" | "day" | "week" | "month";
 
 export const CALENDAR_STATUSES = [
   "CONFIRMED",
@@ -45,3 +60,5 @@ export const CALENDAR_STATUSES = [
 ] as const;
 
 export const CALENDAR_LIMIT = 500;
+
+export const LIST_PAGE_SIZES = [25, 50, 100] as const;

@@ -48,7 +48,7 @@ test("workspace screens load authorized synthetic data with Latin digits", async
   await assertNoNonLatinDigits(page);
 
   // Appointments
-  await navLink(page, "تقویم نوبت‌ها").click();
+  await navLink(page, "مدیریت نوبت‌ها").click();
   await expect(page.getByTestId("appointments-page")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("appointments-count")).toBeVisible();
   const countText = await page.getByTestId("appointments-count").innerText();

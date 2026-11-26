@@ -30,7 +30,7 @@ const PARTS: ShellPart[] = ["sidebar", "topbar", "search", "account", "frame"];
 const PAGES: [label: string, path: string][] = [
   ["داشبورد", "/dashboard"],
   ["میز پذیرش", "/desk"],
-  ["تقویم نوبت‌ها", "/appointments"],
+  ["مدیریت نوبت‌ها", "/appointments"],
   ["بیماران", "/patients"],
   ["خدمات و منابع", "/catalog"],
   ["کارکنان", "/staff"],

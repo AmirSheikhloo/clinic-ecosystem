@@ -91,7 +91,8 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await page.getByTestId("overlap-confirm").click();
   await expect(page.getByTestId("desk-status")).toContainText("تأیید تداخل", { timeout: 45_000 });
 
-  await gotoNav(page, "تقویم نوبت‌ها", "appointments-page");
+  await page.goto("/appointments?view=day");
+  await expect(page.getByTestId("appointments-page")).toBeVisible({ timeout: 30_000 });
   const rowsA = page.getByTestId("appointment-row").filter({ hasText: pLast });
   await expect(rowsA).toHaveCount(1, { timeout: 30_000 });
   await expect(page.getByTestId("appointments-count")).toHaveText(/^\d+$/);

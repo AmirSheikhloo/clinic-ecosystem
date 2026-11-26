@@ -17,7 +17,7 @@ import { formatCount } from "@/lib/format/numbers";
 import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/format/status";
 import { P } from "@/lib/permissions";
 import { useApiQuery } from "@/lib/use-api-query";
-import type { CalendarResponse } from "@/features/appointments/types";
+import type { UpcomingResponse } from "@/features/appointments/types";
 import { DashboardAlerts } from "./DashboardAlerts";
 import { DashboardGreeting } from "./DashboardGreeting";
 import { DashboardMetrics } from "./DashboardMetrics";
@@ -42,8 +42,10 @@ export function DashboardView() {
     "بارگذاری آمار داشبورد ناموفق بود",
     refresh,
   );
-  const upcoming = useApiQuery<CalendarResponse>(
-    ready && can(P.appointmentsList) ? `/api/v1/appointments/calendar${buildQuery({ ...range, limit: UPCOMING_LIMIT })}` : null,
+  const upcoming = useApiQuery<UpcomingResponse>(
+    ready && can(P.appointmentsList)
+      ? `/api/v1/appointments/upcoming${buildQuery({ ...range, limit: UPCOMING_LIMIT })}`
+      : null,
     "بارگذاری نوبت‌های امروز ناموفق بود",
     refresh,
   );
@@ -101,7 +103,7 @@ export function DashboardView() {
 
       <DashboardMetrics cards={cards} loading={loading} />
 
-      <DashboardAlerts today={today} summary={data} calendar={upcoming.data} canList={can(P.appointmentsList)} />
+      <DashboardAlerts today={today} summary={data} canList={can(P.appointmentsList)} />
 
       {can(P.appointmentsList) ? (
         <section aria-label="وضعیت نوبت‌های امروز" className="ds-status-row" data-testid="dashboard-by-status">

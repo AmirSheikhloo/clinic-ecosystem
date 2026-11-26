@@ -141,7 +141,7 @@ test("BETA-01B reception browser acceptance gate", async ({ page, request }) => 
   expect(statusAfterDup).toMatch(/بازیابی تکرار|نوبت ثبت شد/);
 
   // 11) Daily list shows the appointment once for this synthetic patient
-  await navLink(page, "تقویم نوبت‌ها").click();
+  await navLink(page, "مدیریت نوبت‌ها").click();
   await expect(page).toHaveURL(/\/appointments/);
   await expect(page.getByTestId("appointments-page")).toBeVisible();
   const rows = page.getByTestId("appointment-row").filter({ hasText: synthFirst });

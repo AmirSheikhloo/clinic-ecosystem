@@ -104,7 +104,7 @@ async function main() {
     ["dashboard", "/dashboard"],
     ["desk", "/desk"],
     ["patients", "/patients"],
-    ["appointments-day", "/appointments"],
+    ["appointments-day", "/appointments?view=day"],
     ["catalog", "/catalog"],
     ["catalog-manage", "/catalog/manage"],
     ["staff", "/staff"],
@@ -137,7 +137,7 @@ async function main() {
     await page.keyboard.press("Escape");
     await page.goto("/preferences");
     await page.getByTestId("pref-appearance-dark").click();
-    for (const [name, url] of [["dark-dashboard", "/dashboard"], ["dark-appointments-day", "/appointments"]] as const) {
+    for (const [name, url] of [["dark-dashboard", "/dashboard"], ["dark-appointments-day", "/appointments?view=day"]] as const) {
       await page.goto(url);
       await page.waitForTimeout(1200);
       await page.screenshot({ path: path.join(out, `${name}.png`) });

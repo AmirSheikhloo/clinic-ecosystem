@@ -14,6 +14,7 @@ export function buildMetricCards(
   const confirmed = data?.appointments ? (data.appointments.by_status.CONFIRMED ?? 0) : null;
 
   if (audience.composition === "operational") {
+    const checkedIn = data?.appointments ? (data.appointments.by_status.CHECKED_IN ?? 0) : null;
     const cards: MetricCardDef[] = [];
     if (can(P.appointmentsList)) {
       cards.push({
@@ -47,6 +48,14 @@ export function buildMetricCards(
         href: `/appointments?date=${today}&view=day&status=CONFIRMED`,
         icon: "desk",
         testId: "dashboard-confirmed",
+      });
+      cards.push({
+        key: "checked-in",
+        label: "حاضر در کلینیک",
+        value: checkedIn,
+        href: `/appointments?view=list&status=CHECKED_IN&date=today`,
+        icon: "desk",
+        testId: "dashboard-checked-in",
       });
     }
     if (can(P.patientsSearch)) {

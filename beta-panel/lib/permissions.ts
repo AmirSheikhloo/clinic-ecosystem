@@ -56,7 +56,7 @@ export const NAV_GROUPS: readonly { id: NavGroupId; label: string }[] = [
 export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/dashboard", label: "داشبورد", icon: "dashboard", group: "work", anyOf: [] },
   { href: "/desk", label: "میز پذیرش", icon: "desk", group: "work", anyOf: [P.appointmentsSchedule, P.patientsSearch] },
-  { href: "/appointments", label: "تقویم نوبت‌ها", icon: "calendar", group: "work", anyOf: [P.appointmentsList] },
+  { href: "/appointments", label: "مدیریت نوبت‌ها", icon: "calendar", group: "work", anyOf: [P.appointmentsList] },
   { href: "/patients", label: "بیماران", icon: "patients", group: "clinic", anyOf: [P.patientsSearch, P.patientsRegister] },
   { href: "/catalog", label: "خدمات و منابع", icon: "catalog", group: "clinic", anyOf: [P.catalogServicesRead, P.resourcesRead, P.servicesManage, P.resourcesManage] },
   { href: "/staff", label: "کارکنان", icon: "staff", group: "admin", anyOf: [P.staffView] },

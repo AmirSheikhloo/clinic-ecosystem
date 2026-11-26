@@ -9,7 +9,7 @@ export type Summary = {
   resources_active: number | null;
 };
 
-export const UPCOMING_LIMIT = 8;
+export const UPCOMING_LIMIT = 12;
 
 export type MetricCardDef = {
   key: string;

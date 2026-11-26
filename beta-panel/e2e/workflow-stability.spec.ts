@@ -1,7 +1,7 @@
 /** Workspace-level stability: stable grids while data loads, calendar lanes, filter links, table columns. */
 import { expect, test, type Page } from "@playwright/test";
 import { tehranTodayYmd } from "../lib/tehran";
-import { bff, credsFromEnv, deskBook, deskRegisterPatient, gotoNav, loginAs, RUN, tehranSlot } from "./ops-helpers";
+import { bff, credsFromEnv, deskBook, deskRegisterPatient, loginAs, RUN, tehranSlot } from "./ops-helpers";
 
 test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
 test.describe.configure({ mode: "serial" });
@@ -83,7 +83,8 @@ test("calendar: overlapping visits sit in separate lanes and the toolbar does no
   await page.getByTestId("overlap-confirm").click();
   await expect(page.getByTestId("desk-status")).toContainText("تأیید تداخل", { timeout: 45_000 });
 
-  await gotoNav(page, "تقویم نوبت‌ها", "appointments-page");
+  await page.goto("/appointments?view=day");
+  await expect(page.getByTestId("appointments-page")).toBeVisible({ timeout: 30_000 });
   const events = page.getByTestId("timeline-event").filter({ hasText: `${RUN}` });
   await expect(events).toHaveCount(2, { timeout: 30_000 });
   const [first, second] = await Promise.all([events.nth(0).boundingBox(), events.nth(1).boundingBox()]);

@@ -105,7 +105,7 @@ test("collapsed sidebar rail keeps accessible names and shows tooltips; breadcru
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/appointments");
   await expect(page.getByTestId("appointments-page")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("breadcrumbs")).toContainText("تقویم نوبت‌ها");
+  await expect(page.getByTestId("breadcrumbs")).toContainText("مدیریت نوبت‌ها");
 
   await page.getByTestId("sidebar-toggle").click();
   await expect(page.getByTestId("sidebar-toggle")).toHaveAttribute("aria-expanded", "false");

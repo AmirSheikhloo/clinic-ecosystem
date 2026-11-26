@@ -20,11 +20,11 @@ const OPERATIONAL: readonly QuickAction[] = [
     icon: "plus",
     allowed: (can) => can(P.patientsRegister),
   },
-  { href: "/appointments", label: "تقویم نوبت‌ها", hint: "نمای روز، هفته و ماه", icon: "calendar", allowed: (can) => can(P.appointmentsList) },
+  { href: "/appointments", label: "مدیریت نوبت‌ها", hint: "فهرست، روز، هفته و ماه", icon: "calendar", allowed: (can) => can(P.appointmentsList) },
 ];
 
 const MANAGEMENT: readonly QuickAction[] = [
-  { href: "/appointments", label: "تقویم عملیاتی", hint: "نوبت‌های امروز و بازه‌ها", icon: "calendar", allowed: (can) => can(P.appointmentsList) },
+  { href: "/appointments", label: "مدیریت نوبت‌ها", hint: "فهرست و تقویم عملیاتی", icon: "calendar", allowed: (can) => can(P.appointmentsList) },
   { href: "/staff", label: "کارکنان", hint: "پروفایل و حساب ورود", icon: "staff", allowed: (can) => can(P.staffView) },
   { href: "/access", label: "کاربران و دسترسی", hint: "نقش‌ها و مجوزها", icon: "access", allowed: (can) => can(P.accountsView) || can(P.rolesView) },
   { href: "/catalog/manage", label: "مدیریت خدمات", hint: "تعرفه و الزامات", icon: "catalog", allowed: (can) => can(P.servicesManage) || can(P.resourcesManage) },
