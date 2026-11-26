@@ -285,6 +285,221 @@ async def create_online_closure(principal: Principal, uow: Uow, body: OnlineClos
     return {"id": str(closure_id)}
 
 
+class InventoryWriteOffIn(BaseModel):
+    item_id: UUID
+    lot_id: UUID
+    quantity: int = Field(ge=1)
+    reason_code: str = Field(min_length=1, max_length=64)
+
+
+class InventoryReturnIn(BaseModel):
+    item_id: UUID
+    lot_id: UUID
+    original_movement_id: UUID
+    quantity: int = Field(ge=1)
+    disposition: str = Field(pattern="^(REUSABLE|QUARANTINE|WRITE_OFF)$")
+    reason_code: str = Field(min_length=1, max_length=64)
+
+
+class InventoryQuarantineIn(BaseModel):
+    item_id: UUID
+    lot_id: UUID
+    reason_code: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/inventory/write-off")
+async def inventory_write_off(principal: Principal, uow: Uow, body: InventoryWriteOffIn) -> dict:
+    granted = await load_granted(principal, uow)
+    require(granted, perm.INVENTORY_ADJUST)
+    if not await _ops_table(uow, "stock_movements"):
+        raise Conflict("Ops schema unavailable", code="ops_schema_unavailable")
+    now = datetime.now(timezone.utc)
+    movement_id = new_uuid7()
+    try:
+        await uow.session.execute(
+            text(
+                """
+                INSERT INTO stock_movements (
+                  id, tenant_id, item_id, lot_id, movement_kind, quantity_delta, quantity_scale,
+                  reason_code, operator_user_id, actor_type, actor_id, correlation_id,
+                  occurred_at_utc, created_at_utc
+                ) VALUES (
+                  :id, :tenant_id, :item_id, :lot_id, 'WRITE_OFF', :qty, 0, :reason,
+                  :user_id, 'STAFF_USER', :user_id, :corr, :now, :now
+                )
+                """
+            ),
+            {
+                "id": movement_id,
+                "tenant_id": principal.claims.tenant_id,
+                "item_id": body.item_id,
+                "lot_id": body.lot_id,
+                "qty": -abs(body.quantity),
+                "reason": body.reason_code,
+                "user_id": principal.account.id,
+                "corr": new_uuid7(),
+                "now": now,
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise Conflict(
+            "Write-off rejected",
+            code="inventory_write_off_rejected",
+            extra={"detail": str(exc.__class__.__name__)},
+        ) from exc
+    await uow.commit()
+    return {"id": str(movement_id), "movement_kind": "WRITE_OFF"}
+
+
+@router.post("/inventory/return")
+async def inventory_return(principal: Principal, uow: Uow, body: InventoryReturnIn) -> dict:
+    granted = await load_granted(principal, uow)
+    require(granted, perm.INVENTORY_ADJUST)
+    if not await _ops_table(uow, "stock_movements"):
+        raise Conflict("Ops schema unavailable", code="ops_schema_unavailable")
+    now = datetime.now(timezone.utc)
+    movement_id = new_uuid7()
+    try:
+        await uow.session.execute(
+            text(
+                """
+                INSERT INTO stock_movements (
+                  id, tenant_id, item_id, lot_id, movement_kind, quantity_delta, quantity_scale,
+                  original_movement_id, return_disposition, reason_code, operator_user_id,
+                  actor_type, actor_id, correlation_id, occurred_at_utc, created_at_utc
+                ) VALUES (
+                  :id, :tenant_id, :item_id, :lot_id, 'RETURN', :qty, 0, :orig, :disp, :reason,
+                  :user_id, 'STAFF_USER', :user_id, :corr, :now, :now
+                )
+                """
+            ),
+            {
+                "id": movement_id,
+                "tenant_id": principal.claims.tenant_id,
+                "item_id": body.item_id,
+                "lot_id": body.lot_id,
+                "qty": abs(body.quantity),
+                "orig": body.original_movement_id,
+                "disp": body.disposition,
+                "reason": body.reason_code,
+                "user_id": principal.account.id,
+                "corr": new_uuid7(),
+                "now": now,
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise Conflict(
+            "Return rejected",
+            code="inventory_return_rejected",
+            extra={"detail": str(exc.__class__.__name__)},
+        ) from exc
+    await uow.commit()
+    return {"id": str(movement_id), "movement_kind": "RETURN"}
+
+
+@router.post("/inventory/quarantine")
+async def inventory_quarantine(
+    principal: Principal, uow: Uow, body: InventoryQuarantineIn
+) -> dict:
+    granted = await load_granted(principal, uow)
+    require(granted, perm.INVENTORY_ADJUST)
+    if not await _ops_table(uow, "inventory_lot_state_events"):
+        raise Conflict("Ops schema unavailable", code="ops_schema_unavailable")
+    now = datetime.now(timezone.utc)
+    event_id = new_uuid7()
+    await uow.session.execute(
+        text(
+            """
+            INSERT INTO inventory_lot_state_events (
+              id, tenant_id, item_id, lot_id, old_status, new_status, reason_code,
+              operator_user_id, occurred_at_utc, created_at_utc
+            ) VALUES (
+              :id, :tenant_id, :item_id, :lot_id, 'AVAILABLE', 'QUARANTINE', :reason,
+              :user_id, :now, :now
+            )
+            """
+        ),
+        {
+            "id": event_id,
+            "tenant_id": principal.claims.tenant_id,
+            "item_id": body.item_id,
+            "lot_id": body.lot_id,
+            "reason": body.reason_code,
+            "user_id": principal.account.id,
+            "now": now,
+        },
+    )
+    await uow.session.execute(
+        text(
+            """
+            UPDATE inventory_lots
+            SET lot_status = 'QUARANTINE', aggregate_version = aggregate_version + 1,
+                updated_at_utc = :now
+            WHERE tenant_id = :tenant_id AND id = :lot_id AND item_id = :item_id
+              AND lot_status = 'AVAILABLE'
+            """
+        ),
+        {
+            "now": now,
+            "tenant_id": principal.claims.tenant_id,
+            "lot_id": body.lot_id,
+            "item_id": body.item_id,
+        },
+    )
+    await uow.commit()
+    return {"id": str(event_id), "lot_status": "QUARANTINE"}
+
+
+@router.get("/inventory/lots")
+async def list_lots(
+    principal: Principal,
+    uow: Uow,
+    item_id: Annotated[UUID | None, Query()] = None,
+) -> dict:
+    granted = await load_granted(principal, uow)
+    require(granted, perm.INVENTORY_VIEW)
+    if not await _ops_table(uow, "inventory_lots"):
+        raise Conflict("Ops schema unavailable", code="ops_schema_unavailable")
+    clauses = ["l.tenant_id = :tenant_id"]
+    params: dict[str, Any] = {"tenant_id": principal.claims.tenant_id}
+    if item_id:
+        clauses.append("l.item_id = :item_id")
+        params["item_id"] = item_id
+    where = " AND ".join(clauses)
+    result = await uow.session.execute(
+        text(
+            f"""
+            SELECT l.id, l.item_id, l.lot_code, l.lot_status, l.expires_on,
+                   i.item_code, i.item_name,
+                   COALESCE((
+                     SELECT SUM(m.quantity_delta) FROM stock_movements m
+                     WHERE m.tenant_id = l.tenant_id AND m.lot_id = l.id
+                   ), 0) AS on_hand
+            FROM inventory_lots l
+            JOIN inventory_items i ON i.tenant_id = l.tenant_id AND i.id = l.item_id
+            WHERE {where}
+            ORDER BY l.expires_on NULLS LAST, l.lot_code
+            """
+        ),
+        params,
+    )
+    return {
+        "items": [
+            {
+                "id": str(r["id"]),
+                "item_id": str(r["item_id"]),
+                "item_code": r["item_code"],
+                "item_name": r["item_name"],
+                "lot_code": r["lot_code"],
+                "lot_status": r["lot_status"],
+                "expires_on": r["expires_on"].isoformat() if r["expires_on"] else None,
+                "quantity_on_hand": int(r["on_hand"]),
+            }
+            for r in result.mappings().all()
+        ]
+    }
+
+
 @router.get("/billable-items")
 async def list_billable_items(principal: Principal, uow: Uow) -> dict:
     granted = await load_granted(principal, uow)

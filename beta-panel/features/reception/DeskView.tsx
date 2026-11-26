@@ -8,7 +8,7 @@ import { BookingConfirmation } from "./BookingConfirmation";
 import { BookingForm } from "./BookingForm";
 import { OverlapDialog } from "./OverlapDialog";
 import { PatientPicker } from "./PatientPicker";
-import { InvoicePreview } from "./InvoicePreview";
+import { CashierPanel } from "./CashierPanel";
 import { PatientQuickRegister } from "./PatientQuickRegister";
 import { useReceptionDesk } from "./useReceptionDesk";
 
@@ -155,11 +155,13 @@ export function DeskView() {
           />
         </section>
 
-        <InvoicePreview
+        <CashierPanel
           patient={desk.selectedPatient}
           lines={desk.draftLines}
           draft={desk.liveDraftLine}
           onRemove={desk.removeDraftLine}
+          lastBooking={desk.lastBooking}
+          onCleared={() => desk.clearDraftLines()}
         />
       </div>
 

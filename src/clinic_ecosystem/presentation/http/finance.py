@@ -148,6 +148,34 @@ async def get_invoice(principal: Principal, uow: Uow, invoice_id: UUID) -> dict:
     bal = await finance.invoice_balance(
         tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
     )
+    from sqlalchemy import text
+
+    alloc_rows = await uow.session.execute(
+        text(
+            """
+            SELECT ra.id, ra.receipt_id, ra.invoice_line_id, ra.allocation_kind,
+                   ra.amount_irr, pr.payment_method, pr.receipt_number
+            FROM receipt_allocations ra
+            JOIN payment_receipts pr
+              ON pr.tenant_id = ra.tenant_id AND pr.id = ra.receipt_id
+            WHERE ra.tenant_id = :tenant_id AND ra.invoice_id = :invoice_id
+            ORDER BY ra.created_at_utc
+            """
+        ),
+        {"tenant_id": principal.claims.tenant_id, "invoice_id": invoice_id},
+    )
+    allocations = [
+        {
+            "id": str(a["id"]),
+            "receipt_id": str(a["receipt_id"]),
+            "invoice_line_id": str(a["invoice_line_id"]),
+            "allocation_kind": a["allocation_kind"],
+            "amount_irr": int(a["amount_irr"]),
+            "payment_method": a["payment_method"],
+            "receipt_number": a["receipt_number"],
+        }
+        for a in alloc_rows.mappings().all()
+    ]
     return {
         "id": str(row["id"]),
         "invoice_number": row["invoice_number"],
@@ -175,6 +203,7 @@ async def get_invoice(principal: Principal, uow: Uow, invoice_id: UUID) -> dict:
             }
             for ln in lines
         ],
+        "allocations": allocations,
         **bal,
     }
 
@@ -352,6 +381,34 @@ async def record_refund(principal: Principal, uow: Uow, body: RefundIn) -> dict:
     now = datetime.now(timezone.utc)
     refund_id = new_uuid7()
     number = f"RF{str(refund_id).replace('-', '')[:30]}"
+    shift = await finance.open_shift(tenant_id=principal.claims.tenant_id)
+    dept = await finance.default_department(tenant_id=principal.claims.tenant_id)
+    receipt = await uow.session.execute(
+        text(
+            """
+            SELECT id, payment_method, instrument_id, verification_evidence_ref
+            FROM payment_receipts
+            WHERE tenant_id = :tenant_id AND id = :receipt_id
+            """
+        ),
+        {
+            "tenant_id": principal.claims.tenant_id,
+            "receipt_id": body.original_receipt_id,
+        },
+    )
+    receipt_row = receipt.mappings().one_or_none()
+    if receipt_row is None:
+        raise NotFound("Original receipt not found", code="receipt_not_found")
+    instrument_id = None
+    evidence = None
+    if body.refund_method == "POS":
+        instrument_id = receipt_row["instrument_id"]
+        if instrument_id is None:
+            raise ValidationFailed(
+                "POS refund requires original POS instrument",
+                code="missing_pos_instrument",
+            )
+        evidence = f"pos-refund-evidence-{refund_id}"
     # Domain errors surface as SQLSTATE from ledger guards (exact codes asserted in deep suite).
     try:
         await uow.session.execute(
@@ -360,11 +417,13 @@ async def record_refund(principal: Principal, uow: Uow, body: RefundIn) -> dict:
                 INSERT INTO clinic_payment_refunds (
                   id, tenant_id, refund_number, original_receipt_id, invoice_id,
                   invoice_line_id, original_allocation_id, amount_irr, currency_code,
-                  refund_method, reason_code, operator_user_id, actor_type, actor_id,
+                  refund_method, instrument_id, verification_evidence_ref, reason_code,
+                  operator_user_id, actor_type, actor_id, department_id, shift_id,
                   correlation_id, occurred_at_utc, created_at_utc
                 ) VALUES (
                   :id, :tenant_id, :number, :receipt_id, :invoice_id, :line_id, :alloc_id,
-                  :amount, 'IRR', :method, :reason, :user_id, 'STAFF_USER', :user_id,
+                  :amount, 'IRR', :method, :instrument, :evidence, :reason,
+                  :user_id, 'STAFF_USER', :user_id, :dept, :shift,
                   :corr, :now, :now
                 )
                 """
@@ -379,8 +438,12 @@ async def record_refund(principal: Principal, uow: Uow, body: RefundIn) -> dict:
                 "alloc_id": body.original_allocation_id,
                 "amount": body.amount_irr,
                 "method": body.refund_method,
+                "instrument": instrument_id,
+                "evidence": evidence,
                 "reason": body.reason_code,
                 "user_id": principal.account.id,
+                "dept": dept,
+                "shift": shift,
                 "corr": new_uuid7(),
                 "now": now,
             },
@@ -406,6 +469,432 @@ async def record_refund(principal: Principal, uow: Uow, body: RefundIn) -> dict:
     )
     await uow.commit()
     return {"id": str(refund_id), "refund_number": number, "amount_irr": body.amount_irr}
+
+
+class DiscountIn(BaseModel):
+    invoice_id: UUID
+    invoice_line_id: UUID | None = None
+    discount_scope: Literal["INVOICE", "LINE"]
+    calculation_kind: Literal["FIXED_IRR", "PERCENT_BPS"]
+    requested_value: int = Field(gt=0)
+    reason_code: str = Field(min_length=1, max_length=64)
+
+
+class AdjustmentIn(BaseModel):
+    invoice_id: UUID
+    invoice_line_id: UUID
+    adjustment_kind: Literal[
+        "POST_PAYMENT_DISCOUNT",
+        "CORRECTION",
+        "WRITE_OFF",
+        "CHARGE_CANCELLATION",
+        "SUBSIDY_CORRECTION",
+        "ROUNDING_CORRECTION",
+    ]
+    patient_delta_irr: int
+    reason_code: str = Field(min_length=1, max_length=64)
+    reason_text: str | None = Field(default=None, max_length=500)
+
+
+class DeskCheckoutLineIn(BaseModel):
+    service_id: UUID
+    appointment_id: UUID | None = None
+    description: str = Field(min_length=1, max_length=200)
+    code: str = Field(min_length=1, max_length=64)
+    unit_price_irr: int = Field(ge=0)
+    discount_amount: int = Field(default=0, ge=0)
+
+
+class DeskCheckoutIn(BaseModel):
+    patient_id: UUID
+    lines: list[DeskCheckoutLineIn] = Field(min_length=1, max_length=40)
+    post: bool = True
+    payment_method: Literal["CASH", "POS"] | None = None
+    payment_amount_irr: int | None = Field(default=None, ge=0)
+
+
+@router.post("/discounts")
+async def apply_discount(principal: Principal, uow: Uow, body: DiscountIn) -> dict:
+    granted = await load_granted(principal, uow)
+    require(granted, perm.FINANCE_DISCOUNT)
+    finance = SqlFinanceOps(uow.session)
+    await _require_ops(finance)
+    from sqlalchemy import text
+
+    inv = await finance.get_invoice(
+        tenant_id=principal.claims.tenant_id, invoice_id=body.invoice_id
+    )
+    if inv is None:
+        raise NotFound("Invoice not found", code="invoice_not_found")
+    if inv["status"] != "DRAFT":
+        raise Conflict("Discounts only apply to DRAFT invoices", code="invoice_not_draft")
+    if body.discount_scope == "LINE" and body.invoice_line_id is None:
+        raise ValidationFailed("LINE discount requires invoice_line_id", code="missing_line")
+    if body.discount_scope == "INVOICE" and body.invoice_line_id is not None:
+        raise ValidationFailed("INVOICE discount must omit line", code="line_not_allowed")
+    if body.calculation_kind == "PERCENT_BPS" and body.requested_value > 10_000:
+        raise ValidationFailed("Percent bps exceeds 100%", code="discount_bps_invalid")
+
+    now = datetime.now(timezone.utc)
+    lines = await finance.list_lines(
+        tenant_id=principal.claims.tenant_id, invoice_id=body.invoice_id
+    )
+    if body.discount_scope == "LINE":
+        target = next((ln for ln in lines if ln["id"] == body.invoice_line_id), None)
+        if target is None:
+            raise NotFound("Invoice line not found", code="line_not_found")
+        gross = int(target["gross_service_amount"])
+        discount = (
+            body.requested_value
+            if body.calculation_kind == "FIXED_IRR"
+            else (gross * body.requested_value) // 10_000
+        )
+        discount = min(discount, gross)
+        payable = gross - discount
+        await uow.session.execute(
+            text(
+                """
+                UPDATE invoice_lines
+                SET discount_amount = :discount, patient_payable_amount = :payable
+                WHERE tenant_id = :tenant_id AND id = :line_id AND invoice_id = :invoice_id
+                """
+            ),
+            {
+                "discount": discount,
+                "payable": payable,
+                "tenant_id": principal.claims.tenant_id,
+                "line_id": body.invoice_line_id,
+                "invoice_id": body.invoice_id,
+            },
+        )
+    else:
+        active = [ln for ln in lines if ln["line_status"] == "ACTIVE"]
+        total_gross = sum(int(ln["gross_service_amount"]) for ln in active)
+        if total_gross <= 0:
+            raise ValidationFailed("No gross to discount", code="empty_invoice")
+        total_discount = (
+            body.requested_value
+            if body.calculation_kind == "FIXED_IRR"
+            else (total_gross * body.requested_value) // 10_000
+        )
+        total_discount = min(total_discount, total_gross)
+        # Largest-remainder distribution across lines.
+        shares = []
+        allocated = 0
+        for idx, ln in enumerate(active):
+            raw = (total_discount * int(ln["gross_service_amount"])) / total_gross
+            base = int(raw)
+            shares.append([ln, base, raw - base])
+            allocated += base
+        rem = total_discount - allocated
+        shares.sort(key=lambda s: s[2], reverse=True)
+        for i in range(rem):
+            shares[i % len(shares)][1] += 1
+        for ln, disc, _frac in shares:
+            payable = int(ln["gross_service_amount"]) - disc
+            await uow.session.execute(
+                text(
+                    """
+                    UPDATE invoice_lines
+                    SET discount_amount = :discount, patient_payable_amount = :payable
+                    WHERE tenant_id = :tenant_id AND id = :line_id
+                    """
+                ),
+                {
+                    "discount": disc,
+                    "payable": payable,
+                    "tenant_id": principal.claims.tenant_id,
+                    "line_id": ln["id"],
+                },
+            )
+
+    await uow.session.execute(
+        text(
+            """
+            INSERT INTO draft_discount_actions (
+              id, tenant_id, invoice_id, invoice_line_id, discount_scope,
+              calculation_kind, requested_value, reason_code, operator_user_id,
+              policy_version, occurred_at_utc, created_at_utc
+            ) VALUES (
+              :id, :tenant_id, :invoice_id, :line_id, :scope, :kind, :value, :reason,
+              :user_id, 'disc-v1', :now, :now
+            )
+            """
+        ),
+        {
+            "id": new_uuid7(),
+            "tenant_id": principal.claims.tenant_id,
+            "invoice_id": body.invoice_id,
+            "line_id": body.invoice_line_id,
+            "scope": body.discount_scope,
+            "kind": body.calculation_kind,
+            "value": body.requested_value,
+            "reason": body.reason_code,
+            "user_id": principal.account.id,
+            "now": now,
+        },
+    )
+    await SqlAuditStore(uow.session).append(
+        tenant_id=principal.claims.tenant_id,
+        actor_type="USER_ACCOUNT",
+        actor_id=principal.account.id,
+        operation="finance.discount_applied",
+        target_type="invoice",
+        target_id=body.invoice_id,
+        details={"scope": body.discount_scope, "value": body.requested_value},
+    )
+    await uow.commit()
+    return {"invoice_id": str(body.invoice_id), "status": "DRAFT"}
+
+
+@router.post("/adjustments")
+async def create_adjustment(principal: Principal, uow: Uow, body: AdjustmentIn) -> dict:
+    granted = await load_granted(principal, uow)
+    require(granted, perm.FINANCE_ADJUSTMENT)
+    finance = SqlFinanceOps(uow.session)
+    await _require_ops(finance)
+    from sqlalchemy import text
+
+    inv = await finance.get_invoice(
+        tenant_id=principal.claims.tenant_id, invoice_id=body.invoice_id
+    )
+    if inv is None:
+        raise NotFound("Invoice not found", code="invoice_not_found")
+    if inv["status"] != "POSTED":
+        raise Conflict("Adjustments require a POSTED invoice", code="invoice_not_posted")
+    if body.patient_delta_irr == 0:
+        raise ValidationFailed("patient_delta_irr must be non-zero", code="zero_adjustment")
+    if body.adjustment_kind in {
+        "POST_PAYMENT_DISCOUNT",
+        "WRITE_OFF",
+        "CHARGE_CANCELLATION",
+    } and body.patient_delta_irr > 0:
+        raise ValidationFailed(
+            "This adjustment kind requires non-positive patient delta",
+            code="invalid_adjustment_sign",
+        )
+    now = datetime.now(timezone.utc)
+    adj_id = new_uuid7()
+    shift = await finance.open_shift(tenant_id=principal.claims.tenant_id)
+    try:
+        await uow.session.execute(
+            text(
+                """
+                INSERT INTO financial_adjustments (
+                  id, tenant_id, invoice_id, invoice_line_id, adjustment_kind,
+                  patient_delta_irr, reason_code, reason_text, operator_user_id,
+                  actor_type, actor_id, department_id, shift_id, correlation_id,
+                  occurred_at_utc, created_at_utc
+                ) VALUES (
+                  :id, :tenant_id, :invoice_id, :line_id, :kind, :delta, :reason, :text,
+                  :user_id, 'STAFF_USER', :user_id, :dept, :shift, :corr, :now, :now
+                )
+                """
+            ),
+            {
+                "id": adj_id,
+                "tenant_id": principal.claims.tenant_id,
+                "invoice_id": body.invoice_id,
+                "line_id": body.invoice_line_id,
+                "kind": body.adjustment_kind,
+                "delta": body.patient_delta_irr,
+                "reason": body.reason_code,
+                "text": body.reason_text,
+                "user_id": principal.account.id,
+                "dept": inv["department_id"],
+                "shift": shift,
+                "corr": new_uuid7(),
+                "now": now,
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise Conflict(
+            "Adjustment rejected by ledger guards",
+            code="adjustment_rejected",
+            extra={"detail": str(exc.__class__.__name__)},
+        ) from exc
+    await SqlAuditStore(uow.session).append(
+        tenant_id=principal.claims.tenant_id,
+        actor_type="USER_ACCOUNT",
+        actor_id=principal.account.id,
+        operation="finance.adjustment_recorded",
+        target_type="financial_adjustment",
+        target_id=adj_id,
+        details={
+            "kind": body.adjustment_kind,
+            "patient_delta_irr": body.patient_delta_irr,
+            "invoice_id": str(body.invoice_id),
+        },
+    )
+    await uow.commit()
+    return {"id": str(adj_id), "invoice_id": str(body.invoice_id)}
+
+
+@router.post("/desk-checkout")
+async def desk_checkout(principal: Principal, uow: Uow, body: DeskCheckoutIn) -> dict:
+    """Reception one-shot: draft (+ optional discounts) → post → optional CASH/POS pay."""
+    granted = await load_granted(principal, uow)
+    require(granted, perm.FINANCE_INVOICE_DRAFT)
+    if body.post:
+        require(granted, perm.FINANCE_INVOICE_POST)
+    if body.payment_method is not None:
+        require(granted, perm.FINANCE_RECEIPT_RECORD)
+        if body.payment_amount_irr is None or body.payment_amount_irr <= 0:
+            raise ValidationFailed("payment_amount_irr required", code="missing_payment_amount")
+    if any(ln.discount_amount for ln in body.lines):
+        require(granted, perm.FINANCE_DISCOUNT)
+
+    finance = SqlFinanceOps(uow.session)
+    await _require_ops(finance)
+    now = datetime.now(timezone.utc)
+    dept = await finance.default_department(tenant_id=principal.claims.tenant_id)
+    draft_lines = []
+    for ln in body.lines:
+        draft_lines.append(
+            {
+                "line_kind": "SERVICE",
+                "description": ln.description,
+                "code": ln.code,
+                "unit_price_irr": ln.unit_price_irr,
+                "quantity_scaled": 1,
+                "quantity_scale": 0,
+                "unit_code": "EA",
+                "discount_amount": ln.discount_amount,
+                "service_id": ln.service_id,
+                "appointment_id": ln.appointment_id,
+                "charge_without_service_reason": None
+                if ln.appointment_id
+                else "desk_charge_without_linked_service",
+            }
+        )
+    invoice_id = await finance.create_draft_invoice(
+        tenant_id=principal.claims.tenant_id,
+        patient_id=body.patient_id,
+        department_id=dept,
+        reception_group_id=None,
+        lines=draft_lines,
+        now=now,
+    )
+    invoice_number = None
+    receipt_id = None
+    if body.post:
+        invoice_number = await finance.post_invoice(
+            tenant_id=principal.claims.tenant_id,
+            invoice_id=invoice_id,
+            user_id=principal.account.id,
+            now=now,
+        )
+        if body.payment_method and body.payment_amount_irr:
+            lines = await finance.list_lines(
+                tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
+            )
+            active = [ln for ln in lines if ln["line_status"] == "ACTIVE"]
+            if not active:
+                raise Conflict("Posted invoice has no lines", code="empty_invoice")
+            # Allocate payment to first line up to outstanding (multi-line remainder later).
+            bal = await finance.invoice_balance(
+                tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
+            )
+            pay = min(body.payment_amount_irr, bal["outstanding"])
+            if pay <= 0:
+                raise ValidationFailed("Nothing outstanding to pay", code="nothing_due")
+            allocations = []
+            remaining = pay
+            for ln in active:
+                if remaining <= 0:
+                    break
+                slice_amt = min(remaining, int(ln["patient_payable_amount"]))
+                if slice_amt <= 0:
+                    continue
+                allocations.append(
+                    {"invoice_line_id": ln["id"], "amount_irr": slice_amt}
+                )
+                remaining -= slice_amt
+            if not allocations:
+                raise ValidationFailed("Could not allocate payment", code="alloc_failed")
+            actual = sum(a["amount_irr"] for a in allocations)
+            shift = await finance.open_shift(tenant_id=principal.claims.tenant_id)
+            receipt_id = await finance.record_cash_or_pos_receipt(
+                tenant_id=principal.claims.tenant_id,
+                patient_id=body.patient_id,
+                amount_irr=actual,
+                payment_method=body.payment_method,
+                department_id=dept,
+                shift_id=shift,
+                user_id=principal.account.id,
+                invoice_id=invoice_id,
+                allocations=allocations,
+                now=now,
+            )
+
+    await SqlAuditStore(uow.session).append(
+        tenant_id=principal.claims.tenant_id,
+        actor_type="USER_ACCOUNT",
+        actor_id=principal.account.id,
+        operation="finance.desk_checkout",
+        target_type="invoice",
+        target_id=invoice_id,
+        details={
+            "posted": body.post,
+            "payment_method": body.payment_method,
+            "line_count": len(body.lines),
+        },
+    )
+    await uow.commit()
+    bal = await finance.invoice_balance(
+        tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
+    )
+    return {
+        "id": str(invoice_id),
+        "invoice_number": invoice_number,
+        "status": "POSTED" if body.post else "DRAFT",
+        "receipt_id": str(receipt_id) if receipt_id else None,
+        **bal,
+    }
+
+
+@router.get("/patients/{patient_id}/balance")
+async def patient_balance(principal: Principal, uow: Uow, patient_id: UUID) -> dict:
+    granted = await load_granted(principal, uow)
+    require(granted, perm.FINANCE_INVOICE_VIEW)
+    finance = SqlFinanceOps(uow.session)
+    await _require_ops(finance)
+    from sqlalchemy import text
+
+    rows = await finance.list_invoices(
+        tenant_id=principal.claims.tenant_id,
+        patient_id=patient_id,
+        status="POSTED",
+        limit=200,
+        offset=0,
+    )
+    outstanding = 0
+    paid = 0
+    for row in rows:
+        bal = await finance.invoice_balance(
+            tenant_id=principal.claims.tenant_id, invoice_id=row["id"]
+        )
+        outstanding += bal["outstanding"]
+        paid += bal["allocated_total"]
+    credit = await uow.session.execute(
+        text(
+            """
+            SELECT COALESCE(SUM(amount_irr), 0) AS credit
+            FROM payment_receipts
+            WHERE tenant_id = :tenant_id
+              AND credit_beneficiary_patient_id = :patient_id
+              AND payer_patient_id IS DISTINCT FROM credit_beneficiary_patient_id
+            """
+        ),
+        {"tenant_id": principal.claims.tenant_id, "patient_id": patient_id},
+    )
+    return {
+        "patient_id": str(patient_id),
+        "posted_invoices": len(rows),
+        "outstanding_irr": outstanding,
+        "allocated_irr": paid,
+        "patient_credit_irr": int(credit.mappings().one()["credit"]),
+    }
 
 
 @router.get("/summary")

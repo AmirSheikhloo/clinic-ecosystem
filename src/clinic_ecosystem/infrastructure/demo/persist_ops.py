@@ -651,6 +651,97 @@ async def persist_ops_demo(
                 )
                 refunds_made += 1
 
+    # ACR-D0.11: backfill explicit ALL scopes for existing flat grants (demo cutover).
+    # Without scope rows the scope-aware resolver default-denies every permission.
+    scope_rows = 0
+    grant_rows = await conn.fetch(
+        """
+        SELECT rpa.id AS grant_id
+        FROM role_permission_assignments rpa
+        WHERE rpa.tenant_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM role_permission_scopes rps
+            WHERE rps.tenant_id = rpa.tenant_id
+              AND rps.role_permission_assignment_id = rpa.id
+          )
+        """,
+        tenant_id,
+    )
+    for idx, row in enumerate(grant_rows):
+        await conn.execute(
+            """
+            INSERT INTO role_permission_scopes (
+              id, tenant_id, role_permission_assignment_id, scope_mode,
+              department_id, service_id, provider_resource_id,
+              created_by_user_id, created_at_utc
+            ) VALUES ($1,$2,$3,'ALL',NULL,NULL,NULL,$4,$5)
+            ON CONFLICT DO NOTHING
+            """,
+            demo_uuid(seed, "scope_all", idx),
+            tenant_id,
+            row["grant_id"],
+            operator_account_id,
+            now,
+        )
+        scope_rows += 1
+
+    # Scoped receptionist demo: FILTER department grant for PATIENTS_VIEW_PROFILE only
+    # on a dedicated role so ALL vs FILTER mutual exclusivity stays intact.
+    scoped_role_id = demo_uuid(seed, "scoped_recv_role", 0)
+    await conn.execute(
+        """
+        INSERT INTO tenant_roles (
+          id, tenant_id, role_code, role_name, is_system_defined, created_at_utc
+        ) VALUES ($1,$2,'SCOPED_RECEPTIONIST','پذیرش محدود بخش',FALSE,$3)
+        ON CONFLICT (tenant_id, role_code) DO NOTHING
+        """,
+        scoped_role_id,
+        tenant_id,
+        now,
+    )
+    scoped_role_id = await conn.fetchval(
+        "SELECT id FROM tenant_roles WHERE tenant_id=$1 AND role_code='SCOPED_RECEPTIONIST'",
+        tenant_id,
+    )
+    scoped_grant_id = demo_uuid(seed, "scoped_recv_grant", 0)
+    await conn.execute(
+        """
+        INSERT INTO role_permission_assignments (
+          id, tenant_id, role_id, permission_code, granted_at_utc
+        ) VALUES ($1,$2,$3,'BETA02_PATIENTS_VIEW_PROFILE',$4)
+        ON CONFLICT (tenant_id, role_id, permission_code) DO NOTHING
+        """,
+        scoped_grant_id,
+        tenant_id,
+        scoped_role_id,
+        now,
+    )
+    scoped_grant_id = await conn.fetchval(
+        """
+        SELECT id FROM role_permission_assignments
+        WHERE tenant_id=$1 AND role_id=$2 AND permission_code='BETA02_PATIENTS_VIEW_PROFILE'
+        """,
+        tenant_id,
+        scoped_role_id,
+    )
+    if scoped_grant_id is not None:
+        await conn.execute(
+            """
+            INSERT INTO role_permission_scopes (
+              id, tenant_id, role_permission_assignment_id, scope_mode,
+              department_id, service_id, provider_resource_id,
+              created_by_user_id, created_at_utc
+            ) VALUES ($1,$2,$3,'FILTER',$4,NULL,NULL,$5,$6)
+            ON CONFLICT DO NOTHING
+            """,
+            demo_uuid(seed, "scope_filter", 0),
+            tenant_id,
+            scoped_grant_id,
+            dept_id,
+            operator_account_id,
+            now,
+        )
+
     return {
         "skipped": False,
         "department_id": str(dept_id),
@@ -663,4 +754,6 @@ async def persist_ops_demo(
         "discounts": discounts_made,
         "receipts": receipts_made,
         "refunds": refunds_made,
+        "permission_scopes_all_backfill": scope_rows,
+        "scoped_receptionist_role_id": str(scoped_role_id) if scoped_role_id else None,
     }

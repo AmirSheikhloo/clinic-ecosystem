@@ -1,0 +1,62 @@
+{
+  "profile": "demo",
+  "seed": 20572214,
+  "targets": {
+    "patients": 520,
+    "inactive_patients": 40,
+    "similar_name_clusters": 25,
+    "shared_phone_families": 32,
+    "national_id_patients": 36,
+    "exceptional_identity_patients": 32,
+    "staff_total": 42,
+    "receptionist_logins": 8,
+    "practitioner_no_login": 34,
+    "services": 32,
+    "resources_rooms": 12,
+    "appointments": 10500,
+    "appointments_today": 220,
+    "appointments_tomorrow": 110,
+    "manual_overlap_pairs": 32,
+    "checked_in_waiting_today": 36,
+    "multi_service_groups": 110,
+    "audit_entries": 5200,
+    "seed": 20572214
+  },
+  "counts": {
+    "patients": 520,
+    "inactive_patients": 25,
+    "exceptional_identity_patients": 32,
+    "national_id_patients_planned": 68,
+    "national_id_rows_inserted": 68,
+    "shared_phone_families_planned": 32,
+    "phone_rows_inserted": 520,
+    "staff": 42,
+    "services": 32,
+    "rooms": 12,
+    "appointments": 10500,
+    "appointments_today": 344,
+    "appointments_tomorrow": 110,
+    "appointments_by_status": {
+      "CHECKED_IN": 752,
+      "COMPLETED": 1757,
+      "CANCELLED": 919,
+      "CONFIRMED": 6582,
+      "NO_SHOW": 490
+    },
+    "manual_overlap_pairs": 32,
+    "checked_in_waiting_today": 73,
+    "multi_service_groups": 110,
+    "audit_entries": 5200,
+    "tehran_today": "2026-11-26"
+  },
+  "crypto_seeded": true,
+  "crypto_skip_reason": null,
+  "generated_at_utc": "2026-11-26T15:14:32.699220+00:00",
+  "tenant_id": "01a2186c-2c2e-7d2d-9b68-dec4d8596db5",
+  "notes": [
+    "Synthetic data only; National IDs/phones are not real persons.",
+    "Dates anchored to Asia/Tehran calendar day at generation time.",
+    "No finance/inventory rows (tp0001–tp0007 only).",
+    "RLS left enabled; inserts run as db_migrator with tenant GUC."
+  ]
+}

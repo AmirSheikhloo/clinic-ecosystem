@@ -46,8 +46,15 @@ export function AppointmentDetailsDialog({ appointmentId, onClose, onChanged }: 
   const [mode, setMode] = useState<Mode>("view");
   const [busy, setBusy] = useState<LifecycleAction | null>(null);
   const [failure, setFailure] = useState<ApiFail | null>(null);
+  const [histReason, setHistReason] = useState("");
+  const [histBusy, setHistBusy] = useState(false);
+  const [histMsg, setHistMsg] = useState<string | null>(null);
   const idem = useIdempotencyKey();
   const query = useApiQuery<AppointmentDetails>(`/api/v1/appointments/${appointmentId}`, "بارگذاری جزئیات نوبت ناموفق بود");
+  const hist = useApiQuery<{ entry: { late_entry_reason: string; recorded_at_utc: string } | null }>(
+    `/api/v1/appointments/${appointmentId}/historical-entry`,
+    "بارگذاری سابقهٔ ثبت دیرهنگام ناموفق بود",
+  );
   const detail = query.data;
 
   function done(message: string) {
@@ -123,6 +130,54 @@ export function AppointmentDetailsDialog({ appointmentId, onClose, onChanged }: 
                 ))}
                 {!detail.allocations.length ? <li className="text-[var(--ds-text-muted)]">منبعی ثبت نشده است</li> : null}
               </ul>
+            </section>
+
+            <section className="space-y-2 border-t border-[var(--ds-border)] pt-4" data-testid="historical-entry">
+              <h3 className="ds-section-title">ثبت تاریخی</h3>
+              {hist.data?.entry ? (
+                <p className="text-sm">
+                  دلیل: {hist.data.entry.late_entry_reason}
+                  <span className="ms-2 tabular-nums text-[var(--ds-text-muted)]">
+                    ثبت: {formatTehran(hist.data.entry.recorded_at_utc)}
+                  </span>
+                </p>
+              ) : can(P.appointmentsSchedule) ? (
+                <div className="flex flex-col gap-2">
+                  <input
+                    className="ds-input"
+                    placeholder="دلیل ثبت دیرهنگام"
+                    value={histReason}
+                    onChange={(e) => setHistReason(e.target.value)}
+                    data-testid="historical-reason"
+                  />
+                  <Button
+                    loading={histBusy}
+                    disabled={!histReason.trim()}
+                    onClick={async () => {
+                      setHistBusy(true);
+                      setHistMsg(null);
+                      const result = await apiJson(`/api/v1/appointments/${appointmentId}/historical-entry`, {
+                        method: "POST",
+                        body: { late_entry_reason: histReason.trim() },
+                      });
+                      setHistBusy(false);
+                      if (!result.ok) {
+                        setHistMsg(result.message);
+                        return;
+                      }
+                      setHistReason("");
+                      hist.reload();
+                      toast.success("ثبت تاریخی ذخیره شد");
+                    }}
+                    data-testid="historical-save"
+                  >
+                    ثبت با دلیل و زمان واقعی
+                  </Button>
+                  {histMsg ? <Alert>{histMsg}</Alert> : null}
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--ds-text-muted)]">ثبت تاریخی موجود نیست.</p>
+              )}
             </section>
 
             {mode === "view" ? (

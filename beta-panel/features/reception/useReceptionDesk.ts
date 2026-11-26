@@ -122,6 +122,7 @@ export function useReceptionDesk() {
       !!booking.localStart &&
       !submit.submitting,
     removeDraftLine: drafts.removeDraftLine,
+    clearDraftLines: drafts.clearDraftLines,
     setWalkInNow: () => drafts.setWalkInNow(booking.markWalkInNow),
     canSubmitGroup: drafts.draftLines.length > 0 && !!patients.selectedPatient && !submit.submitting,
     submitGroup: submit.submitGroup,

@@ -43,11 +43,13 @@ export const P = {
   waitlistView: "BETA02_WAITLIST_VIEW",
   waitlistManage: "BETA02_WAITLIST_MANAGE",
   inventoryView: "BETA02_INVENTORY_VIEW",
+  inventoryAdjust: "BETA02_INVENTORY_ADJUST",
   departmentsView: "BETA02_DEPARTMENTS_VIEW",
   departmentsManage: "BETA02_DEPARTMENTS_MANAGE",
   eligibilityManage: "BETA02_ELIGIBILITY_MANAGE",
   onlineClosureManage: "BETA02_ONLINE_CLOSURE_MANAGE",
   cashierShiftManage: "BETA02_CASHIER_SHIFT_MANAGE",
+  financeAdjustment: "BETA02_FINANCE_ADJUSTMENT",
   headReceptionist: "BETA02_HEAD_RECEPTIONIST",
 } as const;
 
