@@ -57,8 +57,14 @@ async def load_demo_dataset(
 ) -> DemoLoadResult:
     """Insert rich demo rows for an existing tenant after roles/migrations seed."""
     profile_name, targets = resolve_profile(profile)
-    if seed is not None and seed != targets.seed:
-        targets = DemoTargets(**{**targets_as_dict(targets), "seed": seed})
+    # Tenant-scoped seed: deterministic per (profile seed, tenant) so fixture IDs
+    # never collide on PRIMARY KEY when multiple tenants share one PostgreSQL
+    # (CI session-scoped Testcontainers). Preview remains stable for a given tenant.
+    base_seed = seed if seed is not None else targets.seed
+    tenant_salt = (tenant_id.int % 999_983) + 1
+    effective_seed = base_seed + tenant_salt
+    if effective_seed != targets.seed:
+        targets = DemoTargets(**{**targets_as_dict(targets), "seed": effective_seed})
     now = now_utc or datetime.now(timezone.utc)
     today = tehran_today(now)
 

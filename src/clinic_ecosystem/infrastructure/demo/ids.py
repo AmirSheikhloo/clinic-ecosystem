@@ -12,7 +12,11 @@ DEMO_NAMESPACE = UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 
 def demo_uuid(seed: int, kind: str, index: int) -> UUID:
-    """Stable UUIDv5 derived from seed + kind + index (deterministic, not UUIDv7)."""
+    """Stable UUIDv5 derived from seed + kind + index (deterministic, not UUIDv7).
+
+    Callers that load multiple tenants into one database must use distinct seeds
+    (see loader tenant salt) so PRIMARY KEY collisions cannot occur.
+    """
     return uuid.uuid5(DEMO_NAMESPACE, f"demo:{seed}:{kind}:{index}")
 
 
