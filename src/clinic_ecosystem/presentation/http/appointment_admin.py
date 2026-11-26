@@ -184,6 +184,44 @@ async def upcoming(
     return {"items": [_item(r) for r in rows], "limit": limit}
 
 
+@router.get("/waiting-room")
+async def waiting_room(
+    principal: Principal,
+    uow: Uow,
+    start_at_utc: Annotated[datetime, Query()],
+    end_at_utc: Annotated[datetime, Query()],
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
+) -> dict:
+    """Physical waiting room: CHECKED_IN appointments in the Tehran-day window (read model)."""
+    require(await load_granted(principal, uow), perm.APPOINTMENTS_LIST)
+    start, end = _parse_range(start_at_utc, end_at_utc)
+    admin = SqlAppointmentAdmin(uow.session)
+    tenant_id = principal.claims.tenant_id
+    total = await admin.count_calendar(
+        tenant_id=tenant_id,
+        start_at_utc=start,
+        end_at_utc=end,
+        status="CHECKED_IN",
+    )
+    rows = await admin.list_calendar(
+        tenant_id=tenant_id,
+        start_at_utc=start,
+        end_at_utc=end,
+        status="CHECKED_IN",
+        sort="time",
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "items": [_item(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "truncated": (offset + len(rows)) < total,
+    }
+
+
 @router.get("/{appointment_id}")
 async def appointment_details(
     appointment_id: UUID, principal: Principal, uow: Uow, response: Response

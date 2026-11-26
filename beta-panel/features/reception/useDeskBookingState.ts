@@ -18,11 +18,20 @@ export function useDeskBookingState() {
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [localStart, setLocalStartRaw] = useState("");
   const [pendingConflicts, setPendingConflicts] = useState<OverlapConflict[] | null>(null);
+  /** When set, pendingConflicts belong to this draft client_line_id (group ack must target it). */
+  const [pendingConflictLineId, setPendingConflictLineId] = useState<string | null>(null);
+  const [pendingLineConflicts, setPendingLineConflicts] = useState<Record<
+    string,
+    OverlapConflict[]
+  > | null>(null);
+  const [immediateCheckIn, setImmediateCheckIn] = useState(false);
   const [lastBooking, setLastBooking] = useState<BookedSummary | null>(null);
   const keyStore = useRef(new IdempotencyKeyStore());
 
   function invalidate() {
     setPendingConflicts(null);
+    setPendingConflictLineId(null);
+    setPendingLineConflicts(null);
     setLastBooking(null);
     keyStore.current.clear();
   }
@@ -34,6 +43,8 @@ export function useDeskBookingState() {
 
   function toggleResource(id: string) {
     setPendingConflicts(null);
+    setPendingConflictLineId(null);
+    setPendingLineConflicts(null);
     setSelectedResourceIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
@@ -41,6 +52,13 @@ export function useDeskBookingState() {
 
   function setLocalStart(value: string) {
     setLocalStartRaw(value);
+    setImmediateCheckIn(false);
+    invalidate();
+  }
+
+  function markWalkInNow(value: string) {
+    setLocalStartRaw(value);
+    setImmediateCheckIn(true);
     invalidate();
   }
 
@@ -49,8 +67,14 @@ export function useDeskBookingState() {
     toggleResource,
     localStart,
     setLocalStart,
+    markWalkInNow,
+    immediateCheckIn,
     pendingConflicts,
     setPendingConflicts,
+    pendingConflictLineId,
+    setPendingConflictLineId,
+    pendingLineConflicts,
+    setPendingLineConflicts,
     lastBooking,
     setLastBooking,
     keyStore,

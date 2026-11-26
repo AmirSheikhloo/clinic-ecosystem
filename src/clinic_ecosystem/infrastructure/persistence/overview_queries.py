@@ -32,6 +32,19 @@ class SqlOverviewQueries:
         )
         return {row.status: int(row.n) for row in result}
 
+    async def unique_patient_count(
+        self, *, tenant_id: UUID, start_at_utc: datetime, end_at_utc: datetime
+    ) -> int:
+        """Distinct patients with ≥1 appointment in range (≠ appointment total)."""
+        return await self.scalar_count(
+            """
+            SELECT count(DISTINCT beneficiary_patient_id) FROM appointments
+            WHERE tenant_id = :t AND scheduled_start_at_utc >= :s
+              AND scheduled_start_at_utc < :e
+            """,
+            {"t": tenant_id, "s": start_at_utc, "e": end_at_utc},
+        )
+
     async def scalar_count(self, sql: str, params: dict[str, Any]) -> int:
         result = await self._session.execute(text(sql), params)
         return int(result.scalar_one())

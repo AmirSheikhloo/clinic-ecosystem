@@ -2,13 +2,20 @@
 
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatApiError, formatTehran, sortedConflictIds, type BookingIntent } from "@/lib/client";
+import {
+  formatApiError,
+  formatTehran,
+  sortedConflictIds,
+  type BookingIntent,
+  type GroupBookingIntent,
+  type OverlapConflict,
+} from "@/lib/client";
 import {
   eligibleResourcesForRequirements,
   requiredSelectionCount,
   validateResourceSelection,
 } from "@/lib/resources";
-import { postManualAppointment } from "./desk-booking-api";
+import { postGroupAppointments, postManualAppointment } from "./desk-booking-api";
 import type { DeskBookingState } from "./useDeskBookingState";
 import type { DeskCatalog } from "./useDeskCatalog";
 import type { DeskFeedback } from "./useDeskFeedback";
@@ -36,7 +43,19 @@ export function useDeskSubmit({
 }: Inputs) {
   const router = useRouter();
   const { setError, setMessage } = feedback;
-  const { selectedResourceIds, localStart, pendingConflicts, setPendingConflicts, setLastBooking, keyStore } = state;
+  const {
+    selectedResourceIds,
+    localStart,
+    pendingConflicts,
+    setPendingConflicts,
+    pendingConflictLineId,
+    setPendingConflictLineId,
+    pendingLineConflicts,
+    setPendingLineConflicts,
+    immediateCheckIn,
+    setLastBooking,
+    keyStore,
+  } = state;
   const { serviceId, requirements, requirementsReady, resources, durationMinutes, services } = catalog;
   const [submitting, setSubmitting] = useState(false);
   const confirmingRef = useRef(false);
@@ -52,7 +71,11 @@ export function useDeskSubmit({
   );
   const neededCount = requiredSelectionCount(requirements);
 
-  function recordBooking(appointmentId: string, startIso: string, flags: { overlapAcknowledged: boolean; replayed?: boolean }) {
+  function recordBooking(
+    appointmentId: string,
+    startIso: string,
+    flags: { overlapAcknowledged: boolean; replayed?: boolean },
+  ) {
     if (!selectedPatient) return;
     setLastBooking({
       appointmentId,
@@ -75,8 +98,49 @@ export function useDeskSubmit({
       durationMinutes,
       acknowledgeOverlap: false,
       acknowledgedConflictIds: [],
+      immediateCheckIn,
       ...overrides,
     };
+  }
+
+  function buildGroupIntent(
+    ackByLine: Record<string, OverlapConflict[]> | null = null,
+  ): GroupBookingIntent | null {
+    if (!selectedPatient || draftLines.length === 0) return null;
+    return {
+      patientId: selectedPatient.patient_profile_id,
+      immediateCheckIn,
+      lines: draftLines.map((line) => {
+        const lineConflicts = ackByLine?.[line.key];
+        return {
+          clientLineId: line.key,
+          serviceId: line.serviceId,
+          resourceIds: line.resourceIds,
+          startLocal: line.localStart,
+          durationMinutes: line.durationMinutes,
+          acknowledgeOverlap: !!lineConflicts,
+          acknowledgedConflictIds: lineConflicts ? sortedConflictIds(lineConflicts) : [],
+        };
+      }),
+    };
+  }
+
+  function applyGroupConflicts(lineConflicts: Record<string, OverlapConflict[]>) {
+    const entries = Object.entries(lineConflicts);
+    if (!entries.length) {
+      setPendingConflicts([]);
+      setPendingConflictLineId(null);
+      setPendingLineConflicts({});
+      return;
+    }
+    setPendingLineConflicts(lineConflicts);
+    // Show the first conflicting line's snapshot; confirm resubmits the whole group.
+    const [lineId, conflicts] = entries[0];
+    setPendingConflictLineId(lineId);
+    setPendingConflicts(conflicts);
+    const serviceName =
+      draftLines.find((line) => line.key === lineId)?.serviceName ?? "خدمت";
+    setError(`تداخل برای «${serviceName}» — گروه ثبت نشد (همه یا هیچ)`);
   }
 
   const selectionOk: boolean = selectionCheck.ok;
@@ -119,6 +183,8 @@ export function useDeskSubmit({
       }
       if (conflicts) {
         setPendingConflicts(conflicts);
+        setPendingConflictLineId(null);
+        setPendingLineConflicts(null);
         setError(null);
         return;
       }
@@ -127,10 +193,20 @@ export function useDeskSubmit({
         return;
       }
       setPendingConflicts(null);
-      setMessage(`نوبت ثبت شد — کد پیگیری: ${data.appointment_id}${replayNote(data.replayed)} — ${formatTehran(startIso)}`);
-      recordBooking(String(data.appointment_id), startIso, { overlapAcknowledged: false, replayed: data.replayed });
+      setPendingConflictLineId(null);
+      setPendingLineConflicts(null);
+      const statusNote = data.status === "CHECKED_IN" ? " — حضور ثبت شد" : "";
+      setMessage(
+        `نوبت ثبت شد — کد پیگیری: ${data.appointment_id}${replayNote(data.replayed)}${statusNote} — ${formatTehran(startIso)}`,
+      );
+      recordBooking(String(data.appointment_id), startIso, {
+        overlapAcknowledged: false,
+        replayed: data.replayed,
+      });
     } catch {
-      setError("ارتباط با سرور برقرار نشد و نتیجه نامشخص است. می‌توانید دوباره «ثبت نوبت» را بزنید؛ نوبت تکراری ایجاد نمی‌شود.");
+      setError(
+        "ارتباط با سرور برقرار نشد و نتیجه نامشخص است. می‌توانید دوباره «ثبت نوبت» را بزنید؛ نوبت تکراری ایجاد نمی‌شود.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -142,6 +218,57 @@ export function useDeskSubmit({
     setSubmitting(true);
     setError(null);
     try {
+      // Group path: ack belongs to a specific draft line, never the current form selection.
+      if (pendingConflictLineId && pendingLineConflicts && draftLines.length > 0) {
+        const intent = buildGroupIntent(pendingLineConflicts);
+        if (!intent) {
+          setError("درخواست تأیید ناقص است");
+          return;
+        }
+        const { response, data, lineConflicts } = await postGroupAppointments(
+          intent,
+          keyStore.current.keyForGroup(intent),
+        );
+        if (response.status === 401) {
+          router.replace("/login?expired=1");
+          return;
+        }
+        if (lineConflicts && Object.keys(lineConflicts).length > 0) {
+          applyGroupConflicts(lineConflicts);
+          keyStore.current.clear();
+          setError("تعارض‌ها تغییر کرده است — فهرست به‌روز شد؛ دوباره تأیید کنید");
+          return;
+        }
+        if (response.status === 403) {
+          setPendingConflicts(null);
+          setPendingConflictLineId(null);
+          setPendingLineConflicts(null);
+          setError("اجازه تأیید تداخل نوبت دستی برای این کاربر وجود ندارد");
+          return;
+        }
+        if (!response.ok) {
+          setError(formatApiError(data, "تأیید تداخل گروه ناموفق بود"));
+          return;
+        }
+        setPendingConflicts(null);
+        setPendingConflictLineId(null);
+        setPendingLineConflicts(null);
+        clearDraftLines?.();
+        const ids = (data.lines ?? []).map((line) => line.appointment_id);
+        setMessage(
+          `گروه پذیرش با تأیید تداخل ثبت شد — ${ids.length} نوبت: ${ids.join("، ")}${replayNote(data.replayed)}`,
+        );
+        if (data.lines?.[0]) {
+          const first = draftLines[0];
+          recordBooking(data.lines[0].appointment_id, "", {
+            overlapAcknowledged: true,
+            replayed: data.replayed,
+          });
+          void first;
+        }
+        return;
+      }
+
       const intent = baseIntent({
         acknowledgeOverlap: true,
         acknowledgedConflictIds: sortedConflictIds(pendingConflicts),
@@ -177,9 +304,14 @@ export function useDeskSubmit({
       setMessage(
         `نوبت با تأیید تداخل ثبت شد — کد پیگیری: ${data.appointment_id}${replayNote(data.replayed)} — ${formatTehran(startIso)}`,
       );
-      recordBooking(String(data.appointment_id), startIso, { overlapAcknowledged: true, replayed: data.replayed });
+      recordBooking(String(data.appointment_id), startIso, {
+        overlapAcknowledged: true,
+        replayed: data.replayed,
+      });
     } catch {
-      setError("ارتباط با سرور برقرار نشد و نتیجه نامشخص است. می‌توانید دوباره تأیید کنید؛ نوبت تکراری ایجاد نمی‌شود.");
+      setError(
+        "ارتباط با سرور برقرار نشد و نتیجه نامشخص است. می‌توانید دوباره تأیید کنید؛ نوبت تکراری ایجاد نمی‌شود.",
+      );
     } finally {
       confirmingRef.current = false;
       setSubmitting(false);
@@ -188,68 +320,63 @@ export function useDeskSubmit({
 
   function dismissOverlap() {
     setPendingConflicts(null);
+    setPendingConflictLineId(null);
+    setPendingLineConflicts(null);
     keyStore.current.clear();
   }
 
   /**
-   * Submit queued service lines as independent appointments (sequential).
-   * Partial success is reported honestly — each line keeps its own idempotency key.
+   * Submit queued service lines as one atomic group under a single Idempotency-Key.
+   * On 409, conflicts are shown for the specific client_line_id; drafts are preserved.
    */
   async function submitGroup() {
     if (submitting || !selectedPatient || draftLines.length === 0) return;
     setError(null);
     setMessage(null);
     setSubmitting(true);
-    const created: string[] = [];
     try {
-      for (const line of draftLines) {
-        const intent: BookingIntent = {
-          patientId: selectedPatient.patient_profile_id,
-          serviceId: line.serviceId,
-          resourceIds: line.resourceIds,
-          startLocal: line.localStart,
-          durationMinutes: line.durationMinutes,
-          acknowledgeOverlap: false,
-          acknowledgedConflictIds: [],
-        };
-        const { response, data, startIso, conflicts } = await postManualAppointment(
-          intent,
-          keyStore.current.keyFor(intent),
-        );
-        if (response.status === 401) {
-          router.replace("/login?expired=1");
-          return;
-        }
-        if (conflicts) {
-          setPendingConflicts(conflicts);
-          setError(
-            created.length
-              ? `تداخل برای «${line.serviceName}» — ${created.length} نوبت قبلاً ثبت شد`
-              : `تداخل برای «${line.serviceName}»؛ گروه متوقف شد`,
-          );
-          return;
-        }
-        if (!response.ok) {
-          setError(
-            created.length
-              ? `${formatApiError(data, "ثبت گروه ناقص ماند")} — ${created.length} نوبت ثبت شد`
-              : formatApiError(data, "ثبت گروه ناموفق بود"),
-          );
-          return;
-        }
-        created.push(String(data.appointment_id));
-        recordBooking(String(data.appointment_id), startIso, {
+      const intent = buildGroupIntent(pendingLineConflicts);
+      if (!intent) {
+        setError("گروه پذیرش ناقص است");
+        return;
+      }
+      const { response, data, lineConflicts } = await postGroupAppointments(
+        intent,
+        keyStore.current.keyForGroup(intent),
+      );
+      if (response.status === 401) {
+        router.replace("/login?expired=1");
+        return;
+      }
+      if (lineConflicts && Object.keys(lineConflicts).length > 0) {
+        applyGroupConflicts(lineConflicts);
+        return;
+      }
+      if (!response.ok) {
+        setError(formatApiError(data, "ثبت گروه ناموفق بود"));
+        return;
+      }
+      setPendingConflicts(null);
+      setPendingConflictLineId(null);
+      setPendingLineConflicts(null);
+      clearDraftLines?.();
+      const ids = (data.lines ?? []).map((line) => line.appointment_id);
+      const checkedIn = (data.lines ?? []).some((line) => line.status === "CHECKED_IN");
+      setMessage(
+        `گروه پذیرش ثبت شد — ${ids.length} نوبت: ${ids.join("، ")}${replayNote(data.replayed)}${
+          checkedIn ? " — حضور ثبت شد" : ""
+        }`,
+      );
+      if (data.lines?.[0]) {
+        recordBooking(data.lines[0].appointment_id, "", {
           overlapAcknowledged: false,
           replayed: data.replayed,
         });
       }
-      clearDraftLines?.();
-      setMessage(`گروه پذیرش ثبت شد — ${created.length} نوبت مستقل: ${created.join("، ")}`);
     } catch {
+      // Preserve drafts on network error — atomic group either fully committed or not.
       setError(
-        created.length
-          ? `ارتباط قطع شد؛ ${created.length} نوبت ممکن است ثبت شده باشد — پیش از تکرار، فهرست نوبت‌ها را بررسی کنید`
-          : "ارتباط با سرور برقرار نشد و نتیجه نامشخص است",
+        "ارتباط با سرور برقرار نشد و نتیجه نامشخص است. پیش‌فاکتور حفظ شد؛ می‌توانید دوباره ثبت کنید — نوبت تکراری ایجاد نمی‌شود.",
       );
     } finally {
       setSubmitting(false);

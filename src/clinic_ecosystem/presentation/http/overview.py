@@ -49,7 +49,15 @@ async def dashboard_summary(
         by_status = await queries.appointment_status_counts(
             tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
         )
-        appointments = {"total": sum(by_status.values()), "by_status": by_status}
+        unique_patients = await queries.unique_patient_count(
+            tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
+        )
+        appointments = {
+            "total": sum(by_status.values()),
+            "by_status": by_status,
+            "unique_patients": unique_patients,
+            "waiting_checked_in": int(by_status.get("CHECKED_IN", 0)),
+        }
         # Next calendar period of equal length (for "tomorrow" when the range is one Tehran day).
         span = end - start
         if span.total_seconds() > 0 and span <= timedelta(days=31):
@@ -59,6 +67,9 @@ async def dashboard_summary(
             tomorrow_appointments = {
                 "total": sum(tomorrow_by.values()),
                 "by_status": tomorrow_by,
+                "unique_patients": await queries.unique_patient_count(
+                    tenant_id=tenant_id, start_at_utc=end, end_at_utc=end + span
+                ),
             }
     return {
         "appointments": appointments,

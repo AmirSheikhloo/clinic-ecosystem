@@ -122,3 +122,20 @@ Lineage unchanged: `tp0001`–`tp0007`. No unapproved migrations executed or inv
 
 * Docker readiness checked before stack start (`scripts/start_preview_stack.py`, `scripts/start_preview.ps1`).
 * Runtime URLs/credentials under `P03_HANDOFF/beta_panel_preview/runtime/` (gitignored); legacy `PREVIEW_URL.txt` also gitignored.
+
+
+## Task 28 / D0.5 (this increment)
+
+Product record: `docs/product/CLINIC_PRODUCT_RECEPTION_REQUIREMENTS_D0.5.md`.
+Decision packet (Category C finance/inventory/waitlist/scopes/staff-service): `docs/architecture_change_records/ACR-D0.5-FINANCE-INVENTORY-WAITLIST.md`.
+
+| Capability | Status |
+|------------|--------|
+| Encrypted National ID + phone persist/lookup (TP0002) | IMPLEMENTED / TESTED (unit crypto); integration pending full suite |
+| Atomic group booking API + FE | IMPLEMENTED |
+| Waiting-room read model (CHECKED_IN) | IMPLEMENTED |
+| Dashboard unique_patients + waiting_checked_in | IMPLEMENTED |
+| Windows Docker-before-prepare + auto-browser | IMPLEMENTED |
+| Rich demo builders + loader | PARTIAL (generator present; preview stack wiring / full count verification pending) |
+| Section 50 finance / inventory / waitlist entity / scopes / staff-service links | BLOCKED (no approved DDL beyond tp0007) |
+| Migration lineage | tp0001–tp0007 unchanged |

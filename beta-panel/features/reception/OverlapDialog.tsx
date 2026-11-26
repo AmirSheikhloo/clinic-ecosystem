@@ -12,6 +12,8 @@ type Props = {
   onConfirm: () => void;
   onDismiss: () => void;
   confirmLabel?: string;
+  /** When confirming a multi-service group, names the draft line that owns these conflicts. */
+  lineLabel?: string;
 };
 
 export function OverlapDialog({
@@ -20,12 +22,17 @@ export function OverlapDialog({
   onConfirm,
   onDismiss,
   confirmLabel = "تأیید تداخل و ثبت نوبت",
+  lineLabel,
 }: Props) {
   return (
     <Dialog
       open
       title="تداخل با نوبت‌های موجود"
-      description="زمان یا منبع انتخاب‌شده با نوبت‌های زیر هم‌پوشانی دارد."
+      description={
+        lineLabel
+          ? `خدمت «${lineLabel}» با نوبت‌های زیر هم‌پوشانی دارد.`
+          : "زمان یا منبع انتخاب‌شده با نوبت‌های زیر هم‌پوشانی دارد."
+      }
       onClose={onDismiss}
       testId="overlap-dialog"
       footer={
@@ -40,6 +47,11 @@ export function OverlapDialog({
       }
     >
       <div className="space-y-3">
+        {lineLabel ? (
+          <p className="text-sm text-[var(--ds-text-muted)]" data-testid="overlap-line-label">
+            تداخل مربوط به ردیف: {lineLabel}
+          </p>
+        ) : null}
         <Alert tone="warn">
           ادامه فقط با تأیید آگاهانه شما و داشتن مجوز «تأیید تداخل نوبت دستی» ممکن است. در غیر این صورت انصراف دهید و زمان یا منبع دیگری انتخاب کنید.
         </Alert>

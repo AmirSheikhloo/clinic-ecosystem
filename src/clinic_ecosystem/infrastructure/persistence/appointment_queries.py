@@ -36,10 +36,25 @@ class SqlAppointmentQueryRepository:
         start_at_utc: datetime,
         end_at_utc: datetime,
         limit: int = 200,
+        status: str | None = None,
     ) -> list[AppointmentListItem]:
+        where = [
+            "a.tenant_id = :tenant_id",
+            "a.scheduled_start_at_utc >= :start_at",
+            "a.scheduled_start_at_utc < :end_at",
+        ]
+        params: dict = {
+            "tenant_id": tenant_id,
+            "start_at": start_at_utc,
+            "end_at": end_at_utc,
+            "limit": limit,
+        }
+        if status is not None:
+            where.append("a.status = :status")
+            params["status"] = status
         result = await self._session.execute(
             text(
-                """
+                f"""
                 SELECT a.id AS appointment_id,
                        a.beneficiary_patient_id AS patient_profile_id,
                        tp.first_name AS patient_first_name,
@@ -58,19 +73,12 @@ class SqlAppointmentQueryRepository:
                   ON tp.tenant_id = p.tenant_id AND tp.id = p.person_id
                 JOIN services s
                   ON s.tenant_id = a.tenant_id AND s.id = a.service_id
-                WHERE a.tenant_id = :tenant_id
-                  AND a.scheduled_start_at_utc >= :start_at
-                  AND a.scheduled_start_at_utc < :end_at
+                WHERE {" AND ".join(where)}
                 ORDER BY a.scheduled_start_at_utc ASC, a.id ASC
                 LIMIT :limit
                 """
             ),
-            {
-                "tenant_id": tenant_id,
-                "start_at": start_at_utc,
-                "end_at": end_at_utc,
-                "limit": limit,
-            },
+            params,
         )
         items: list[AppointmentListItem] = []
         for row in result.mappings().all():
@@ -90,3 +98,20 @@ class SqlAppointmentQueryRepository:
                 )
             )
         return items
+
+    async def list_waiting_room(
+        self,
+        *,
+        tenant_id: UUID,
+        start_at_utc: datetime,
+        end_at_utc: datetime,
+        limit: int = 200,
+    ) -> list[AppointmentListItem]:
+        """CHECKED_IN appointments whose scheduled start falls in the Tehran day window."""
+        return await self.list_in_range(
+            tenant_id=tenant_id,
+            start_at_utc=start_at_utc,
+            end_at_utc=end_at_utc,
+            limit=limit,
+            status="CHECKED_IN",
+        )

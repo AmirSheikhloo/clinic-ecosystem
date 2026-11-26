@@ -126,6 +126,11 @@ class Appointment:
             AppointmentStatus.CONFIRMED,
         }:
             raise InvalidAppointmentSchedule("invalid initial ONLINE status")
+        if capacity_pool == CapacityPool.MANUAL and initial_status not in {
+            AppointmentStatus.CONFIRMED,
+            AppointmentStatus.CHECKED_IN,
+        }:
+            raise InvalidAppointmentSchedule("invalid initial MANUAL status")
         if (
             capacity_pool == CapacityPool.ONLINE
             and initial_status == AppointmentStatus.PENDING_PAYMENT_HOLD
