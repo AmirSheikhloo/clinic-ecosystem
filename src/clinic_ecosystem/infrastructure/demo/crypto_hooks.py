@@ -125,12 +125,7 @@ def preview_demo_pii_env(seed: int = 20261126) -> dict[str, str]:
     aes = hashlib.sha256(f"clinic-demo-aes:{seed}".encode()).hexdigest()
     hmac_key = hashlib.sha256(f"clinic-demo-hmac:{seed}".encode()).hexdigest()
     return {
-        "CLINIC_PII_AES_KEY": aes,
-        "CLINIC_PII_HMAC_KEY": hmac_key,
-        "CLINIC_PII_AES_KEY_VERSION": "1",
-        "CLINIC_PII_HMAC_KEY_VERSION": "1",
+        "CLINIC_ENV": "preview",
+        "CLINIC_PII_AES_KEY_HEX": aes,
+        "CLINIC_PII_HMAC_KEY_HEX": hmac_key,
     }
-
-
-# Silence unused import for type checkers using datetime in callers.
-_ = datetime
