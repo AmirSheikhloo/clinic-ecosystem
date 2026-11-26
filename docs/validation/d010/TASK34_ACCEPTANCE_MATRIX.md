@@ -138,15 +138,15 @@
 
 | # | Scenario | Source | Status |
 |--:|----------|--------|--------|
-| 106 | Deep PG15 suite ≥38 PASS / 0 FAIL | deep_execution_evidence.json | PASS |
+| 106 | Deep PG15 suite ≥38 PASS / 0 FAIL | deep_execution_evidence.json (38/0/2) tip f113b8c | PASS |
 | 107 | Concurrent refund competing rejected | deep suite | PASS |
 | 108 | Paired write-off + consumption evidence | inventory_paired_write_off_return | PASS |
 | 109 | Minimal disposable ops seed smoke | invoices/waitlist/arrivals | PASS |
 | 110 | Demo profile targets defined (520/10500/2000/100/100) | profiles.DEMO | PASS |
 | 111 | Full demo PG15 seed executed this tip | demo_dataset_manifest ops counts | PENDING |
-| 112 | Python unit tests green this tip | pytest unit | PENDING |
+| 112 | Python unit tests green this tip | pytest unit 122 passed / 1 skipped | PASS |
 | 113 | App integration/RLS suite this tip | pytest integration | PENDING |
-| 114 | Frontend production build this tip | next build | PENDING |
+| 114 | Frontend production build this tip | next build (Next.js 16.4.6) | PASS |
 | 115 | Fresh-stack Playwright against demo | e2e specs | PENDING |
 | 116 | Multi-width screenshot inspection | layout/screenshot tools | PENDING |
 | 117 | API/browser benchmarks disposable-only | measure-perf | PENDING |
