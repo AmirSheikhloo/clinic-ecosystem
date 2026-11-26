@@ -1,0 +1,283 @@
+{
+  "generated_at_utc": "2026-11-26T22:43:00.409285+00:00",
+  "lineage": {
+    "baseline_commit": "8309f2a044e944123ddb1f49a8bad1255e4ce2e0",
+    "acr_d09_path": "docs/architecture_change_records/ACR-D0.9-COMPLETE-OPERATIONS-CONTRACTS.md",
+    "acr_d09_sha256": "7171bfc10589410a60d857b5b14814f2475d4412d78071eb7bfedc7955465b40",
+    "official_tp_on_disk_development": [
+      "tp0001_extensions_and_tenant_root.py",
+      "tp0002_identity_and_person_model.py",
+      "tp0003_rbac_governance_minimum.py",
+      "tp0004_catalog_resources_requirements.py",
+      "tp0005_appointments_allocations_holds.py",
+      "tp0006_idempotency_outbox_inbox_audit.py",
+      "tp0007_rls_and_role_policies.py"
+    ],
+    "official_head": "tp0007",
+    "main_lineage": "None\u2192tp0001\u2192\u2026\u2192tp0007 (no tp0008+ on origin/main or development/clinic-operations)",
+    "roadmap_candidate": {
+      "file": "uploads/MASTER_EXECUTION_ROADMAP_v3.0.1_R4.16_fdc5.md",
+      "status": "REVIEW CANDIDATE / NOT APPROVED",
+      "protected_TP0011": "HMAC Phase-6 / atomic resource \u2014 do not repurpose for ops tables",
+      "candidate_ops_alignment": "TP0012\u2013TP0013 scheduling/waitlist; TP0015\u2013TP0017 finance; TP0019 inventory (unapproved)",
+      "f2b": "experimental branches only; TERMINAL FAILED E0.7; no official tp0008+"
+    },
+    "no_tp0008_plus_landed": true,
+    "person_merge_skipped": true
+  },
+  "apply_log": [
+    {
+      "step": "raw/step3_eligibility",
+      "file": "05.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step3_departments",
+      "file": "06.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step4_scopes",
+      "file": "07.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step4_notes",
+      "file": "10.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step4_identity_reviews",
+      "file": "11.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step5_arrival",
+      "file": "08.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step5_waitlist",
+      "file": "04.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step5_online_close",
+      "file": "09.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step7_ledger_core",
+      "file": "00.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step7_ledger_core",
+      "file": "01.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step7_ledger_core",
+      "file": "02.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step7_b2_receipt_guards",
+      "file": "15.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step7_b1_invoice_guards",
+      "file": "14.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step9_inventory",
+      "file": "03.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step7_b3_crossrow",
+      "file": "16.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/step7_b4_misc",
+      "file": "17.sql",
+      "ok": true
+    },
+    {
+      "step": "raw/appendix_a_rls",
+      "file": "13.sql",
+      "ok": true
+    },
+    {
+      "step": "skip",
+      "file": "12.sql",
+      "ok": false,
+      "skipped": true,
+      "reason": "D09-12 / \u00a710.3 person_merge_events SOURCE_REQUIRED (v1.3 alias)"
+    }
+  ],
+  "cases": [
+    {
+      "name": "lineage_head_tp0007",
+      "ok": true,
+      "status": "PASS",
+      "detail": "tp0007"
+    },
+    {
+      "name": "postgres_15",
+      "ok": true,
+      "status": "PASS",
+      "detail": "15.20 (Debian 15.20-1.pgdg13+1)"
+    },
+    {
+      "name": "skip_12.sql",
+      "ok": true,
+      "status": "BLOCKED",
+      "detail": "D09-12 / \u00a710.3 person_merge_events SOURCE_REQUIRED (v1.3 alias)"
+    },
+    {
+      "name": "raw_d09_apply_all_non_skipped",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "eligibility_mapping_insert",
+      "ok": true,
+      "status": "PASS",
+      "detail": "['bookable_resource_id', 'created_at_utc', 'id', 'is_active', 'staff_profile_id', 'tenant_id', 'updated_at_utc']"
+    },
+    {
+      "name": "rls_departments_cross_tenant_hidden",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rls_departments_no_tenant_fail_closed",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rls_invoice_policy_names",
+      "ok": true,
+      "status": "PASS",
+      "detail": "{'tenant_runtime_base', 'tenant_migrator_maintenance', 'tenant_runtime_guard'}"
+    },
+    {
+      "name": "function_present_ops_invoice_guard",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "function_present_ops_receipt_allocation_reconcile",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "function_present_ops_practitioner_mapping_guard",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "function_present_ops_inventory_lot_guard",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "function_present_ops_terminal_state_guard",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "function_present_ops_appointment_lifecycle_facts_guard",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "invoice_draft_insert",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "invoice_rejects_non_draft_insert",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "inventory_lots_present",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "inventory_fefo_index_present",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "waitlist_present",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "online_closures_present",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "arrival_facts_present",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "service_records_present",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "invoice_guard_trigger_installed",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "rls_rejects_forged_tenant_insert",
+      "ok": true,
+      "status": "PASS",
+      "detail": ""
+    }
+  ],
+  "skipped": [
+    {
+      "file": "12.sql",
+      "reason": "D09-12 / \u00a710.3 person_merge_events SOURCE_REQUIRED (v1.3 alias)",
+      "status": "BLOCKED"
+    }
+  ],
+  "summary": {
+    "cases_passed": 23,
+    "cases_failed": 0,
+    "cases_blocked": 1,
+    "apply_ok": 17,
+    "apply_fail": 0,
+    "apply_skipped": 1
+  }
+}
