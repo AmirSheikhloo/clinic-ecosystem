@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/m1-01-appointment-vertical-slice
+      - feature/beta-01b-reception
   workflow_dispatch:
 
 permissions:
@@ -76,3 +77,105 @@ jobs:
             m1-collect.txt
             m1-pytest.txt
             m1-junit.xml
+
+  beta01b-browser-validation:
+    name: BETA-01B browser + frontend validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: beta-panel/package-lock.json
+
+      - name: Verify Docker daemon
+        run: |
+          set -euo pipefail
+          docker version
+          docker info
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install frontend dependencies
+        working-directory: beta-panel
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: beta-panel
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare evidence directory
+        run: mkdir -p artifacts/beta01b-e2e
+
+      - name: Run all Python unit + integration tests
+        shell: bash
+        env:
+          M0_REQUIRE_DOCKER: "1"
+        run: |
+          set -euo pipefail
+          python -m pytest tests/unit tests/integration -v --tb=short -rs \
+            --junitxml=artifacts/beta01b-e2e/python-junit.xml \
+            | tee artifacts/beta01b-e2e/python-pytest.txt
+
+      - name: Frontend unit tests
+        working-directory: beta-panel
+        run: npm test | tee ../artifacts/beta01b-e2e/frontend-test.txt
+
+      - name: Frontend typecheck
+        working-directory: beta-panel
+        run: npm run typecheck | tee ../artifacts/beta01b-e2e/frontend-typecheck.txt
+
+      - name: Frontend lint
+        working-directory: beta-panel
+        run: npm run lint | tee ../artifacts/beta01b-e2e/frontend-lint.txt
+
+      - name: Frontend production build
+        working-directory: beta-panel
+        run: npm run build | tee ../artifacts/beta01b-e2e/frontend-build.txt
+
+      - name: Real Chromium browser E2E (panel + BFF + API + PG15)
+        shell: bash
+        env:
+          M0_REQUIRE_DOCKER: "1"
+          BETA01B_REQUIRE_BROWSER_E2E: "1"
+          BETA01B_E2E_ARTIFACT_DIR: ${{ github.workspace }}/artifacts/beta01b-e2e
+        run: |
+          set -euo pipefail
+          python -m tests.e2e.beta01b.run_browser_e2e | tee artifacts/beta01b-e2e/browser-orchestrator.txt
+
+      - name: Assert browser E2E evidence
+        run: |
+          python .github/scripts/assert_beta01b_browser_evidence.py \
+            --junit artifacts/beta01b-e2e/playwright-junit.xml \
+            --log artifacts/beta01b-e2e/browser-orchestrator.txt
+
+      - name: Upload BETA-01B validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta01b-browser-validation-evidence
+          path: |
+            artifacts/beta01b-e2e/python-junit.xml
+            artifacts/beta01b-e2e/python-pytest.txt
+            artifacts/beta01b-e2e/frontend-test.txt
+            artifacts/beta01b-e2e/frontend-typecheck.txt
+            artifacts/beta01b-e2e/frontend-lint.txt
+            artifacts/beta01b-e2e/frontend-build.txt
+            artifacts/beta01b-e2e/browser-orchestrator.txt
+            artifacts/beta01b-e2e/playwright-junit.xml
+            artifacts/beta01b-e2e/playwright-output
+          if-no-files-found: warn

@@ -61,3 +61,26 @@ def test_schedule_manual_success() -> None:
     assert appt.aggregate_version == 1
     assert len(appt.allocations) == 1
     assert appt.domain_events[0]["event_type"] == "appointment.scheduled"
+
+
+def test_schedule_manual_walk_in_checked_in() -> None:
+    start = datetime.now(timezone.utc)
+    end = start + timedelta(minutes=30)
+    appt = Appointment.schedule(
+        tenant_id=new_uuid7(),
+        beneficiary_patient_id=new_uuid7(),
+        booker_person_id=None,
+        patient_booking_note=None,
+        service_id=new_uuid7(),
+        booking_channel=BookingChannel.MANUAL_STAFF,
+        capacity_pool=CapacityPool.MANUAL,
+        start_at_utc=start,
+        end_at_utc=end,
+        resource_allocations=[
+            ResourceAllocationRequest(resource_id=new_uuid7(), resource_type="ROOM")
+        ],
+        hold_expires_at_utc=None,
+        initial_status=AppointmentStatus.CHECKED_IN,
+    )
+    assert appt.status == AppointmentStatus.CHECKED_IN
+    assert appt.allocations[0].allocation_status.value == "CHECKED_IN"

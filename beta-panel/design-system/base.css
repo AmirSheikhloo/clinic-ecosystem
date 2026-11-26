@@ -1,0 +1,84 @@
+@theme {
+  --font-sans: var(--ds-font-family);
+  --color-ink: var(--ds-text);
+  --color-mist: var(--ds-surface-muted);
+  --color-sea: var(--ds-primary);
+  --color-sea-deep: var(--ds-primary-strong);
+  --color-sand: var(--ds-bg);
+  --color-alert: var(--ds-danger);
+  --color-ok: var(--ds-success);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--ds-border);
+  }
+
+  html {
+    color-scheme: light;
+    /* Reserve the scrollbar track on every page so short and long pages share one width. */
+    scrollbar-gutter: stable;
+  }
+
+  html[data-scroll-locked="true"] {
+    overflow: hidden;
+  }
+
+  html[data-appearance="dark"] {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--ds-bg);
+    background-image: radial-gradient(circle at 88% 0%, var(--ds-bg-accent), transparent 38%);
+    background-attachment: fixed;
+    color: var(--ds-text);
+    font-family: var(--font-sans);
+    font-size: var(--ds-font-size-md);
+    line-height: var(--ds-line-height-body);
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--ds-heading);
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--ds-primary) 30%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ds-focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Same collapse when the Preferences "reduced motion" choice is on. */
+  html[data-motion="reduced"] *,
+  html[data-motion="reduced"] ::before,
+  html[data-motion="reduced"] ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
