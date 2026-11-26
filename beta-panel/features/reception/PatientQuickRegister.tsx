@@ -60,8 +60,7 @@ export function PatientQuickRegister({
     (identityType === "IR_NATIONAL_ID"
       ? digits.length === 10 && isValidNationalIdChecksum(digits)
       : nationalId.trim().length >= 3);
-  const exceptionOk = identityType !== "EXCEPTION" || identityExceptionReason.trim().length > 0;
-  const ready = firstName.trim().length > 0 && lastName.trim().length > 0 && idOk && exceptionOk;
+  const ready = firstName.trim().length > 0 && lastName.trim().length > 0 && idOk;
 
   return (
     <form onSubmit={onRegister} className="space-y-3 border-t border-[var(--ds-border)] pt-4" aria-label="ثبت بیمار جدید">
@@ -87,8 +86,8 @@ export function PatientQuickRegister({
           value={identityExceptionReason}
           onChange={(e) => onIdentityExceptionReasonChange(e.target.value)}
           maxLength={200}
-          required
           autoComplete="off"
+          hint="شناسه جعلی ساخته نمی‌شود. ذکر دلیل توصیه می‌شود."
         />
       ) : (
         <TextField

@@ -144,19 +144,12 @@ async def register_patient(
             detail={"error": "identity_type_invalid", "message": "Unsupported identity type"},
         )
 
+    # Clause 755: missing official ID must not block profile creation. Exception
+    # reason is encouraged and audited when present; it is not a hard gate.
     exception_reason = (body.identity_exception_reason or "").strip() or None
     official_value: str | None = None
     authority: str | None = None
-    if identity_type == "EXCEPTION":
-        if not exception_reason:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "identity_exception_reason_required",
-                    "message": "Exception path requires a reason; IDs are never fabricated",
-                },
-            )
-    else:
+    if identity_type != "EXCEPTION":
         official_value = _normalize_official(identity_type=identity_type, raw_value=body.national_id)
         authority = (body.issuing_country_or_authority or _DEFAULT_AUTHORITY[identity_type]).strip().upper()
 

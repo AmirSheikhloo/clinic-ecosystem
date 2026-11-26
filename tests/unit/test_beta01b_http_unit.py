@@ -176,6 +176,62 @@ def test_patient_register_success(app_principal) -> None:
         patients_mod.SqlAuditStore = original_audit
 
 
+def test_patient_register_allows_missing_official_id_without_reason(app_principal) -> None:
+    """Clause 755: absence of official identifier must not block profile creation."""
+    app, principal, token = app_principal
+    patient_id = uuid4()
+    person_id = uuid4()
+
+    async def allow(*args, **kwargs):
+        return None
+
+    class FakeRepo:
+        def __init__(self, session):
+            pass
+
+        async def register(self, **kwargs):
+            return PatientRecord(
+                patient_profile_id=patient_id,
+                person_id=person_id,
+                tenant_id=principal.claims.tenant_id,
+                first_name=kwargs["first_name"],
+                last_name=kwargs["last_name"],
+                birth_date=kwargs.get("birth_date"),
+                is_active=True,
+            )
+
+    class FakeAudit:
+        details: list = []
+
+        def __init__(self, session):
+            pass
+
+        async def append(self, **kwargs):
+            FakeAudit.details.append(kwargs.get("details"))
+
+    original_perm = patients_mod.require_permission
+    original_repo = patients_mod.SqlPatientRepository
+    original_audit = patients_mod.SqlAuditStore
+    patients_mod.require_permission = allow
+    patients_mod.SqlPatientRepository = FakeRepo
+    patients_mod.SqlAuditStore = FakeAudit
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/patients",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"first_name": "Sara", "last_name": "NoId"},
+            )
+        assert response.status_code == 201, response.text
+        assert response.json()["first_name"] == "Sara"
+        assert FakeAudit.details
+        assert FakeAudit.details[0].get("identity_exception_reason") is None
+    finally:
+        patients_mod.require_permission = original_perm
+        patients_mod.SqlPatientRepository = original_repo
+        patients_mod.SqlAuditStore = original_audit
+
+
 def test_patient_register_crypto_unavailable_when_national_id(app_principal, monkeypatch) -> None:
     app, _, token = app_principal
     monkeypatch.setenv("CLINIC_ENV", "test")

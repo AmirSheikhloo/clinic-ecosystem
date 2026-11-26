@@ -10,7 +10,7 @@ const ERROR_FA: Record<string, string> = {
   duplicate_official_identifier: "این شناسهٔ رسمی قبلاً برای بیمار دیگری ثبت شده است",
   identifier_crypto_unavailable: "ذخیرهٔ رمزنگاری‌شدهٔ شناسه/تلفن در دسترس نیست؛ کلیدهای CLINIC_PII در محیط پیکربندی نشده‌اند",
   identifier_required: "مقدار شناسهٔ رسمی الزامی است",
-  identity_exception_reason_required: "برای ثبت بدون شناسهٔ رسمی، ذکر دلیل الزامی است",
+  identity_exception_reason_required: "برای ثبت بدون شناسهٔ رسمی، ذکر دلیل توصیه می‌شود",
   identity_type_invalid: "نوع شناسه نامعتبر است",
   national_id_checksum_invalid: "رقم کنترل کد ملی نامعتبر است",
   national_id_invalid: "کد ملی نامعتبر است",

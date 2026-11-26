@@ -63,8 +63,7 @@ export function PatientRegisterForm({
     (identityType === "IR_NATIONAL_ID"
       ? digits.length === 10 && isValidNationalIdChecksum(digits)
       : nationalId.trim().length >= 3);
-  const exceptionOk = identityType !== "EXCEPTION" || identityExceptionReason.trim().length > 0;
-  const ready = firstName.trim() && lastName.trim() && idOk && exceptionOk;
+  const ready = Boolean(firstName.trim() && lastName.trim() && idOk);
 
   return (
     <form onSubmit={onRegister} className="space-y-4" aria-label="ثبت بیمار جدید" data-testid="patients-register-form">
@@ -83,10 +82,9 @@ export function PatientRegisterForm({
           value={identityExceptionReason}
           onChange={(e) => onIdentityExceptionReasonChange(e.target.value)}
           maxLength={200}
-          required
           autoComplete="off"
           data-testid="patients-identity-exception"
-          hint="شناسه جعلی ساخته نمی‌شود؛ دلیل الزامی است."
+          hint="شناسه جعلی ساخته نمی‌شود. ذکر دلیل برای پیگیری توصیه می‌شود."
         />
       ) : (
         <TextField
