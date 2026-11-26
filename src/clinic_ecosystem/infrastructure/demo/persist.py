@@ -20,15 +20,24 @@ BATCH = 500
 DEMO_RECV_PASSWORD = "BetaDemo-Receptionist-Only!"
 
 
+async def insert_rows(
+    conn: asyncpg.Connection, table: str, columns: list[str], rows: list[tuple]
+) -> None:
+    """Batched INSERT — COPY FROM is rejected under FORCE ROW LEVEL SECURITY."""
+    if not rows:
+        return
+    col_sql = ", ".join(columns)
+    placeholders = ", ".join(f"${i}" for i in range(1, len(columns) + 1))
+    sql = f"INSERT INTO {table} ({col_sql}) VALUES ({placeholders})"
+    for i in range(0, len(rows), BATCH):
+        await conn.executemany(sql, rows[i : i + BATCH])
+
+
 async def copy_rows(
     conn: asyncpg.Connection, table: str, columns: list[str], rows: list[tuple]
 ) -> None:
-    if not rows:
-        return
-    for i in range(0, len(rows), BATCH):
-        await conn.copy_records_to_table(
-            table, records=rows[i : i + BATCH], columns=columns
-        )
+    """Compatibility alias; persists via INSERT under RLS."""
+    await insert_rows(conn, table, columns, rows)
 
 
 async def persist_identity_graph(
