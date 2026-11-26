@@ -131,11 +131,12 @@ Decision packet (Category C finance/inventory/waitlist/scopes/staff-service): `d
 
 | Capability | Status |
 |------------|--------|
-| Encrypted National ID + phone persist/lookup (TP0002) | IMPLEMENTED / TESTED (unit crypto); integration pending full suite |
-| Atomic group booking API + FE | IMPLEMENTED |
+| Encrypted National ID + phone persist/lookup (TP0002) | IMPLEMENTED / TESTED (unit crypto + non-prod key policy) |
+| Atomic group booking API + FE | IMPLEMENTED / TESTED (PG group schedule atomic) |
 | Waiting-room read model (CHECKED_IN) | IMPLEMENTED |
 | Dashboard unique_patients + waiting_checked_in | IMPLEMENTED |
 | Windows Docker-before-prepare + auto-browser | IMPLEMENTED |
-| Rich demo builders + loader | PARTIAL (generator present; preview stack wiring / full count verification pending) |
-| Section 50 finance / inventory / waitlist entity / scopes / staff-service links | BLOCKED (no approved DDL beyond tp0007) |
+| Rich demo builders + loader | IMPLEMENTED / TESTED (`tests/integration/test_demo_minimal_loader.py` on PG15; INSERT under FORCE RLS; preview stack wired) |
+| Full `demo` profile count verification on disposable preview | PARTIAL (minimal profile PASS on PG15; full demo profile counts validated in-memory + generator; live full-profile PG run still recommended on Windows preview) |
+| Section 50 finance / inventory / waitlist entity / scopes / staff-service links | BLOCKED (no approved DDL beyond tp0007; see ACR-D0.5) |
 | Migration lineage | tp0001–tp0007 unchanged |
