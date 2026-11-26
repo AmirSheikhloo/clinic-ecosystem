@@ -1,11 +1,12 @@
 """Approved lifecycle operations for staff-booked appointments (Workstream D).
 
-Only operations with a source-grounded contract are exposed:
-* cancel  (CONFIRMED -> CANCELLED) for MANUAL pool appointments,
-* reschedule of CONFIRMED MANUAL appointments with the existing overlap
-  acknowledgement contract (clause 779) and lock order (clause 783).
-Check-in, completion and no-show transitions are intentionally absent because the
-transition policy is unspecified (see ACR-BETA02-001).
+Exposed operations for MANUAL pool appointments:
+* cancel (CONFIRMED|CHECKED_IN -> CANCELLED),
+* reschedule of CONFIRMED appointments with overlap acknowledgement (clause 779)
+  and lock order (clause 783),
+* check_in (CONFIRMED -> CHECKED_IN),
+* complete (CHECKED_IN -> COMPLETED),
+* mark_no_show (CONFIRMED -> NO_SHOW) only after scheduled_start_at_utc.
 """
 
 from __future__ import annotations
@@ -23,6 +24,10 @@ from clinic_ecosystem.application.shared.errors import (
     ValidationFailed,
 )
 from clinic_ecosystem.domain.access.permissions import ALLOW_MANUAL_OVERBOOKING
+from clinic_ecosystem.domain.scheduling.transitions import (
+    InvalidStatusTransition,
+    validate_transition,
+)
 from clinic_ecosystem.infrastructure.persistence.appointment_admin import SqlAppointmentAdmin
 from clinic_ecosystem.infrastructure.persistence.appointment_repository import (
     SqlAppointmentRepository,
@@ -78,12 +83,16 @@ class AppointmentLifecycleService:
         return appt
 
     @staticmethod
-    def _require_mutable(appt: dict[str, Any]) -> None:
+    def _require_manual_pool(appt: dict[str, Any]) -> None:
         if appt["capacity_pool"] != MANUAL_POOL:
             raise Conflict(
                 "Only staff-booked (manual pool) appointments can be changed here",
                 code="operation_not_supported_for_pool",
             )
+
+    @staticmethod
+    def _require_mutable(appt: dict[str, Any]) -> None:
+        AppointmentLifecycleService._require_manual_pool(appt)
         if appt["status"] != MUTABLE_STATUS:
             raise Conflict(
                 "Appointment status does not allow this operation",
@@ -91,41 +100,99 @@ class AppointmentLifecycleService:
                 extra={"current_status": appt["status"]},
             )
 
+    async def _apply_status(
+        self,
+        actor: Actor,
+        appointment_id: UUID,
+        expected_version: int,
+        *,
+        to_status: str,
+        event_type: str,
+        reason: str | None = None,
+        release_capacity: bool = False,
+    ) -> dict[str, Any]:
+        appt = await self._lock_and_load(actor, appointment_id, expected_version)
+        self._require_manual_pool(appt)
+        now = datetime.now(timezone.utc)
+        try:
+            validate_transition(
+                from_status=appt["status"],
+                to_status=to_status,
+                now=now,
+                scheduled_start_at_utc=appt["scheduled_start_at_utc"],
+            )
+        except InvalidStatusTransition as exc:
+            raise Conflict(str(exc), code=exc.code, extra=exc.extra) from exc
+        version = await self._admin.transition_appointment(
+            tenant_id=actor.tenant_id, appointment_id=appointment_id,
+            expected_version=expected_version, new_status=to_status,
+            start_at_utc=None, end_at_utc=None, now=now,
+        )
+        if version is None:
+            raise PreconditionFailed("Appointment was modified by someone else")
+        if release_capacity:
+            await self._admin.cancel_allocations(
+                tenant_id=actor.tenant_id, appointment_id=appointment_id
+            )
+        else:
+            await self._admin.set_allocation_status(
+                tenant_id=actor.tenant_id, appointment_id=appointment_id,
+                new_status=to_status,
+            )
+        details: dict[str, Any] = {
+            "from_status": appt["status"], "to_status": to_status,
+            "from_version": expected_version, "to_version": version,
+        }
+        if reason is not None:
+            details["reason"] = reason
+        await self._audit.append(
+            tenant_id=actor.tenant_id, actor_type="USER_ACCOUNT", actor_id=actor.account_id,
+            operation=event_type, target_type="appointment", target_id=appointment_id,
+            details=details,
+        )
+        await self._outbox.stage(
+            tenant_id=actor.tenant_id, message_type=event_type,
+            payload={"event_type": event_type, "appointment_id": str(appointment_id),
+                     "aggregate_version": version},
+        )
+        return {"appointment_id": str(appointment_id), "status": to_status,
+                "aggregate_version": version}
+
     async def cancel(
         self, actor: Actor, appointment_id: UUID, expected_version: int, reason: str | None
     ) -> dict[str, Any]:
         reason = (reason or "").strip() or None
         if reason and len(reason) > MAX_REASON:
             raise ValidationFailed("Reason is too long", code="reason_too_long")
-        appt = await self._lock_and_load(actor, appointment_id, expected_version)
-        self._require_mutable(appt)
-        now = datetime.now(timezone.utc)
-        version = await self._admin.transition_appointment(
-            tenant_id=actor.tenant_id, appointment_id=appointment_id,
-            expected_version=expected_version, new_status="CANCELLED",
-            start_at_utc=None, end_at_utc=None, now=now,
+        return await self._apply_status(
+            actor, appointment_id, expected_version,
+            to_status="CANCELLED", event_type="appointment.cancelled",
+            reason=reason, release_capacity=True,
         )
-        if version is None:
-            raise PreconditionFailed("Appointment was modified by someone else")
-        await self._admin.cancel_allocations(
-            tenant_id=actor.tenant_id, appointment_id=appointment_id
+
+    async def check_in(
+        self, actor: Actor, appointment_id: UUID, expected_version: int
+    ) -> dict[str, Any]:
+        return await self._apply_status(
+            actor, appointment_id, expected_version,
+            to_status="CHECKED_IN", event_type="appointment.checked_in",
         )
-        await self._audit.append(
-            tenant_id=actor.tenant_id, actor_type="USER_ACCOUNT", actor_id=actor.account_id,
-            operation="appointment.cancelled", target_type="appointment",
-            target_id=appointment_id,
-            details={"from_status": appt["status"], "to_status": "CANCELLED",
-                     "from_version": expected_version, "to_version": version,
-                     "reason": reason},
+
+    async def complete(
+        self, actor: Actor, appointment_id: UUID, expected_version: int
+    ) -> dict[str, Any]:
+        return await self._apply_status(
+            actor, appointment_id, expected_version,
+            to_status="COMPLETED", event_type="appointment.completed",
         )
-        await self._outbox.stage(
-            tenant_id=actor.tenant_id, message_type="appointment.cancelled",
-            payload={"event_type": "appointment.cancelled",
-                     "appointment_id": str(appointment_id),
-                     "aggregate_version": version},
+
+    async def mark_no_show(
+        self, actor: Actor, appointment_id: UUID, expected_version: int
+    ) -> dict[str, Any]:
+        return await self._apply_status(
+            actor, appointment_id, expected_version,
+            to_status="NO_SHOW", event_type="appointment.no_show",
         )
-        return {"appointment_id": str(appointment_id), "status": "CANCELLED",
-                "aggregate_version": version}
 
     async def reschedule(
         self,

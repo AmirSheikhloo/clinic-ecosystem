@@ -29,6 +29,9 @@ export const P = {
   appointmentsDetails: "BETA02_APPOINTMENTS_VIEW_DETAILS",
   appointmentsCancel: "BETA02_APPOINTMENTS_CANCEL",
   appointmentsReschedule: "BETA02_APPOINTMENTS_RESCHEDULE",
+  appointmentsCheckIn: "BETA02_APPOINTMENTS_CHECK_IN",
+  appointmentsComplete: "BETA02_APPOINTMENTS_COMPLETE",
+  appointmentsMarkNoShow: "BETA02_APPOINTMENTS_MARK_NO_SHOW",
 } as const;
 
 export type NavGroupId = "work" | "clinic" | "admin" | "personal";

@@ -26,6 +26,9 @@ const HINTS: Record<string, string> = {
   ALLOW_MANUAL_OVERBOOKING: "ثبت نوبت دستی با وجود هم‌پوشانی، پس از تأیید آگاهانه",
   BETA02_APPOINTMENTS_CANCEL: "لغو نوبت‌های دستی",
   BETA02_APPOINTMENTS_RESCHEDULE: "تغییر زمان نوبت‌های دستی",
+  BETA02_APPOINTMENTS_CHECK_IN: "ثبت حضور بیمار برای نوبت تأییدشده",
+  BETA02_APPOINTMENTS_COMPLETE: "اتمام نوبت پس از حضور",
+  BETA02_APPOINTMENTS_MARK_NO_SHOW: "ثبت عدم حضور پس از زمان شروع",
 };
 
 export function permissionHint(code: string): string | undefined {

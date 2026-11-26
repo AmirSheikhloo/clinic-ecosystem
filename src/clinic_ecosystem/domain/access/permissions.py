@@ -43,6 +43,9 @@ CATALOG_RESOURCES_MANAGE = "BETA02_CATALOG_RESOURCES_MANAGE"
 APPOINTMENTS_VIEW_DETAILS = "BETA02_APPOINTMENTS_VIEW_DETAILS"
 APPOINTMENTS_CANCEL = "BETA02_APPOINTMENTS_CANCEL"
 APPOINTMENTS_RESCHEDULE = "BETA02_APPOINTMENTS_RESCHEDULE"
+APPOINTMENTS_CHECK_IN = "BETA02_APPOINTMENTS_CHECK_IN"
+APPOINTMENTS_COMPLETE = "BETA02_APPOINTMENTS_COMPLETE"
+APPOINTMENTS_MARK_NO_SHOW = "BETA02_APPOINTMENTS_MARK_NO_SHOW"
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +83,11 @@ _DEFS: tuple[PermissionDefinition, ...] = (
     PermissionDefinition(ALLOW_MANUAL_OVERBOOKING, "appointments", "تأیید هم‌پوشانی دستی", "Acknowledge manual overlaps"),
     PermissionDefinition(APPOINTMENTS_CANCEL, "appointments", "لغو نوبت", "Cancel manual appointments"),
     PermissionDefinition(APPOINTMENTS_RESCHEDULE, "appointments", "جابه‌جایی نوبت", "Reschedule manual appointments"),
+    PermissionDefinition(APPOINTMENTS_CHECK_IN, "appointments", "ثبت حضور", "Check in a confirmed appointment"),
+    PermissionDefinition(APPOINTMENTS_COMPLETE, "appointments", "اتمام نوبت", "Mark a checked-in appointment completed"),
+    PermissionDefinition(
+        APPOINTMENTS_MARK_NO_SHOW, "appointments", "ثبت عدم حضور", "Mark a confirmed appointment as no-show"
+    ),
 )
 
 PERMISSION_CATALOG: dict[str, PermissionDefinition] = {d.code: d for d in _DEFS}
