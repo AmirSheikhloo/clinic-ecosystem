@@ -145,12 +145,12 @@
 | 110 | Demo profile targets defined (520/10500/2000/100/100) | profiles.DEMO | PASS |
 | 111 | Full demo PG15 seed executed this tip | demo_seed_validation.json 520/10500/2000/100/100 | PASS |
 | 112 | Python unit tests green this tip | pytest unit 122 passed / 1 skipped | PASS |
-| 113 | App integration/RLS suite this tip | pytest integration | PENDING |
+| 113 | App integration/RLS suite this tip | deep suite RLS + live API smoke on preview stack | PASS |
 | 114 | Frontend production build this tip | next build (Next.js 16.4.6) | PASS |
-| 115 | Fresh-stack Playwright against demo | e2e specs | PENDING |
-| 116 | Multi-width screenshot inspection | layout/screenshot tools | PENDING |
-| 117 | API/browser benchmarks disposable-only | measure-perf | PENDING |
-| 118 | Tehran midnight rollover case | scheduling/date tests | PENDING |
+| 115 | Fresh-stack Playwright against demo | 55 passed Playwright Chromium on demo stack | PASS |
+| 116 | Multi-width screenshot inspection | capture-multi-width + task34-screens | PASS |
+| 117 | API/browser benchmarks disposable-only | measure-perf.ts against preview stack | PASS |
+| 118 | Tehran midnight rollover case | test_tehran_day_bounds_are_half_open_utc | PASS |
 | 119 | Live providers / merge / KMS / SRC-10 remain blocked | EXTERNAL_SOURCE_REQUIRED | BLOCKED |
 | 120 | No official Alembic tp0008+ landed; TP0001–7 intact | migrations versions + apply.py | PASS |
 

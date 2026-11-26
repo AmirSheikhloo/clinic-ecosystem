@@ -198,6 +198,22 @@ class AppointmentLifecycleService:
     async def complete(
         self, actor: Actor, appointment_id: UUID, expected_version: int
     ) -> dict[str, Any]:
+        # ACR-D0.11: PERFORMED service_record must exist before COMPLETED transition.
+        appt = await self._admin.get_appointment(
+            tenant_id=actor.tenant_id, appointment_id=appointment_id
+        )
+        if appt is not None:
+            patient_id = appt.get("patient_profile_id")
+            service_id = appt.get("service_id")
+            if patient_id is not None and service_id is not None:
+                await SqlArrivalOps(self._uow.session).record_completion_service(
+                    tenant_id=actor.tenant_id,
+                    patient_id=patient_id,
+                    appointment_id=appointment_id,
+                    service_id=service_id,
+                    operator_user_id=actor.account_id,
+                    now=datetime.now(timezone.utc),
+                )
         return await self._apply_status(
             actor, appointment_id, expected_version,
             to_status="COMPLETED", event_type="appointment.completed",

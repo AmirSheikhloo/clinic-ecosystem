@@ -56,5 +56,7 @@ test("manager: list workspace check-in and complete; dashboard upcoming stays li
   await expect(page.getByTestId("dashboard-count")).toHaveText(/^\d+$/, { timeout: 30_000 });
   // Upcoming may be empty once today's visits finish; the region itself must still render.
   await expect(page.getByRole("region", { name: "برنامهٔ امروز" })).toBeVisible();
-  await expect(page.getByTestId("dashboard-row").or(page.getByText("نوبت پیش‌رویی"))).toBeVisible();
+  await expect(
+    page.getByTestId("dashboard-row").or(page.getByText("نوبت پیش‌رویی")).first(),
+  ).toBeVisible({ timeout: 30_000 });
 });

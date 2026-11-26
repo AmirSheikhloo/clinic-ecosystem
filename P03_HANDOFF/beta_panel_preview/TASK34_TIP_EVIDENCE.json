@@ -1,0 +1,18 @@
+{
+  "tip_commits": ["f113b8c", "a00d883", "ee88c75"],
+  "deep_suite": {"passed": 38, "failed": 0, "blocked": 2},
+  "unit_tests": {"passed": 122, "skipped": 1},
+  "next_build": "ok",
+  "demo_seed": {
+    "patients": 520,
+    "appointments": 10500,
+    "invoices": 2000,
+    "discounts": 100,
+    "refunds": 100
+  },
+  "playwright": {"passed": 55, "failed": 0},
+  "measure_perf": "ok",
+  "multi_width_screens": "ok",
+  "windows_preview": "scripts/start_preview.ps1 auto-opens browser unless -NoBrowser",
+  "blocked_external": ["person_merge_events SOURCE_REQUIRED", "live CARD_TO_CARD/ONLINE Gate B"]
+}

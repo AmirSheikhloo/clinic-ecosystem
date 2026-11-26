@@ -106,3 +106,88 @@ class SqlArrivalOps:
             },
         )
         return fact_id
+
+    async def record_completion_service(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        appointment_id: UUID,
+        service_id: UUID,
+        operator_user_id: UUID,
+        now: datetime,
+        department_id: UUID | None = None,
+    ) -> UUID | None:
+        """Insert PERFORMED service_record before COMPLETED transition (ACR-D0.11).
+
+        Must run while appointment is still CHECKED_IN so the lifecycle trigger
+        can see the performed record when status flips to COMPLETED.
+        """
+        if not await self.schema_ready():
+            return None
+        existing = await self._session.execute(
+            text(
+                """
+                SELECT id FROM service_records
+                WHERE tenant_id = :tenant_id AND appointment_id = :appointment_id
+                  AND record_kind = 'PERFORMED'
+                """
+            ),
+            {"tenant_id": tenant_id, "appointment_id": appointment_id},
+        )
+        row = existing.mappings().one_or_none()
+        if row:
+            return row["id"]
+
+        visit = await self._session.execute(
+            text(
+                """
+                SELECT visit_id FROM appointment_arrival_facts
+                WHERE tenant_id = :tenant_id AND appointment_id = :appointment_id
+                """
+            ),
+            {"tenant_id": tenant_id, "appointment_id": appointment_id},
+        )
+        visit_row = visit.mappings().one_or_none()
+        visit_id = visit_row["visit_id"] if visit_row else None
+        if department_id is None:
+            dept = await self._session.execute(
+                text(
+                    """
+                    SELECT id FROM departments
+                    WHERE tenant_id = :tenant_id AND is_active IS TRUE
+                    ORDER BY created_at_utc, id LIMIT 1
+                    """
+                ),
+                {"tenant_id": tenant_id},
+            )
+            dept_row = dept.mappings().one_or_none()
+            department_id = dept_row["id"] if dept_row else None
+
+        record_id = new_uuid7()
+        await self._session.execute(
+            text(
+                """
+                INSERT INTO service_records (
+                  id, tenant_id, patient_id, service_id, appointment_id, visit_id,
+                  department_id, record_kind, occurred_at_utc, operator_user_id,
+                  created_at_utc
+                ) VALUES (
+                  :id, :tenant_id, :patient_id, :service_id, :appointment_id, :visit_id,
+                  :department_id, 'PERFORMED', :now, :user_id, :now
+                )
+                """
+            ),
+            {
+                "id": record_id,
+                "tenant_id": tenant_id,
+                "patient_id": patient_id,
+                "service_id": service_id,
+                "appointment_id": appointment_id,
+                "visit_id": visit_id,
+                "department_id": department_id,
+                "now": now,
+                "user_id": operator_user_id,
+            },
+        )
+        return record_id
