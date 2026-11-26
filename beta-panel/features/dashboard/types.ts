@@ -1,4 +1,9 @@
-export type PeriodSummary = { total: number; by_status: Record<string, number> };
+export type PeriodSummary = {
+  total: number;
+  by_status: Record<string, number>;
+  unique_patients?: number;
+  waiting_checked_in?: number;
+};
 
 export type Summary = {
   appointments: PeriodSummary | null;

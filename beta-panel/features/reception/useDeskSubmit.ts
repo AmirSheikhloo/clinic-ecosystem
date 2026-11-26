@@ -134,13 +134,20 @@ export function useDeskSubmit({
       return;
     }
     setPendingLineConflicts(lineConflicts);
-    // Show the first conflicting line's snapshot; confirm resubmits the whole group.
-    const [lineId, conflicts] = entries[0];
+    // Confirm resubmits the whole group with per-line acks. Dialog lists every
+    // conflicting draft line's conflicts so none are silently hidden.
+    const [lineId] = entries[0];
     setPendingConflictLineId(lineId);
-    setPendingConflicts(conflicts);
-    const serviceName =
-      draftLines.find((line) => line.key === lineId)?.serviceName ?? "خدمت";
-    setError(`تداخل برای «${serviceName}» — گروه ثبت نشد (همه یا هیچ)`);
+    const merged = entries.flatMap(([, conflicts]) => conflicts);
+    setPendingConflicts(merged);
+    const names = entries.map(
+      ([id]) => draftLines.find((line) => line.key === id)?.serviceName ?? id,
+    );
+    setError(
+      names.length === 1
+        ? `تداخل برای «${names[0]}» — گروه ثبت نشد (همه یا هیچ)`
+        : `تداخل در ${names.length} ردیف (${names.join("، ")}) — گروه ثبت نشد (همه یا هیچ)`,
+    );
   }
 
   const selectionOk: boolean = selectionCheck.ok;

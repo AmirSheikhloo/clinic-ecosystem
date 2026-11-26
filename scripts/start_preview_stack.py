@@ -42,6 +42,17 @@ def _open_browser(panel_login_url: str) -> None:
         print("Browser auto-open skipped (CLINIC_PREVIEW_NO_BROWSER).")
         return
     try:
+        if os.name == "nt":
+            # Prefer the Windows shell association over webbrowser on Desktop.
+            import subprocess
+
+            subprocess.run(
+                ["cmd", "/c", "start", "", panel_login_url],
+                check=False,
+                shell=False,
+            )
+            print("BROWSER_OPENED=1 (Windows start)")
+            return
         opened = webbrowser.open(panel_login_url, new=2)
         print(
             "BROWSER_OPENED=1" if opened else "BROWSER_OPENED=0 (webbrowser returned false)",

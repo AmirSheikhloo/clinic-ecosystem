@@ -112,7 +112,7 @@ export function DashboardView() {
             <>
               <span className="text-sm text-[var(--ds-text-muted)]">به تفکیک وضعیت:</span>
               {Object.entries(byStatus).map(([key, value]) => (
-                <Link key={key} href={`/appointments?date=${today}&view=day&status=${key}`} className="rounded-full" title="نمایش در تقویم">
+                <Link key={key} href={`/appointments?view=list&date=${today}&status=${key}`} className="rounded-full" title="نمایش در فهرست">
                   <StatusBadge tone={appointmentStatusTone(key)}>
                     {appointmentStatusLabel(key)}: <span className="ms-1 tabular-nums">{formatCount(value)}</span>
                   </StatusBadge>

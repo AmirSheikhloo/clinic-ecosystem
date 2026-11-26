@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid5, NAMESPACE_URL
 
 from clinic_ecosystem.application.scheduling.commands import (
     ScheduleAppointmentCommand,
@@ -210,8 +210,10 @@ class ScheduleAppointmentHandler:
         await self._appointments.lock_resources(command.tenant_id, list(all_resource_ids))
 
         # Pre-validate overlaps for every line before any insert (all-or-nothing ack).
+        # Also detect MANUAL overlaps *between draft lines* in this group (no DB row yet).
         audit_by_line: dict[str, list[dict[str, Any]] | None] = {}
         conflicts_by_line: dict[str, list[ConflictDisplayItem]] = {}
+        self._merge_intra_group_overlaps(command, conflicts_by_line)
         for line in command.lines:
             line_cmd = self._line_to_command(command, line)
             try:
@@ -219,8 +221,10 @@ class ScheduleAppointmentHandler:
                     line_cmd, resource_ids=sorted(line.resource_ids)
                 )
             except ManualOverlapAcknowledgementRequired as exc:
-                conflicts_by_line[line.client_line_id] = list(exc.conflicts)
+                existing = conflicts_by_line.setdefault(line.client_line_id, [])
+                existing.extend(exc.conflicts)
 
+        conflicts_by_line = {k: v for k, v in conflicts_by_line.items() if v}
         if conflicts_by_line:
             raise GroupManualOverlapAcknowledgementRequired(conflicts_by_line)
 
@@ -242,6 +246,45 @@ class ScheduleAppointmentHandler:
                 )
             )
         return ScheduleAppointmentGroupResult(lines=results, replayed=False)
+
+    @staticmethod
+    def _peer_conflict_id(peer_client_line_id: str) -> UUID:
+        """Stable synthetic conflict id for an unpersisted peer draft line."""
+        return uuid5(NAMESPACE_URL, f"clinic-ecosystem:group-peer:{peer_client_line_id}")
+
+    def _merge_intra_group_overlaps(
+        self,
+        command: ScheduleAppointmentGroupCommand,
+        conflicts_by_line: dict[str, list[ConflictDisplayItem]],
+    ) -> None:
+        """Pairwise MANUAL overlaps among queued lines that share a resource."""
+        if command.capacity_pool != CapacityPool.MANUAL:
+            return
+        lines = list(command.lines)
+        for i, left in enumerate(lines):
+            left_resources = set(left.resource_ids)
+            for right in lines[i + 1 :]:
+                if not left_resources.intersection(right.resource_ids):
+                    continue
+                if left.end_at_utc <= right.start_at_utc or right.end_at_utc <= left.start_at_utc:
+                    continue
+                # Overlap: each side must ack the peer as a conflict snapshot.
+                for owner, peer in ((left, right), (right, left)):
+                    peer_id = self._peer_conflict_id(peer.client_line_id)
+                    item = ConflictDisplayItem(
+                        appointment_id=peer_id,
+                        display_safe_patient_name=f"ردیف صف پذیرش ({peer.client_line_id})",
+                        booking_channel=command.booking_channel.value,
+                        scheduled_start_at_utc=peer.start_at_utc,
+                        scheduled_end_at_utc=peer.end_at_utc,
+                    )
+                    if owner.acknowledge_overlap and peer_id in set(
+                        owner.acknowledged_conflict_ids
+                    ):
+                        continue
+                    bucket = conflicts_by_line.setdefault(owner.client_line_id, [])
+                    if all(c.appointment_id != peer_id for c in bucket):
+                        bucket.append(item)
 
     def _line_to_command(
         self, group: ScheduleAppointmentGroupCommand, line: ScheduleGroupLine

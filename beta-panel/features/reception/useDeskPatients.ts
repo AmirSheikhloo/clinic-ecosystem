@@ -45,7 +45,12 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
   const term = query.trim();
   const nationalDigits = normalizeNationalIdInput(term);
   const lookupByNationalId = nationalDigits.length === 10 && isValidNationalIdChecksum(nationalDigits);
-  const searchable = lookupByNationalId || term.length >= PATIENT_SEARCH_MIN;
+  const phoneDigits = term.replace(/[^\d+]/g, "");
+  const lookupByPhone =
+    !lookupByNationalId &&
+    (phoneDigits.startsWith("+98") || phoneDigits.startsWith("09") || phoneDigits.startsWith("9")) &&
+    phoneDigits.replace(/\D/g, "").length >= 10;
+  const searchable = lookupByNationalId || lookupByPhone || term.length >= PATIENT_SEARCH_MIN;
   const patients = searchState?.q === term ? searchState.items : [];
   const searching = status === "ready" && searchable && searchState?.q !== term;
 
@@ -82,25 +87,40 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
                 : [];
             setSearchState({ q: term, items });
           })
-        : apiJson<{ items?: Patient[] }>(`/api/patients${buildQuery({ q: term, limit: 20 })}`, {
-            signal: controller.signal,
-            fallbackMessage: "جستجوی بیمار ناموفق بود",
-          }).then((result) => {
-            if (!result.ok) {
-              if (result.aborted) return;
-              setError(result.message);
-              setSearchState({ q: term, items: [] });
-              return;
-            }
-            setSearchState({ q: term, items: result.data.items ?? [] });
-          });
+        : lookupByPhone
+          ? apiJson<{ items?: Patient[] }>("/api/patients/lookup/phone", {
+              method: "POST",
+              body: { phone: term, limit: 20 },
+              signal: controller.signal,
+              fallbackMessage: "جستجوی شماره تماس ناموفق بود",
+            }).then((result) => {
+              if (!result.ok) {
+                if (result.aborted) return;
+                setError(result.message);
+                setSearchState({ q: term, items: [] });
+                return;
+              }
+              setSearchState({ q: term, items: result.data.items ?? [] });
+            })
+          : apiJson<{ items?: Patient[] }>(`/api/patients${buildQuery({ q: term, limit: 20 })}`, {
+              signal: controller.signal,
+              fallbackMessage: "جستجوی بیمار ناموفق بود",
+            }).then((result) => {
+              if (!result.ok) {
+                if (result.aborted) return;
+                setError(result.message);
+                setSearchState({ q: term, items: [] });
+                return;
+              }
+              setSearchState({ q: term, items: result.data.items ?? [] });
+            });
       void request;
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [term, status, setError, searchable, lookupByNationalId, nationalDigits]);
+  }, [term, status, setError, searchable, lookupByNationalId, lookupByPhone, nationalDigits]);
 
   useEffect(() => {
     if (status !== "ready" || !requestedPatientId) return;
@@ -176,6 +196,19 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
             ]
           : [];
       setSearchState({ q: term, items });
+      return;
+    }
+    if (lookupByPhone) {
+      const result = await apiJson<{ items?: Patient[] }>("/api/patients/lookup/phone", {
+        method: "POST",
+        body: { phone: term, limit: 20 },
+        fallbackMessage: "جستجوی شماره تماس ناموفق بود",
+      });
+      if (!result.ok) {
+        if (result.status !== 401) setError(result.message);
+        return;
+      }
+      setSearchState({ q: term, items: result.data.items ?? [] });
       return;
     }
     const result = await apiJson<{ items?: Patient[] }>(`/api/patients${buildQuery({ q: term, limit: 20 })}`, {

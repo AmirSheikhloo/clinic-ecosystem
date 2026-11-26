@@ -19,7 +19,7 @@ export function DashboardAlerts({ today, summary, canList }: Props) {
     <section className="space-y-2" aria-label="هشدارهای عملیاتی" data-testid="dashboard-alerts">
       <Alert tone="warn" testId="dashboard-alert-cancelled">
         امروز {formatCount(cancelled)} نوبت لغو شده است.{" "}
-        <Link href={`/appointments?date=${today}&view=day&status=CANCELLED`} className="underline">
+        <Link href={`/appointments?view=list&date=${today}&status=CANCELLED`} className="underline">
           مشاهده در تقویم
         </Link>
       </Alert>

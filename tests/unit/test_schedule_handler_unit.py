@@ -511,6 +511,37 @@ async def test_group_overlap_returns_per_line_conflicts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_group_intra_line_overlap_requires_ack() -> None:
+    """Two draft lines on the same resource/time must surface per-line conflicts."""
+    uow = FakeUow()
+    resource_id = new_uuid7()
+    start = datetime.now(timezone.utc)
+    appts = FakeAppointments()
+    handler = _handler(uow, appts, perms=FakePermissions(True))
+    lines = [
+        ScheduleGroupLine(
+            client_line_id="line-a",
+            service_id=new_uuid7(),
+            resource_ids=(resource_id,),
+            start_at_utc=start,
+            end_at_utc=start + timedelta(minutes=30),
+        ),
+        ScheduleGroupLine(
+            client_line_id="line-b",
+            service_id=new_uuid7(),
+            resource_ids=(resource_id,),
+            start_at_utc=start,
+            end_at_utc=start + timedelta(minutes=30),
+        ),
+    ]
+    with pytest.raises(GroupManualOverlapAcknowledgementRequired) as excinfo:
+        await handler.handle_group(_group_command(resource_ids=[], lines=lines))
+    assert set(excinfo.value.conflicts_by_line) == {"line-a", "line-b"}
+    assert appts.added_list == []
+    assert uow.rolled_back
+
+
+@pytest.mark.asyncio
 async def test_immediate_check_in_requires_permission() -> None:
     uow = FakeUow()
     handler = _handler(
