@@ -1,0 +1,66 @@
+{
+  "checks": {
+    "patients": true,
+    "appointments": true,
+    "invoices": true,
+    "discounts": true,
+    "refunds": true
+  },
+  "counts": {
+    "patients": 520,
+    "inactive_patients": 25,
+    "exceptional_identity_patients": 32,
+    "national_id_patients_planned": 68,
+    "national_id_rows_inserted": 68,
+    "shared_phone_families_planned": 32,
+    "phone_rows_inserted": 520,
+    "staff": 42,
+    "services": 32,
+    "rooms": 12,
+    "appointments": 10500,
+    "appointments_today": 344,
+    "appointments_tomorrow": 110,
+    "appointments_by_status": {
+      "CHECKED_IN": 36,
+      "CONFIRMED": 6955,
+      "CANCELLED": 919,
+      "COMPLETED": 2100,
+      "NO_SHOW": 490
+    },
+    "manual_overlap_pairs": 32,
+    "checked_in_waiting_today": 73,
+    "multi_service_groups": 110,
+    "audit_entries": 5200,
+    "ops": {
+      "skipped": false,
+      "department_id": "d107aeca-b8ca-5be1-98b9-726aeef474be",
+      "practitioner_mappings": 34,
+      "billable_items": 100,
+      "waitlist_entries": 30,
+      "arrival_facts": 2136,
+      "completed_via_service_records": 2100,
+      "invoices": 2000,
+      "discounts": 100,
+      "receipts": 1400,
+      "refunds": 100,
+      "permission_scopes_all_backfill": 145,
+      "scoped_receptionist_role_id": "92605544-3b57-5117-91ce-93674109f22b"
+    },
+    "tehran_today": "2026-11-27"
+  },
+  "ops": {
+    "skipped": false,
+    "department_id": "d107aeca-b8ca-5be1-98b9-726aeef474be",
+    "practitioner_mappings": 34,
+    "billable_items": 100,
+    "waitlist_entries": 30,
+    "arrival_facts": 2136,
+    "completed_via_service_records": 2100,
+    "invoices": 2000,
+    "discounts": 100,
+    "receipts": 1400,
+    "refunds": 100,
+    "permission_scopes_all_backfill": 145,
+    "scoped_receptionist_role_id": "92605544-3b57-5117-91ce-93674109f22b"
+  }
+}

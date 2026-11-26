@@ -143,7 +143,7 @@
 | 108 | Paired write-off + consumption evidence | inventory_paired_write_off_return | PASS |
 | 109 | Minimal disposable ops seed smoke | invoices/waitlist/arrivals | PASS |
 | 110 | Demo profile targets defined (520/10500/2000/100/100) | profiles.DEMO | PASS |
-| 111 | Full demo PG15 seed executed this tip | demo_dataset_manifest ops counts | PENDING |
+| 111 | Full demo PG15 seed executed this tip | demo_seed_validation.json 520/10500/2000/100/100 | PASS |
 | 112 | Python unit tests green this tip | pytest unit 122 passed / 1 skipped | PASS |
 | 113 | App integration/RLS suite this tip | pytest integration | PENDING |
 | 114 | Frontend production build this tip | next build (Next.js 16.4.6) | PASS |

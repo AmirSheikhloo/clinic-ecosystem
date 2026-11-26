@@ -1,6 +1,6 @@
 {
   "profile": "demo",
-  "seed": 20572214,
+  "seed": 20808791,
   "targets": {
     "patients": 520,
     "inactive_patients": 40,
@@ -20,7 +20,12 @@
     "checked_in_waiting_today": 36,
     "multi_service_groups": 110,
     "audit_entries": 5200,
-    "seed": 20572214
+    "future_waitlist_entries": 30,
+    "invoices": 2000,
+    "discounts": 100,
+    "refunds": 100,
+    "billable_or_inventory_items": 100,
+    "seed": 20808791
   },
   "counts": {
     "patients": 520,
@@ -37,26 +42,42 @@
     "appointments_today": 344,
     "appointments_tomorrow": 110,
     "appointments_by_status": {
-      "CHECKED_IN": 752,
-      "COMPLETED": 1757,
+      "CHECKED_IN": 36,
+      "CONFIRMED": 6955,
       "CANCELLED": 919,
-      "CONFIRMED": 6582,
+      "COMPLETED": 2100,
       "NO_SHOW": 490
     },
     "manual_overlap_pairs": 32,
     "checked_in_waiting_today": 73,
     "multi_service_groups": 110,
     "audit_entries": 5200,
-    "tehran_today": "2026-11-26"
+    "ops": {
+      "skipped": false,
+      "department_id": "d107aeca-b8ca-5be1-98b9-726aeef474be",
+      "practitioner_mappings": 34,
+      "billable_items": 100,
+      "waitlist_entries": 30,
+      "arrival_facts": 2136,
+      "completed_via_service_records": 2100,
+      "invoices": 2000,
+      "discounts": 100,
+      "receipts": 1400,
+      "refunds": 100,
+      "permission_scopes_all_backfill": 145,
+      "scoped_receptionist_role_id": "92605544-3b57-5117-91ce-93674109f22b"
+    },
+    "tehran_today": "2026-11-27"
   },
   "crypto_seeded": true,
   "crypto_skip_reason": null,
-  "generated_at_utc": "2026-11-26T15:14:32.699220+00:00",
-  "tenant_id": "01a2186c-2c2e-7d2d-9b68-dec4d8596db5",
+  "generated_at_utc": "2026-11-26T23:25:55.256215+00:00",
+  "tenant_id": "01a21a2e-0a94-7e0f-83dd-9bdc3add6ff9",
   "notes": [
     "Synthetic data only; National IDs/phones are not real persons.",
     "Dates anchored to Asia/Tehran calendar day at generation time.",
-    "No finance/inventory rows (tp0001–tp0007 only).",
-    "RLS left enabled; inserts run as db_migrator with tenant GUC."
+    "Ops finance/waitlist/inventory rows require disposable ACR-D0.11 schema.",
+    "RLS left enabled; inserts run as db_migrator with tenant GUC.",
+    "Canonical patient merge remains disabled."
   ]
 }

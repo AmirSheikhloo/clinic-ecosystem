@@ -1,0 +1,25 @@
+{
+  "applied": true,
+  "files": [
+    "05.sql",
+    "06.sql",
+    "07.sql",
+    "10.sql",
+    "11.sql",
+    "08.sql",
+    "04.sql",
+    "09.sql",
+    "00.sql",
+    "01.sql",
+    "02.sql",
+    "15.sql",
+    "14.sql",
+    "03.sql",
+    "16.sql",
+    "17.sql",
+    "13.sql"
+  ],
+  "skipped": [
+    "12.sql"
+  ]
+}
