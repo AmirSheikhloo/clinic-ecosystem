@@ -9,8 +9,10 @@ from fastapi import APIRouter, Depends, Query
 
 from clinic_ecosystem.application.shared.errors import ValidationFailed
 from clinic_ecosystem.domain.access import permissions as perm
+from clinic_ecosystem.infrastructure.persistence.finance_ops import SqlFinanceOps
 from clinic_ecosystem.infrastructure.persistence.overview_queries import SqlOverviewQueries
 from clinic_ecosystem.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
+from clinic_ecosystem.infrastructure.persistence.waitlist_ops import SqlWaitlistOps
 from clinic_ecosystem.presentation.http.common import load_granted
 from clinic_ecosystem.presentation.http.dependencies import (
     AuthenticatedPrincipal,
@@ -71,9 +73,33 @@ async def dashboard_summary(
                     tenant_id=tenant_id, start_at_utc=end, end_at_utc=end + span
                 ),
             }
+    waiting_room = None
+    future_waitlist = None
+    if perm.WAITLIST_VIEW in granted or perm.APPOINTMENTS_LIST in granted:
+        wait_ops = SqlWaitlistOps(uow.session)
+        if await wait_ops.schema_ready():
+            waiting_room = {
+                "checked_in_count": await wait_ops.physical_waiting_count(
+                    tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
+                )
+            }
+            if perm.WAITLIST_VIEW in granted:
+                future_waitlist = {
+                    "open_count": await wait_ops.future_waitlist_open_count(tenant_id=tenant_id)
+                }
+    finance = None
+    if perm.FINANCE_SUMMARY in granted:
+        finance_ops = SqlFinanceOps(uow.session)
+        if await finance_ops.schema_ready():
+            finance = await finance_ops.financial_summary(
+                tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
+            )
     return {
         "appointments": appointments,
         "tomorrow_appointments": tomorrow_appointments,
+        "waiting_room": waiting_room,
+        "future_waitlist": future_waitlist,
+        "finance": finance,
         "patients_active": await queries.active_patients(tenant_id)
         if perm.PATIENTS_SEARCH in granted else None,
         "staff_active": await queries.active_staff(tenant_id)

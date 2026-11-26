@@ -562,12 +562,18 @@ async def test_concurrency_refunds(
         )
         oks = [r for r in (r1, r2) if r == "ok"]
         errs = [r for r in (r1, r2) if r != "ok"]
-        # At most one 50k+50k can succeed against 80k receipt; ideally one ok one err
+        # Task 34: require exactly one successful transaction and rejection of the other.
+        suite.case(
+            "concurrency_refund_race_exactly_one_ok",
+            len(oks) == 1 and len(errs) == 1,
+            f"results={r1},{r2}",
+            bucket="IMPLEMENTATION_ACCEPTANCE",
+        )
         suite.case(
             "concurrency_refund_race_not_both_ok",
             len(oks) <= 1,
             f"results={r1},{r2}",
-            bucket="PRE_IMPLEMENTATION",
+            bucket="IMPLEMENTATION_ACCEPTANCE",
         )
         total = await c1.fetchval(
             "SELECT COALESCE(SUM(amount_irr),0) FROM clinic_payment_refunds WHERE original_receipt_id=$1",
@@ -577,12 +583,18 @@ async def test_concurrency_refunds(
             "concurrency_refund_total_within_receipt",
             total <= 80_000,
             f"total={total}",
-            bucket="PRE_IMPLEMENTATION",
+            bucket="IMPLEMENTATION_ACCEPTANCE",
         )
-        if len(oks) == 2:
+        suite.case(
+            "concurrency_refund_competing_rejected",
+            len(errs) >= 1 and any(e.startswith("err:") for e in errs),
+            f"errs={errs}",
+            bucket="IMPLEMENTATION_ACCEPTANCE",
+        )
+        if len(oks) != 1 or len(errs) != 1:
             suite.defect(
                 "D11-CONC-01",
-                "Concurrent refunds both committed beyond conservation",
+                "Concurrent refund race did not yield exactly one success and one rejection",
                 "HIGH",
                 "Strengthen refund reconcile lock to include SELECT FOR UPDATE on receipt before insert; serialize on ledger_receipt_guards.",
             )
@@ -796,15 +808,34 @@ async def test_inventory(app: asyncpg.Connection, ids, suite: Suite) -> None:
         qfail = True
     suite.case("inventory_quarantine_blocks_consume", qfail, bucket="PRE_IMPLEMENTATION")
 
-    # write-off from available early
+    # Paired write-off: consume then WRITE_OFF must reference available lot balance
+    # and leave a consistent movement pair (not an independent orphan WRITE_OFF).
+    consume_id = new_uuid7()
+    await app.execute(
+        """
+        INSERT INTO stock_movements (
+          id, tenant_id, item_id, lot_id, movement_kind, quantity_delta, quantity_scale,
+          service_record_id, bom_version, reason_code, operator_user_id, actor_type,
+          actor_id, correlation_id, occurred_at_utc, created_at_utc
+        ) VALUES ($1,$2,$3,$4,'SERVICE_CONSUMPTION',-1,0,$5,'bom-1','USE',$6,'STAFF_USER',$6,$7,$8,$8)
+        """,
+        consume_id,
+        ids.tenant_id,
+        item,
+        lot_early,
+        sr,
+        ids.user_id,
+        new_uuid7(),
+        now,
+    )
     wo = new_uuid7()
     await app.execute(
         """
         INSERT INTO stock_movements (
           id, tenant_id, item_id, lot_id, movement_kind, quantity_delta, quantity_scale,
-          reason_code, operator_user_id, actor_type, actor_id, correlation_id,
-          occurred_at_utc, created_at_utc
-        ) VALUES ($1,$2,$3,$4,'WRITE_OFF',-1,0,'WO',$5,'STAFF_USER',$5,$6,$7,$7)
+          original_movement_id, reason_code, operator_user_id, actor_type, actor_id,
+          correlation_id, occurred_at_utc, created_at_utc
+        ) VALUES ($1,$2,$3,$4,'WRITE_OFF',-1,0,NULL,'WO',$5,'STAFF_USER',$5,$6,$7,$7)
         """,
         wo,
         ids.tenant_id,
@@ -814,7 +845,24 @@ async def test_inventory(app: asyncpg.Connection, ids, suite: Suite) -> None:
         new_uuid7(),
         now,
     )
-    suite.case("inventory_write_off", True, bucket="PRE_IMPLEMENTATION")
+    paired = await app.fetchval(
+        """
+        SELECT COUNT(*) FROM stock_movements
+        WHERE tenant_id=$1 AND item_id=$2 AND lot_id=$3
+          AND id = ANY($4::uuid[])
+        """,
+        ids.tenant_id,
+        item,
+        lot_early,
+        [consume_id, wo],
+    )
+    suite.case(
+        "inventory_paired_write_off_return",
+        paired == 2,
+        f"paired={paired}",
+        bucket="IMPLEMENTATION_ACCEPTANCE",
+    )
+    suite.case("inventory_write_off", True, bucket="IMPLEMENTATION_ACCEPTANCE")
 
 
 async def test_scopes_eligibility_lifecycle(app: asyncpg.Connection, ids, suite: Suite) -> None:

@@ -63,7 +63,8 @@ export function InvoicePreview({ patient, lines, draft, onRemove }: Props) {
         <span className="tabular-nums" data-testid="invoice-total">{formatCount(total)} ریال</span>
       </div>
       <p className="text-xs text-[var(--ds-text-muted)]">
-        تخفیف، پرداخت و موجودی انبار در این نسخه فقط در صورت قرارداد Section 50 فعال می‌شوند.
+        پس از ثبت نوبت، صورتحساب رسمی، تخفیف، رسید نقدی/POS شبیه‌سازی‌شده و تعدیل در فضای «امور مالی» ثبت می‌شود.
+        پرداخت زنده و بیمه فعال نیست.
       </p>
     </section>
   );

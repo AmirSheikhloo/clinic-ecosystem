@@ -19,6 +19,9 @@ export const PROXY_ROOTS = [
   "appointments",
   "dashboard",
   "search",
+  "finance",
+  "waitlist",
+  "ops",
 ] as const;
 
 const SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;

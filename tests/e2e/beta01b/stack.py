@@ -44,6 +44,7 @@ from tests.integration.docker_probe import DOCKER_AVAILABLE, SKIP_REASON
 from clinic_ecosystem.infrastructure.demo.crypto_hooks import preview_demo_pii_env
 from clinic_ecosystem.infrastructure.demo.loader import load_demo_dataset
 from clinic_ecosystem.infrastructure.demo.profiles import DEMO_SEED
+from clinic_ecosystem.infrastructure.ops_schema import apply_ops_schema
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PANEL_DIR = REPO_ROOT / "beta-panel"
@@ -224,9 +225,16 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
         # Deterministic non-prod PII keys so demo can seal phones / National IDs.
         for key, value in preview_demo_pii_env(DEMO_SEED).items():
             os.environ.setdefault(key, value)
+        # Disposable ACR-D0.11 ops schema (never official Alembic).
+        os.environ.setdefault("CLINIC_OPS_SCHEMA_MODE", "disposable")
         demo_profile = os.environ.get("CLINIC_DEMO_PROFILE", "demo").strip() or "demo"
         conn = await asyncpg.connect(migrator.asyncpg_dsn())
         try:
+            await conn.execute("SET ROLE db_migrator")
+            ops_apply = await apply_ops_schema(conn, explicit=True)
+            (artifact_dir / "ops_schema_apply.json").write_text(
+                json.dumps(ops_apply, indent=2) + "\n", encoding="utf-8"
+            )
             ops = await seed_beta02_operations(conn)
             demo = await load_demo_dataset(
                 conn,

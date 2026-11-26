@@ -32,6 +32,12 @@ class DemoTargets:
     checked_in_waiting_today: int
     multi_service_groups: int
     audit_entries: int
+    # Task 34 ops targets (ACR-D0.11 disposable demo)
+    future_waitlist_entries: int = 0
+    invoices: int = 0
+    discounts: int = 0
+    refunds: int = 0
+    billable_or_inventory_items: int = 0
     seed: int = DEMO_SEED
 
 
@@ -54,6 +60,11 @@ MINIMAL = DemoTargets(
     checked_in_waiting_today=4,
     multi_service_groups=5,
     audit_entries=100,
+    future_waitlist_entries=5,
+    invoices=20,
+    discounts=5,
+    refunds=3,
+    billable_or_inventory_items=10,
 )
 
 DEMO = DemoTargets(
@@ -75,6 +86,11 @@ DEMO = DemoTargets(
     checked_in_waiting_today=36,
     multi_service_groups=110,
     audit_entries=5_200,
+    future_waitlist_entries=30,
+    invoices=2_000,
+    discounts=100,
+    refunds=100,
+    billable_or_inventory_items=100,
 )
 
 # Performance stub: larger volume for stress preview; same shape as demo.
@@ -97,6 +113,11 @@ PERFORMANCE = DemoTargets(
     checked_in_waiting_today=50,
     multi_service_groups=200,
     audit_entries=12_000,
+    future_waitlist_entries=60,
+    invoices=4_000,
+    discounts=200,
+    refunds=200,
+    billable_or_inventory_items=150,
 )
 
 PROFILES: dict[ProfileName, DemoTargets] = {

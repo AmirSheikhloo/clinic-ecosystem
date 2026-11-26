@@ -32,6 +32,7 @@ from clinic_ecosystem.infrastructure.persistence.appointment_admin import SqlApp
 from clinic_ecosystem.infrastructure.persistence.appointment_repository import (
     SqlAppointmentRepository,
 )
+from clinic_ecosystem.infrastructure.persistence.arrival_ops import SqlArrivalOps
 from clinic_ecosystem.infrastructure.persistence.audit import SqlAuditStore
 from clinic_ecosystem.infrastructure.persistence.outbox import SqlOutboxStore
 from clinic_ecosystem.infrastructure.persistence.patient_display import SqlPatientDisplayDirectory
@@ -173,10 +174,26 @@ class AppointmentLifecycleService:
     async def check_in(
         self, actor: Actor, appointment_id: UUID, expected_version: int
     ) -> dict[str, Any]:
-        return await self._apply_status(
+        result = await self._apply_status(
             actor, appointment_id, expected_version,
             to_status="CHECKED_IN", event_type="appointment.checked_in",
         )
+        # When disposable ops schema is present, persist physical arrival facts
+        # in the same unit of work as the status transition.
+        appt = await self._admin.get_appointment(
+            tenant_id=actor.tenant_id, appointment_id=appointment_id
+        )
+        if appt is not None:
+            patient_id = appt.get("patient_profile_id")
+            if patient_id is not None:
+                await SqlArrivalOps(self._uow.session).record_check_in_arrival(
+                    tenant_id=actor.tenant_id,
+                    patient_id=patient_id,
+                    appointment_id=appointment_id,
+                    operator_user_id=actor.account_id,
+                    now=datetime.now(timezone.utc),
+                )
+        return result
 
     async def complete(
         self, actor: Actor, appointment_id: UUID, expected_version: int

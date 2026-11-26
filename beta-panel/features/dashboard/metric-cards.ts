@@ -77,6 +77,37 @@ export function buildMetricCards(
         hint: "نوبت‌های با وضعیت حضور ثبت‌شده",
       });
     }
+    if (can(P.waitlistView) || can(P.appointmentsList)) {
+      cards.push({
+        key: "waiting-room",
+        label: "اتاق انتظار فیزیکی",
+        value: data?.waiting_room?.checked_in_count ?? checkedIn,
+        href: listHref(today, "CHECKED_IN"),
+        icon: "desk",
+        testId: "dashboard-waiting-room",
+      });
+    }
+    if (can(P.waitlistView)) {
+      cards.push({
+        key: "future-waitlist",
+        label: "لیست انتظار آینده",
+        value: data?.future_waitlist?.open_count,
+        href: "/waitlist",
+        icon: "list",
+        testId: "dashboard-future-waitlist",
+      });
+    }
+    if (can(P.financeSummary)) {
+      cards.push({
+        key: "finance-net",
+        label: "خالص دریافتی امروز",
+        value: data?.finance?.net_collected_irr,
+        href: "/finance",
+        icon: "desk",
+        testId: "dashboard-finance-net",
+        hint: "ریال — رسیدها منهای استرداد",
+      });
+    }
     if (can(P.patientsSearch)) {
       cards.push({
         key: "patients",
@@ -139,6 +170,36 @@ export function buildMetricCards(
       href: listHref(today, "CHECKED_IN"),
       icon: "desk",
       testId: "dashboard-checked-in",
+    });
+  }
+  if (can(P.waitlistView) || can(P.appointmentsList)) {
+    cards.push({
+      key: "waiting-room",
+      label: "اتاق انتظار فیزیکی",
+      value: data?.waiting_room?.checked_in_count ?? checkedIn,
+      href: listHref(today, "CHECKED_IN"),
+      icon: "desk",
+      testId: "dashboard-waiting-room",
+    });
+  }
+  if (can(P.waitlistView)) {
+    cards.push({
+      key: "future-waitlist",
+      label: "لیست انتظار آینده",
+      value: data?.future_waitlist?.open_count,
+      href: "/waitlist",
+      icon: "list",
+      testId: "dashboard-future-waitlist",
+    });
+  }
+  if (can(P.financeSummary)) {
+    cards.push({
+      key: "finance-net",
+      label: "خالص دریافتی امروز",
+      value: data?.finance?.net_collected_irr,
+      href: "/finance",
+      icon: "desk",
+      testId: "dashboard-finance-net",
     });
   }
   if (can(P.patientsSearch)) {

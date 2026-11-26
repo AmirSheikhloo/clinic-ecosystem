@@ -62,6 +62,9 @@ if (-not (Test-Path $venvPython)) {
 }
 
 $env:PYTHONPATH = "$repo\src;$repo"
+# Disposable ACR-D0.11 ops schema for full-operations preview (never official Alembic).
+$env:CLINIC_OPS_SCHEMA_MODE = "disposable"
+if (-not $env:CLINIC_DEMO_PROFILE) { $env:CLINIC_DEMO_PROFILE = "demo" }
 if ($NoBrowser) {
   $env:CLINIC_PREVIEW_NO_BROWSER = "1"
 } else {

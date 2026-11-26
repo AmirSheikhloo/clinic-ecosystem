@@ -49,6 +49,26 @@ APPOINTMENTS_MARK_NO_SHOW = "BETA02_APPOINTMENTS_MARK_NO_SHOW"
 
 AUDIT_VIEW = "BETA02_AUDIT_VIEW"
 
+# Task 34 / ACR-D0.11 provisional ops permissions (synthetic; non-production).
+FINANCE_INVOICE_VIEW = "BETA02_FINANCE_INVOICE_VIEW"
+FINANCE_INVOICE_DRAFT = "BETA02_FINANCE_INVOICE_DRAFT"
+FINANCE_INVOICE_POST = "BETA02_FINANCE_INVOICE_POST"
+FINANCE_RECEIPT_RECORD = "BETA02_FINANCE_RECEIPT_RECORD"
+FINANCE_REFUND = "BETA02_FINANCE_REFUND"
+FINANCE_DISCOUNT = "BETA02_FINANCE_DISCOUNT"
+FINANCE_ADJUSTMENT = "BETA02_FINANCE_ADJUSTMENT"
+FINANCE_SUMMARY = "BETA02_FINANCE_SUMMARY"
+WAITLIST_VIEW = "BETA02_WAITLIST_VIEW"
+WAITLIST_MANAGE = "BETA02_WAITLIST_MANAGE"
+INVENTORY_VIEW = "BETA02_INVENTORY_VIEW"
+INVENTORY_ADJUST = "BETA02_INVENTORY_ADJUST"
+DEPARTMENTS_VIEW = "BETA02_DEPARTMENTS_VIEW"
+DEPARTMENTS_MANAGE = "BETA02_DEPARTMENTS_MANAGE"
+ELIGIBILITY_MANAGE = "BETA02_ELIGIBILITY_MANAGE"
+ONLINE_CLOSURE_MANAGE = "BETA02_ONLINE_CLOSURE_MANAGE"
+CASHIER_SHIFT_MANAGE = "BETA02_CASHIER_SHIFT_MANAGE"
+HEAD_RECEPTIONIST = "BETA02_HEAD_RECEPTIONIST"
+
 
 @dataclass(frozen=True, slots=True)
 class PermissionDefinition:
@@ -96,6 +116,24 @@ _DEFS: tuple[PermissionDefinition, ...] = (
         "مشاهده گزارش حسابرسی",
         "List append-only audit_entries for supervisory review (no mutation)",
     ),
+    PermissionDefinition(FINANCE_INVOICE_VIEW, "finance", "مشاهده صورتحساب", "View invoices and lines"),
+    PermissionDefinition(FINANCE_INVOICE_DRAFT, "finance", "پیش‌نویس صورتحساب", "Create draft invoices"),
+    PermissionDefinition(FINANCE_INVOICE_POST, "finance", "ثبت صورتحساب", "Post draft invoices"),
+    PermissionDefinition(FINANCE_RECEIPT_RECORD, "finance", "ثبت رسید پرداخت", "Record verified CASH/POS receipts"),
+    PermissionDefinition(FINANCE_REFUND, "finance", "استرداد", "Record partial/full refunds"),
+    PermissionDefinition(FINANCE_DISCOUNT, "finance", "تخفیف", "Apply draft discounts"),
+    PermissionDefinition(FINANCE_ADJUSTMENT, "finance", "تعدیل مالی", "Post-payment immutable adjustments"),
+    PermissionDefinition(FINANCE_SUMMARY, "finance", "خلاصه مالی", "Authorized financial dashboard summaries"),
+    PermissionDefinition(WAITLIST_VIEW, "waitlist", "مشاهده لیست انتظار", "View physical wait and future waitlist"),
+    PermissionDefinition(WAITLIST_MANAGE, "waitlist", "مدیریت لیست انتظار", "Create/update waitlist entries"),
+    PermissionDefinition(INVENTORY_VIEW, "inventory", "مشاهده انبار", "View inventory lots and movements"),
+    PermissionDefinition(INVENTORY_ADJUST, "inventory", "تعدیل انبار", "Consume/return/write-off/quarantine"),
+    PermissionDefinition(DEPARTMENTS_VIEW, "ops", "مشاهده بخش‌ها", "View departments"),
+    PermissionDefinition(DEPARTMENTS_MANAGE, "ops", "مدیریت بخش‌ها", "Manage departments and links"),
+    PermissionDefinition(ELIGIBILITY_MANAGE, "ops", "صلاحیت خدمات", "Staff-to-service eligibility"),
+    PermissionDefinition(ONLINE_CLOSURE_MANAGE, "ops", "بستن ظرفیت آنلاین", "Temporary online closures"),
+    PermissionDefinition(CASHIER_SHIFT_MANAGE, "finance", "شیفت صندوق", "Open/configure cashier shifts"),
+    PermissionDefinition(HEAD_RECEPTIONIST, "ops", "سرپرست پذیرش", "Explicit head receptionist privileges"),
 )
 
 PERMISSION_CATALOG: dict[str, PermissionDefinition] = {d.code: d for d in _DEFS}

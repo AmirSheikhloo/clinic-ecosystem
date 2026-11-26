@@ -1,7 +1,7 @@
 # ACR-D0.9 deep disposable PG15 evidence
 
-Generated: `2026-11-26T22:52:04.347086+00:00`
-PASS/FAIL/BLOCKED: **35/0/2**
+Generated: `2026-11-26T23:06:13.578107+00:00`
+PASS/FAIL/BLOCKED: **38/0/2**
 
 ## Cases
 
@@ -27,7 +27,8 @@ PASS/FAIL/BLOCKED: **35/0/2**
 - `PASS` [PRE_IMPLEMENTATION] inventory_return_reusable
 - `PASS` [PRE_IMPLEMENTATION] inventory_return_cap
 - `PASS` [PRE_IMPLEMENTATION] inventory_quarantine_blocks_consume
-- `PASS` [PRE_IMPLEMENTATION] inventory_write_off
+- `PASS` [IMPLEMENTATION_ACCEPTANCE] inventory_paired_write_off_return — paired=2
+- `PASS` [IMPLEMENTATION_ACCEPTANCE] inventory_write_off
 - `PASS` [PRE_IMPLEMENTATION] scopes_all_filter_mutual_exclusion
 - `PASS` [PRE_IMPLEMENTATION] eligibility_one_to_one_mapping
 - `PASS` [PRE_IMPLEMENTATION] online_closure_insert
@@ -35,8 +36,10 @@ PASS/FAIL/BLOCKED: **35/0/2**
 - `PASS` [PRE_IMPLEMENTATION] arrival_checked_in_same_uow
 - `PASS` [PRE_IMPLEMENTATION] historical_entry_recorded
 - `PASS` [PRE_IMPLEMENTATION] waitlist_terminal_immutable
-- `PASS` [PRE_IMPLEMENTATION] concurrency_refund_race_not_both_ok — results=ok,err:CheckViolationError
-- `PASS` [PRE_IMPLEMENTATION] concurrency_refund_total_within_receipt — total=5E+4
+- `PASS` [IMPLEMENTATION_ACCEPTANCE] concurrency_refund_race_exactly_one_ok — results=ok,err:CheckViolationError
+- `PASS` [IMPLEMENTATION_ACCEPTANCE] concurrency_refund_race_not_both_ok — results=ok,err:CheckViolationError
+- `PASS` [IMPLEMENTATION_ACCEPTANCE] concurrency_refund_total_within_receipt — total=5E+4
+- `PASS` [IMPLEMENTATION_ACCEPTANCE] concurrency_refund_competing_rejected — errs=['err:CheckViolationError']
 - `PASS` [PRE_IMPLEMENTATION] rls_append_only_delete_denied
 - `PASS` [PRE_IMPLEMENTATION] rls_missing_tenant_fail_closed
 - `PASS` [PRE_IMPLEMENTATION] rls_cross_tenant_select_hidden

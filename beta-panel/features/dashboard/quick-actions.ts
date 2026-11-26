@@ -21,6 +21,8 @@ const OPERATIONAL: readonly QuickAction[] = [
     allowed: (can) => can(P.patientsRegister),
   },
   { href: "/appointments", label: "مدیریت نوبت‌ها", hint: "فهرست، روز، هفته و ماه", icon: "calendar", allowed: (can) => can(P.appointmentsList) },
+  { href: "/waitlist", label: "لیست انتظار", hint: "انتظار آینده", icon: "list", allowed: (can) => can(P.waitlistView) },
+  { href: "/finance", label: "امور مالی", hint: "صورتحساب و رسید", icon: "desk", allowed: (can) => can(P.financeInvoiceView) },
 ];
 
 const MANAGEMENT: readonly QuickAction[] = [

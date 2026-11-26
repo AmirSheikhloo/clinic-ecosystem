@@ -1,8 +1,8 @@
 {
-  "generated_at_utc": "2026-11-26T22:52:04.347086+00:00",
+  "generated_at_utc": "2026-11-26T23:06:13.578107+00:00",
   "baseline": "aff43da26d0aa27bff2c7af97ca001ad52f17a4c",
   "summary": {
-    "cases_passed": 35,
+    "cases_passed": 38,
     "cases_failed": 0,
     "cases_blocked": 2,
     "defects": 0
@@ -163,11 +163,18 @@
       "bucket": "PRE_IMPLEMENTATION"
     },
     {
+      "name": "inventory_paired_write_off_return",
+      "ok": true,
+      "status": "PASS",
+      "detail": "paired=2",
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
+    },
+    {
       "name": "inventory_write_off",
       "ok": true,
       "status": "PASS",
       "detail": "",
-      "bucket": "PRE_IMPLEMENTATION"
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
     },
     {
       "name": "scopes_all_filter_mutual_exclusion",
@@ -219,18 +226,32 @@
       "bucket": "PRE_IMPLEMENTATION"
     },
     {
+      "name": "concurrency_refund_race_exactly_one_ok",
+      "ok": true,
+      "status": "PASS",
+      "detail": "results=ok,err:CheckViolationError",
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
+    },
+    {
       "name": "concurrency_refund_race_not_both_ok",
       "ok": true,
       "status": "PASS",
       "detail": "results=ok,err:CheckViolationError",
-      "bucket": "PRE_IMPLEMENTATION"
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
     },
     {
       "name": "concurrency_refund_total_within_receipt",
       "ok": true,
       "status": "PASS",
       "detail": "total=5E+4",
-      "bucket": "PRE_IMPLEMENTATION"
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
+    },
+    {
+      "name": "concurrency_refund_competing_rejected",
+      "ok": true,
+      "status": "PASS",
+      "detail": "errs=['err:CheckViolationError']",
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
     },
     {
       "name": "rls_append_only_delete_denied",
