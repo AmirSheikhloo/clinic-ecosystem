@@ -8,6 +8,9 @@ export type PatientRow = {
   is_active: boolean;
   aggregate_version: number;
   created_at_utc: string;
+  masked_identifier?: string | null;
+  identifier_type?: string | null;
+  masked_phone?: string | null;
 };
 
 export type PatientHistoryItem = {

@@ -1,6 +1,7 @@
 import type { Requirement } from "@/lib/resources";
 
 export type Patient = {
+  is_active?: boolean;
   patient_profile_id: string;
   person_id: string;
   first_name: string;

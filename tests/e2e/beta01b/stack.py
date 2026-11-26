@@ -120,25 +120,30 @@ class BrowserStack:
 
     def write_env_file(self, path: Path) -> None:
         # Playwright reads this; do not print contents.
+        # Quote values so shells can `source` the file when names contain spaces.
+        def q(value: object) -> str:
+            text = str(value)
+            return "'" + text.replace("'", "'\"'\"'") + "'"
+
         path.write_text(
             "\n".join(
                 [
-                    f"BETA01B_PANEL_BASE_URL={self.panel_base_url}",
-                    f"BETA01B_API_BASE_URL={self.api_base_url}",
-                    f"BETA01B_RECEPTIONIST_LOGIN={self.receptionist_login}",
-                    f"BETA01B_RECEPTIONIST_PASSWORD={self.receptionist_password}",
-                    f"BETA01B_UNAUTHORIZED_LOGIN={self.unauthorized_login}",
-                    f"BETA01B_UNAUTHORIZED_PASSWORD={self.unauthorized_password}",
-                    f"BETA02_OWNER_LOGIN={self.owner_login}",
-                    f"BETA02_OWNER_PASSWORD={self.owner_password}",
-                    f"BETA02_MANAGER_LOGIN={self.manager_login}",
-                    f"BETA02_MANAGER_PASSWORD={self.manager_password}",
-                    f"BETA02_DEPUTY_LOGIN={self.deputy_login}",
-                    f"BETA02_DEPUTY_PASSWORD={self.deputy_password}",
-                    f"BETA01B_SERVICE_NAME={self.service_name}",
-                    f"BETA01B_RESOURCE_NAME={self.resource_name}",
-                    f"BETA01B_TENANT_A_ID={self.tenant_a_id}",
-                    f"BETA01B_ARTIFACT_DIR={self.artifact_dir}",
+                    f"BETA01B_PANEL_BASE_URL={q(self.panel_base_url)}",
+                    f"BETA01B_API_BASE_URL={q(self.api_base_url)}",
+                    f"BETA01B_RECEPTIONIST_LOGIN={q(self.receptionist_login)}",
+                    f"BETA01B_RECEPTIONIST_PASSWORD={q(self.receptionist_password)}",
+                    f"BETA01B_UNAUTHORIZED_LOGIN={q(self.unauthorized_login)}",
+                    f"BETA01B_UNAUTHORIZED_PASSWORD={q(self.unauthorized_password)}",
+                    f"BETA02_OWNER_LOGIN={q(self.owner_login)}",
+                    f"BETA02_OWNER_PASSWORD={q(self.owner_password)}",
+                    f"BETA02_MANAGER_LOGIN={q(self.manager_login)}",
+                    f"BETA02_MANAGER_PASSWORD={q(self.manager_password)}",
+                    f"BETA02_DEPUTY_LOGIN={q(self.deputy_login)}",
+                    f"BETA02_DEPUTY_PASSWORD={q(self.deputy_password)}",
+                    f"BETA01B_SERVICE_NAME={q(self.service_name)}",
+                    f"BETA01B_RESOURCE_NAME={q(self.resource_name)}",
+                    f"BETA01B_TENANT_A_ID={q(self.tenant_a_id)}",
+                    f"BETA01B_ARTIFACT_DIR={q(self.artifact_dir)}",
                 ]
             )
             + "\n",

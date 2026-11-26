@@ -11,7 +11,13 @@ import fs from "node:fs";
 function loadEnv(file: string) {
   for (const line of fs.readFileSync(file, "utf8").split("\n")) {
     const idx = line.indexOf("=");
-    if (idx > 0 && !process.env[line.slice(0, idx)]) process.env[line.slice(0, idx)] = line.slice(idx + 1);
+    if (idx <= 0) continue;
+    const key = line.slice(0, idx);
+    let value = line.slice(idx + 1);
+    if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
+      value = value.slice(1, -1);
+    }
+    if (!process.env[key]) process.env[key] = value;
   }
 }
 
@@ -23,6 +29,7 @@ const PAGES = [
   ["خدمات و منابع", "/catalog", "catalog-page"],
   ["کارکنان", "/staff", "staff-page"],
   ["کاربران و دسترسی", "/access", "access-page"],
+  ["حسابرسی", "/audit", "audit-page"],
 ] as const;
 
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];

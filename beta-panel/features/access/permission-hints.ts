@@ -29,6 +29,7 @@ const HINTS: Record<string, string> = {
   BETA02_APPOINTMENTS_CHECK_IN: "ثبت حضور بیمار برای نوبت تأییدشده",
   BETA02_APPOINTMENTS_COMPLETE: "اتمام نوبت پس از حضور",
   BETA02_APPOINTMENTS_MARK_NO_SHOW: "ثبت عدم حضور پس از زمان شروع",
+  BETA02_AUDIT_VIEW: "مشاهده گزارش حسابرسی عملیات (فقط خواندن، بدون تغییر)",
 };
 
 export function permissionHint(code: string): string | undefined {

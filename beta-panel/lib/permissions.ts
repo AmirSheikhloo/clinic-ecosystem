@@ -32,6 +32,7 @@ export const P = {
   appointmentsCheckIn: "BETA02_APPOINTMENTS_CHECK_IN",
   appointmentsComplete: "BETA02_APPOINTMENTS_COMPLETE",
   appointmentsMarkNoShow: "BETA02_APPOINTMENTS_MARK_NO_SHOW",
+  auditView: "BETA02_AUDIT_VIEW",
 } as const;
 
 export type NavGroupId = "work" | "clinic" | "admin" | "personal";
@@ -61,6 +62,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/catalog", label: "خدمات و منابع", icon: "catalog", group: "clinic", anyOf: [P.catalogServicesRead, P.resourcesRead, P.servicesManage, P.resourcesManage] },
   { href: "/staff", label: "کارکنان", icon: "staff", group: "admin", anyOf: [P.staffView] },
   { href: "/access", label: "کاربران و دسترسی", icon: "access", group: "admin", anyOf: [P.accountsView, P.rolesView, P.governanceView] },
+  { href: "/audit", label: "حسابرسی", icon: "list", group: "admin", anyOf: [P.auditView] },
   { href: "/preferences", label: "ظاهر و ترجیحات", icon: "palette", group: "personal", anyOf: [] },
 ];
 

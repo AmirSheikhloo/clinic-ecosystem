@@ -20,10 +20,13 @@ test("receptionist: no admin navigation, denied pages, server denies direct API 
   await expect(nav.getByRole("link", { name: "بیماران", exact: true })).toBeVisible();
   await expect(nav.getByRole("link", { name: "کارکنان", exact: true })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: "کاربران و دسترسی", exact: true })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: "حسابرسی", exact: true })).toHaveCount(0);
 
   await page.goto("/staff");
   await expect(page.getByTestId("access-denied")).toBeVisible({ timeout: 30_000 });
   await page.goto("/access");
+  await expect(page.getByTestId("access-denied")).toBeVisible({ timeout: 30_000 });
+  await page.goto("/audit");
   await expect(page.getByTestId("access-denied")).toBeVisible({ timeout: 30_000 });
   await page.goto("/catalog/manage");
   await expect(page.getByTestId("access-denied")).toBeVisible({ timeout: 30_000 });
@@ -33,6 +36,7 @@ test("receptionist: no admin navigation, denied pages, server denies direct API 
     "/api/v1/access/accounts",
     "/api/v1/access/roles",
     "/api/v1/access/governance",
+    "/api/v1/audit/entries",
     "/api/v1/catalog/admin/services",
     "/api/v1/catalog/admin/resources",
   ]) {

@@ -73,6 +73,17 @@ export function PatientProfileView({ patientId }: { patientId: string }) {
                   <ActiveBadge active={patient.is_active} />
                   <span className="tabular-nums">شماره پرونده: {patient.dossier_number ?? "—"}</span>
                   <span className="tabular-nums">تاریخ تولد: {patient.birth_date ? formatJalaliFromTehranYmd(patient.birth_date) : "ثبت نشده"}</span>
+                  {patient.masked_identifier ? (
+                    <span className="tabular-nums" data-testid="patient-masked-id">
+                      شناسه: {patient.masked_identifier}
+                      {patient.identifier_type ? ` (${patient.identifier_type})` : ""}
+                    </span>
+                  ) : null}
+                  {patient.masked_phone ? (
+                    <span className="tabular-nums" data-testid="patient-masked-phone">
+                      تلفن: {patient.masked_phone}
+                    </span>
+                  ) : null}
                   <span className="tabular-nums">ثبت: {formatJalaliDate(patient.created_at_utc)}</span>
                 </span>
               }

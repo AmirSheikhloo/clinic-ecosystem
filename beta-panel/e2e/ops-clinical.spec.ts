@@ -12,8 +12,10 @@ import {
   bff,
   credsFromEnv,
   deskBook,
+  acknowledgeIfAsked,
   deskRegisterPatient,
   expectToast,
+  findAppointmentRow,
   gotoNav,
   loginAs,
   tehranSlot,
@@ -31,6 +33,9 @@ test("manager: patient registry — register, search, profile edit, deactivate",
   await page.getByTestId("patients-new").click();
   await page.getByTestId("patients-first-name").fill(first);
   await page.getByTestId("patients-last-name").fill(last);
+  await page.getByTestId("identity-type-exception").click();
+  await page.getByTestId("patients-identity-exception").fill(`e2e clinical ${RUN}`);
+  await expect(page.getByTestId("patients-register-submit")).toBeEnabled({ timeout: 10_000 });
   await page.getByTestId("patients-register-submit").click();
   await expect(page.getByTestId("patients-status")).toContainText("بیمار ثبت شد", { timeout: 30_000 });
   await expectToast(page, "بیمار با موفقیت ثبت شد");
@@ -76,13 +81,13 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
   const pFirst = "CalPat";
   const pLast = `A${RUN}`;
-  const slotA = tehranSlot(0, 17);
+  const slotA = tehranSlot(0, 22);
 
   await page.goto("/desk");
   await expect(page.getByTestId("desk-page")).toBeVisible({ timeout: 45_000 });
   await deskRegisterPatient(page, pFirst, pLast);
   await deskBook(page, slotA);
-  await expect(page.getByTestId("desk-status")).toContainText("نوبت ثبت شد", { timeout: 45_000 });
+  await acknowledgeIfAsked(page);
 
   // Second patient booked on the same resource and slot needs explicit acknowledgement.
   await deskRegisterPatient(page, "CalPat", `B${RUN}`);
@@ -91,16 +96,18 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await page.getByTestId("overlap-confirm").click();
   await expect(page.getByTestId("desk-status")).toContainText("تأیید تداخل", { timeout: 45_000 });
 
-  await page.goto("/appointments?view=day");
+  await page.goto("/appointments?view=list");
   await expect(page.getByTestId("appointments-page")).toBeVisible({ timeout: 30_000 });
-  const rowsA = page.getByTestId("appointment-row").filter({ hasText: pLast });
-  await expect(rowsA).toHaveCount(1, { timeout: 30_000 });
+  await findAppointmentRow(page, pLast);
   await expect(page.getByTestId("appointments-count")).toHaveText(/^\d+$/);
 
-  // Week and month views show the same appointment.
+  // Week/day calendars truncate on dense demo weeks — filter Room Alpha first.
+  await page.getByTestId("view-day").click();
+  await page.getByTestId("filter-resource").selectOption({ label: process.env.BETA01B_RESOURCE_NAME || "Room Alpha" });
+  await expect(page.getByTestId("timeline-event").filter({ hasText: pLast })).toHaveCount(1, { timeout: 30_000 });
   await page.getByTestId("view-week").click();
   await expect(page.getByTestId("week-view")).toBeVisible();
-  await expect(page.getByTestId("week-item").filter({ hasText: pLast })).toHaveCount(1);
+  await expect(page.getByTestId("week-item").filter({ hasText: pLast })).toHaveCount(1, { timeout: 30_000 });
   await page.getByTestId("view-month").click();
   await expect(page.getByTestId("month-view")).toBeVisible();
   const populated = page.getByTestId("month-cell").and(page.locator('[data-count]:not([data-count="0"])'));
@@ -115,15 +122,16 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await page.getByTestId("calendar-today").click();
   await expect(page.getByTestId("calendar-title")).toContainText(String(yearBefore));
 
-  // Filter by status narrows to zero without errors.
+  // Filter by status narrows to zero without errors; then return to list + search.
   await page.getByTestId("view-day").click();
   await page.getByTestId("filter-status").selectOption("CANCELLED");
-  await expect(page.getByTestId("appointment-row")).toHaveCount(0);
+  await expect(page.getByTestId("appointment-row").or(page.getByTestId("timeline-event"))).toHaveCount(0);
   await page.getByTestId("filter-status").selectOption("");
-  await expect(rowsA).toHaveCount(1);
+  await page.getByTestId("view-list").click();
+  await findAppointmentRow(page, pLast);
 
   // Details dialog, then reschedule B onto A's slot to force an overlap acknowledgement.
-  const rowB = page.getByTestId("appointment-row").filter({ hasText: `B${RUN}` });
+  const rowB = await findAppointmentRow(page, `B${RUN}`);
   await rowB.getByTestId("appointment-open").click();
   const dialog = page.getByTestId("appointment-dialog");
   await expect(dialog).toContainText(`B${RUN}`);
@@ -135,7 +143,7 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await expect(page.getByTestId("appointment-dialog")).toHaveCount(0);
 
   // Reschedule back onto A: server demands acknowledgement; dialog lists the conflict.
-  await page.getByTestId("appointment-row").filter({ hasText: `B${RUN}` }).getByTestId("appointment-open").click();
+  await (await findAppointmentRow(page, `B${RUN}`)).getByTestId("appointment-open").click();
   await page.getByTestId("appointment-reschedule").click();
   await fillJalaliDateTime(page, "reschedule-start", slotA);
   await page.getByTestId("reschedule-submit").click();
@@ -145,23 +153,23 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await expectToast(page, "نوبت جابه‌جا شد");
 
   // Cancel B.
-  await page.getByTestId("appointment-row").filter({ hasText: `B${RUN}` }).getByTestId("appointment-open").click();
+  await (await findAppointmentRow(page, `B${RUN}`)).getByTestId("appointment-open").click();
   await page.getByTestId("appointment-cancel").click();
   await page.getByTestId("cancel-reason").fill("synthetic cancel");
   await page.getByTestId("cancel-confirm").click();
   await expectToast(page, "نوبت لغو شد");
   await page.getByTestId("filter-status").selectOption("CANCELLED");
-  await expect(page.getByTestId("appointment-row").filter({ hasText: `B${RUN}` })).toHaveCount(1);
+  await findAppointmentRow(page, `B${RUN}`);
 
   // Patient-to-appointment navigation: patient profile history links back to the calendar.
   await page.getByTestId("filter-status").selectOption("");
-  await page.getByTestId("appointment-row").filter({ hasText: `A${RUN}` }).getByTestId("appointment-open").click();
+  await (await findAppointmentRow(page, `A${RUN}`)).getByTestId("appointment-open").click();
   await page.getByTestId("appointment-patient-link").click();
   await expect(page.getByTestId("patient-profile-page")).toBeVisible();
   await expect(page.getByTestId("patient-history-row")).toHaveCount(1);
   await page.getByTestId("history-calendar-link").click();
   await expect(page.getByTestId("appointments-page")).toBeVisible();
-  await expect(page.getByTestId("appointment-row").filter({ hasText: `A${RUN}` })).toHaveCount(1);
+  await findAppointmentRow(page, `A${RUN}`);
 });
 
 test("manager: dashboard shows real counts and global search finds authorized records", async ({ page }) => {

@@ -22,6 +22,7 @@ from clinic_ecosystem.infrastructure.auth.settings import (
 from clinic_ecosystem.presentation.http import access as access_routes
 from clinic_ecosystem.presentation.http import appointment_admin as appointment_admin_routes
 from clinic_ecosystem.presentation.http import appointments as appointment_routes
+from clinic_ecosystem.presentation.http import audit as audit_routes
 from clinic_ecosystem.presentation.http import auth as auth_routes
 from clinic_ecosystem.presentation.http import catalog as catalog_routes
 from clinic_ecosystem.presentation.http import catalog_admin as catalog_admin_routes
@@ -123,6 +124,7 @@ def create_app(
     app.include_router(patient_registry_routes.router)
     app.include_router(staff_routes.router)
     app.include_router(access_routes.router)
+    app.include_router(audit_routes.router)
     app.include_router(overview_routes.router)
     app.include_router(appointment_routes.router)
     app.include_router(appointment_admin_routes.router)

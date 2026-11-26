@@ -2,6 +2,16 @@ import { defineConfig, devices } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
+function unquote(value: string): string {
+  if (
+    (value.startsWith("'") && value.endsWith("'")) ||
+    (value.startsWith('"') && value.endsWith('"'))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
 function loadEnvFile(): void {
   const envPath = process.env.BETA01B_E2E_ENV_FILE;
   if (!envPath) return;
@@ -10,7 +20,7 @@ function loadEnvFile(): void {
     if (!line || line.startsWith("#") || !line.includes("=")) continue;
     const idx = line.indexOf("=");
     const key = line.slice(0, idx);
-    const value = line.slice(idx + 1);
+    const value = unquote(line.slice(idx + 1));
     if (!process.env[key]) process.env[key] = value;
   }
 }

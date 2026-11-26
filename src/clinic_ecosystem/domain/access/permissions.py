@@ -47,6 +47,8 @@ APPOINTMENTS_CHECK_IN = "BETA02_APPOINTMENTS_CHECK_IN"
 APPOINTMENTS_COMPLETE = "BETA02_APPOINTMENTS_COMPLETE"
 APPOINTMENTS_MARK_NO_SHOW = "BETA02_APPOINTMENTS_MARK_NO_SHOW"
 
+AUDIT_VIEW = "BETA02_AUDIT_VIEW"
+
 
 @dataclass(frozen=True, slots=True)
 class PermissionDefinition:
@@ -87,6 +89,12 @@ _DEFS: tuple[PermissionDefinition, ...] = (
     PermissionDefinition(APPOINTMENTS_COMPLETE, "appointments", "اتمام نوبت", "Mark a checked-in appointment completed"),
     PermissionDefinition(
         APPOINTMENTS_MARK_NO_SHOW, "appointments", "ثبت عدم حضور", "Mark a confirmed appointment as no-show"
+    ),
+    PermissionDefinition(
+        AUDIT_VIEW,
+        "governance",
+        "مشاهده گزارش حسابرسی",
+        "List append-only audit_entries for supervisory review (no mutation)",
     ),
 )
 

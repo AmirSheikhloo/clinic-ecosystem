@@ -5,10 +5,12 @@
 import { expect, test } from "@playwright/test";
 import {
   RUN,
+  acknowledgeIfAsked,
   credsFromEnv,
   deskBook,
   deskRegisterPatient,
   expectToast,
+  findAppointmentRow,
   gotoNav,
   loginAs,
   tehranSlot,
@@ -16,23 +18,11 @@ import {
 
 test.describe.configure({ mode: "serial" });
 
-async function acknowledgeIfAsked(page: import("@playwright/test").Page) {
-  const dialog = page.getByTestId("overlap-dialog");
-  const status = page.getByTestId("desk-status");
-  await expect(dialog.or(status)).toBeVisible({ timeout: 45_000 });
-  if (await dialog.isVisible()) {
-    await page.getByTestId("overlap-confirm").click();
-    await expect(status).toContainText(/تأیید تداخل|نوبت ثبت شد/, { timeout: 45_000 });
-  } else {
-    await expect(status).toContainText("نوبت ثبت شد", { timeout: 45_000 });
-  }
-}
-
 test("manager: list workspace check-in and complete; dashboard upcoming stays live", async ({ page }) => {
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
   const first = "LifePat";
   const last = `Lc${RUN}`;
-  const slot = tehranSlot(2, 15);
+  const slot = tehranSlot(2, 22);
 
   await page.goto("/desk");
   await expect(page.getByTestId("desk-page")).toBeVisible({ timeout: 45_000 });
@@ -44,8 +34,7 @@ test("manager: list workspace check-in and complete; dashboard upcoming stays li
   await expect(page.getByTestId("appointments-list")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("view-list")).toHaveAttribute("aria-checked", "true");
 
-  const row = page.getByTestId("appointment-row").filter({ hasText: last });
-  await expect(row).toHaveCount(1, { timeout: 30_000 });
+  const row = await findAppointmentRow(page, last);
   await row.getByTestId("appointment-open").click();
 
   const dialog = page.getByTestId("appointment-dialog");
@@ -61,7 +50,7 @@ test("manager: list workspace check-in and complete; dashboard upcoming stays li
   await expectToast(page, "نوبت تکمیل شد");
 
   await page.getByTestId("filter-status").selectOption("COMPLETED");
-  await expect(page.getByTestId("appointment-row").filter({ hasText: last })).toHaveCount(1, { timeout: 30_000 });
+  await findAppointmentRow(page, last);
 
   await gotoNav(page, "داشبورد", "dashboard-page");
   await expect(page.getByTestId("dashboard-count")).toHaveText(/^\d+$/, { timeout: 30_000 });

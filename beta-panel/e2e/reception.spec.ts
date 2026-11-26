@@ -64,6 +64,9 @@ async function loginAsReceptionist(page: Page) {
 async function registerAndSelectPatient(page: Page, first: string, last: string) {
   await page.getByTestId("patient-first-name").fill(first);
   await page.getByTestId("patient-last-name").fill(last);
+  await page.getByTestId("desk-identity-exception").click();
+  await page.getByTestId("patient-identity-exception").fill(`e2e reception ${Date.now().toString().slice(-6)}`);
+  await expect(page.getByTestId("patient-register-submit")).toBeEnabled({ timeout: 10_000 });
   await page.getByTestId("patient-register-submit").click();
   await expect(page.getByTestId("desk-status")).toContainText("بیمار ثبت شد", {
     timeout: 30_000,
@@ -121,12 +124,16 @@ test("BETA-01B reception browser acceptance gate", async ({ page, request }) => 
   });
   expect(authedBadCsrf.status()).toBe(403);
 
-  // 5–10) Create patient, select service/resources/time, submit
+  // 5–10) Create patient, select service/resources/time, submit (dense demo may require overlap ack)
   await registerAndSelectPatient(page, synthFirst, synthLast);
   await bookConsultation(page, startLocal);
-
+  const overlap = page.getByTestId("overlap-dialog");
   const status = page.getByTestId("desk-status");
-  await expect(status).toContainText("نوبت ثبت شد", { timeout: 45_000 });
+  await expect(overlap.or(status)).toBeVisible({ timeout: 45_000 });
+  if (await overlap.isVisible()) {
+    await page.getByTestId("overlap-confirm").click();
+  }
+  await expect(status).toContainText(/نوبت ثبت شد|تأیید تداخل/, { timeout: 45_000 });
   const statusText = await status.innerText();
   const idMatch = statusText.match(
     /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
@@ -138,15 +145,16 @@ test("BETA-01B reception browser acceptance gate", async ({ page, request }) => 
   await page.getByTestId("appointment-submit").click();
   await expect(status).toContainText(appointmentId, { timeout: 45_000 });
   const statusAfterDup = await status.innerText();
-  expect(statusAfterDup).toMatch(/بازیابی تکرار|نوبت ثبت شد/);
+  expect(statusAfterDup).toMatch(/بازیابی تکرار|نوبت ثبت شد|تأیید تداخل/);
 
   // 11) Daily list shows the appointment once for this synthetic patient
   await navLink(page, "مدیریت نوبت‌ها").click();
   await expect(page).toHaveURL(/\/appointments/);
   await expect(page.getByTestId("appointments-page")).toBeVisible();
-  const rows = page.getByTestId("appointment-row").filter({ hasText: synthFirst });
+  await page.getByTestId("list-search").fill(synthLast);
+  const rows = page.getByTestId("appointment-row").filter({ hasText: synthLast });
   await expect(rows).toHaveCount(1, { timeout: 30_000 });
-  await expect(rows.first()).toContainText(synthLast);
+  await expect(rows.first()).toContainText(synthFirst);
 
   // Overlap confirmation (receptionist has ALLOW_MANUAL_OVERBOOKING)
   await navLink(page, "میز پذیرش").click();

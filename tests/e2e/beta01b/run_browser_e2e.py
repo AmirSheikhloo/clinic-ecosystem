@@ -20,9 +20,9 @@ from tests.e2e.beta01b.stack import (
     start_browser_stack,
 )
 
-ARTIFACT_DIR = Path(
-    os.environ.get("BETA01B_E2E_ARTIFACT_DIR", str(REPO_ROOT / "artifacts" / "beta01b-e2e"))
-)
+_raw_artifact = os.environ.get("BETA01B_E2E_ARTIFACT_DIR", str(REPO_ROOT / "artifacts" / "beta01b-e2e"))
+# Absolute path required: Playwright loads the env file with cwd=beta-panel/.
+ARTIFACT_DIR = Path(_raw_artifact).expanduser().resolve()
 ENV_FILE = ARTIFACT_DIR / "playwright.env"
 
 

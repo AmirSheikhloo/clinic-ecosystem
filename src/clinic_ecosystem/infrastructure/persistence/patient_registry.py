@@ -34,6 +34,13 @@ class PatientProfileRow:
     created_at_utc: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class PatientMaskedIdentity:
+    masked_identifier: str | None
+    identifier_type: str | None
+    masked_phone: str | None
+
+
 def _row(row) -> PatientProfileRow:
     return PatientProfileRow(
         patient_profile_id=row.patient_profile_id,
@@ -97,6 +104,42 @@ class SqlPatientRegistry:
         )
         row = result.first()
         return _row(row) if row else None
+
+    async def masked_identity(
+        self, *, tenant_id: UUID, person_id: UUID
+    ) -> PatientMaskedIdentity:
+        """Return stored masked display values only — never ciphertext or plaintext."""
+        id_row = await self._session.execute(
+            text(
+                """
+                SELECT masked_display, id_type
+                FROM person_identifiers
+                WHERE tenant_id = :tenant_id AND person_id = :person_id
+                ORDER BY created_at_utc ASC, id ASC
+                LIMIT 1
+                """
+            ),
+            {"tenant_id": tenant_id, "person_id": person_id},
+        )
+        phone_row = await self._session.execute(
+            text(
+                """
+                SELECT masked_phone
+                FROM person_phones
+                WHERE tenant_id = :tenant_id AND person_id = :person_id
+                ORDER BY created_at_utc ASC, id ASC
+                LIMIT 1
+                """
+            ),
+            {"tenant_id": tenant_id, "person_id": person_id},
+        )
+        identifier = id_row.mappings().first()
+        phone = phone_row.mappings().first()
+        return PatientMaskedIdentity(
+            masked_identifier=identifier["masked_display"] if identifier else None,
+            identifier_type=identifier["id_type"] if identifier else None,
+            masked_phone=phone["masked_phone"] if phone else None,
+        )
 
     async def lock_dossier_namespace(self, tenant_id: UUID) -> None:
         await self._session.execute(

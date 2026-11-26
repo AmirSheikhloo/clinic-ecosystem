@@ -87,9 +87,34 @@ export function tehranSlot(offsetMinutes = 0, hour = 16): string {
 export async function deskRegisterPatient(page: Page, first: string, last: string) {
   await page.getByTestId("patient-first-name").fill(first);
   await page.getByTestId("patient-last-name").fill(last);
+  // Identity is required for submit readiness; use the approved exception path (no forged ID).
+  await page.getByTestId("desk-identity-exception").click();
+  await page.getByTestId("patient-identity-exception").fill(`e2e synthetic ${Date.now().toString().slice(-6)}`);
+  await expect(page.getByTestId("patient-register-submit")).toBeEnabled({ timeout: 10_000 });
   await page.getByTestId("patient-register-submit").click();
   await expect(page.getByTestId("desk-status")).toContainText("بیمار ثبت شد", { timeout: 30_000 });
   await expect(page.getByTestId("selected-patient")).toContainText(`${first} ${last}`);
+}
+
+/** Dense demo days often collide; accept either a clean booking or an acknowledged overlap. */
+export async function acknowledgeIfAsked(page: Page) {
+  const dialog = page.getByTestId("overlap-dialog");
+  const status = page.getByTestId("desk-status");
+  await expect(dialog.or(status)).toBeVisible({ timeout: 45_000 });
+  if (await dialog.isVisible()) {
+    await page.getByTestId("overlap-confirm").click();
+    await expect(status).toContainText(/تأیید تداخل|نوبت ثبت شد/, { timeout: 45_000 });
+  } else {
+    await expect(status).toContainText("نوبت ثبت شد", { timeout: 45_000 });
+  }
+}
+
+/** Find a patient row on the dense daily list via the search box. */
+export async function findAppointmentRow(page: Page, patientToken: string) {
+  await page.getByTestId("list-search").fill(patientToken);
+  const row = page.getByTestId("appointment-row").filter({ hasText: patientToken });
+  await expect(row).toHaveCount(1, { timeout: 30_000 });
+  return row;
 }
 
 export async function deskBook(page: Page, startLocal: string) {

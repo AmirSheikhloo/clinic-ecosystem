@@ -14,6 +14,7 @@ export const PROXY_ROOTS = [
   "patients",
   "staff",
   "access",
+  "audit",
   "catalog",
   "appointments",
   "dashboard",

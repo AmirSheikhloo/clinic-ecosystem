@@ -47,6 +47,9 @@ class PatientProfile(BaseModel):
     is_active: bool
     aggregate_version: int
     created_at_utc: datetime
+    masked_identifier: str | None = None
+    identifier_type: str | None = None
+    masked_phone: str | None = None
 
 
 class PatientPage(BaseModel):
@@ -81,7 +84,13 @@ class HistoryPage(BaseModel):
     offset: int
 
 
-def to_profile(row: PatientProfileRow) -> PatientProfile:
+def to_profile(
+    row: PatientProfileRow,
+    *,
+    masked_identifier: str | None = None,
+    identifier_type: str | None = None,
+    masked_phone: str | None = None,
+) -> PatientProfile:
     return PatientProfile(
         patient_profile_id=str(row.patient_profile_id),
         person_id=str(row.person_id),
@@ -92,6 +101,21 @@ def to_profile(row: PatientProfileRow) -> PatientProfile:
         is_active=row.is_active,
         aggregate_version=row.aggregate_version,
         created_at_utc=row.created_at_utc,
+        masked_identifier=masked_identifier,
+        identifier_type=identifier_type,
+        masked_phone=masked_phone,
+    )
+
+
+async def to_profile_with_masks(
+    registry: SqlPatientRegistry, *, tenant_id: UUID, row: PatientProfileRow
+) -> PatientProfile:
+    masks = await registry.masked_identity(tenant_id=tenant_id, person_id=row.person_id)
+    return to_profile(
+        row,
+        masked_identifier=masks.masked_identifier,
+        identifier_type=masks.identifier_type,
+        masked_phone=masks.masked_phone,
     )
 
 
@@ -127,7 +151,11 @@ async def get_patient(
     require(await load_granted(principal, uow), perm.PATIENTS_VIEW_PROFILE)
     row = await PatientRegistryService(uow).require(actor_of(principal), patient_profile_id)
     set_etag(response, row.aggregate_version)
-    return to_profile(row)
+    return await to_profile_with_masks(
+        SqlPatientRegistry(uow.session),
+        tenant_id=principal.claims.tenant_id,
+        row=row,
+    )
 
 
 @router.patch("/{patient_profile_id}", response_model=PatientProfile)
@@ -160,7 +188,11 @@ async def patch_patient(
         await uow.rollback()
         raise
     set_etag(response, row.aggregate_version)
-    return to_profile(row)
+    return await to_profile_with_masks(
+        SqlPatientRegistry(uow.session),
+        tenant_id=principal.claims.tenant_id,
+        row=row,
+    )
 
 
 @router.get("/{patient_profile_id}/appointments", response_model=HistoryPage)

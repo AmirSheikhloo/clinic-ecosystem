@@ -36,6 +36,9 @@ test("workspace screens load authorized synthetic data with Latin digits", async
   await page.getByTestId("patients-new").click();
   await page.getByTestId("patients-first-name").fill(first);
   await page.getByTestId("patients-last-name").fill(last);
+  await page.getByTestId("identity-type-exception").click();
+  await page.getByTestId("patients-identity-exception").fill(`e2e workspace ${last}`);
+  await expect(page.getByTestId("patients-register-submit")).toBeEnabled({ timeout: 10_000 });
   await page.getByTestId("patients-register-submit").click();
   await expect(page.getByTestId("patients-status")).toContainText("بیمار ثبت شد", {
     timeout: 30_000,
@@ -50,9 +53,7 @@ test("workspace screens load authorized synthetic data with Latin digits", async
   // Appointments
   await navLink(page, "مدیریت نوبت‌ها").click();
   await expect(page.getByTestId("appointments-page")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("appointments-count")).toBeVisible();
-  const countText = await page.getByTestId("appointments-count").innerText();
-  expect(countText).toMatch(/^\d+$/);
+  await expect(page.getByTestId("appointments-count")).toHaveText(/^\d+$/, { timeout: 30_000 });
   await assertNoNonLatinDigits(page);
 
   // Catalog

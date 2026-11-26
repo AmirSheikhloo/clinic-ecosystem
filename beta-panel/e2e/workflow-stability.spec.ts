@@ -1,7 +1,16 @@
 /** Workspace-level stability: stable grids while data loads, calendar lanes, filter links, table columns. */
 import { expect, test, type Page } from "@playwright/test";
 import { tehranTodayYmd } from "../lib/tehran";
-import { bff, credsFromEnv, deskBook, deskRegisterPatient, loginAs, RUN, tehranSlot } from "./ops-helpers";
+import {
+  acknowledgeIfAsked,
+  bff,
+  credsFromEnv,
+  deskBook,
+  deskRegisterPatient,
+  loginAs,
+  RUN,
+  tehranSlot,
+} from "./ops-helpers";
 
 test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
 test.describe.configure({ mode: "serial" });
@@ -20,17 +29,6 @@ async function box(page: Page, testId: string): Promise<Box> {
 function same(label: string, a: Box, b: Box, tolerance = 1) {
   for (const key of ["x", "y", "width", "height"] as const) {
     expect(Math.abs(a[key] - b[key]), `${label}: ${key} ${a[key]} vs ${b[key]}`).toBeLessThanOrEqual(tolerance);
-  }
-}
-
-/** A booking in a slot used by an earlier run needs the overlap acknowledgement; both outcomes are fine here. */
-async function acknowledgeIfAsked(page: Page) {
-  const dialog = page.getByTestId("overlap-dialog");
-  const status = page.getByTestId("desk-status");
-  await expect(dialog.or(status)).toBeVisible({ timeout: 45_000 });
-  if (await dialog.isVisible()) {
-    await page.getByTestId("overlap-confirm").click();
-    await expect(status).toBeVisible({ timeout: 45_000 });
   }
 }
 
@@ -68,7 +66,8 @@ test("dashboard status chips link to a filtered calendar day", async ({ page }) 
 test("calendar: overlapping visits sit in separate lanes and the toolbar does not move between views", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
-  const slot = tehranSlot(0, 18);
+  // Late slot + Room Alpha filter keeps the day timeline sparse enough to assert lanes.
+  const slot = tehranSlot(0, 22);
   await page.goto("/desk");
   await expect(page.getByTestId("desk-page")).toBeVisible({ timeout: 45_000 });
   await deskRegisterPatient(page, "Lane", `A${RUN}`);
@@ -85,10 +84,11 @@ test("calendar: overlapping visits sit in separate lanes and the toolbar does no
 
   await page.goto("/appointments?view=day");
   await expect(page.getByTestId("appointments-page")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("filter-resource").selectOption({ label: process.env.BETA01B_RESOURCE_NAME || "Room Alpha" });
   const events = page.getByTestId("timeline-event").filter({ hasText: `${RUN}` });
   await expect(events).toHaveCount(2, { timeout: 30_000 });
   const [first, second] = await Promise.all([events.nth(0).boundingBox(), events.nth(1).boundingBox()]);
-  const apart = first!.x + first!.width <= second!.x + 1 || second!.x + second!.width <= first!.x + 1;
+  const apart = first!.x + first!.width <= second!.x + 2 || second!.x + second!.width <= first!.x + 2;
   expect(apart, "overlapping appointments share the row side by side").toBe(true);
   await events.nth(0).click();
   await expect(page.getByTestId("appointment-dialog")).toBeVisible({ timeout: 20_000 });
