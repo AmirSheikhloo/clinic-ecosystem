@@ -38,10 +38,10 @@ export type ApiJsonOptions = {
 
 export function messageFromBody(body: ApiErrorBody, fallback: string): string {
   const nested =
-    typeof body.detail === "object" && body.detail && "message" in body.detail
-      ? (body.detail as { message?: string }).message
+    typeof body.detail === "object" && body.detail
+      ? (body.detail as { error?: string; message?: string })
       : undefined;
-  return describeError(body.error, body.message ?? nested, fallback);
+  return describeError(body.error ?? nested?.error, body.message ?? nested?.message, fallback);
 }
 
 function currentVersionOf(body: ApiErrorBody): number | null {

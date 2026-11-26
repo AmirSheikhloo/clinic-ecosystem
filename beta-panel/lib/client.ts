@@ -98,8 +98,8 @@ export async function apiFetch(
 
 export function formatApiError(data: ApiErrorBody, fallback: string): string {
   const nested =
-    typeof data.detail === "object" && data.detail && "message" in data.detail
-      ? (data.detail as { message?: string }).message
+    typeof data.detail === "object" && data.detail
+      ? (data.detail as { error?: string; message?: string })
       : undefined;
-  return describeError(data.error, data.message ?? nested, fallback);
+  return describeError(data.error ?? nested?.error, data.message ?? nested?.message, fallback);
 }

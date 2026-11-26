@@ -14,7 +14,7 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { apiJson } from "@/lib/api";
 import { P } from "@/lib/permissions";
 import { PatientDirectory } from "./PatientDirectory";
-import { PatientRegisterForm } from "./PatientRegisterForm";
+import { PatientRegisterForm, type IdentityType } from "./PatientRegisterForm";
 import type { PatientRow } from "./types";
 
 type Registered = Pick<PatientRow, "patient_profile_id" | "first_name" | "last_name">;
@@ -29,6 +29,8 @@ export function PatientsView() {
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [nationalId, setNationalId] = useState("");
+  const [phone, setPhone] = useState("");
+  const [identityType, setIdentityType] = useState<IdentityType>("IR_NATIONAL_ID");
   const [identityExceptionReason, setIdentityExceptionReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,8 +47,10 @@ export function PatientsView() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         birth_date: birthDate || null,
-        national_id: nationalId.trim() || null,
-        identity_exception_reason: nationalId.trim() ? null : (identityExceptionReason.trim() || null),
+        identity_type: identityType,
+        national_id: identityType === "EXCEPTION" ? null : nationalId.trim() || null,
+        phone: phone.trim() || null,
+        identity_exception_reason: identityType === "EXCEPTION" ? identityExceptionReason.trim() || null : null,
       },
       fallbackMessage: "ثبت بیمار ناموفق بود",
     });
@@ -62,6 +66,8 @@ export function PatientsView() {
     setLastName("");
     setBirthDate("");
     setNationalId("");
+    setPhone("");
+    setIdentityType("IR_NATIONAL_ID");
     setIdentityExceptionReason("");
     setFormOpen(false);
     setRefreshToken((value) => value + 1);
@@ -110,11 +116,15 @@ export function PatientsView() {
           lastName={lastName}
           birthDate={birthDate}
           nationalId={nationalId}
+          phone={phone}
+          identityType={identityType}
           identityExceptionReason={identityExceptionReason}
           onFirstNameChange={setFirstName}
           onLastNameChange={setLastName}
           onBirthDateChange={setBirthDate}
           onNationalIdChange={setNationalId}
+          onPhoneChange={setPhone}
+          onIdentityTypeChange={setIdentityType}
           onIdentityExceptionReasonChange={setIdentityExceptionReason}
           busy={busy}
           onRegister={register}

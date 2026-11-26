@@ -99,11 +99,15 @@ export function DeskView() {
             lastName={desk.lastName}
             birthDate={desk.birthDate}
             nationalId={desk.nationalId}
+            phone={desk.phone}
+            identityType={desk.identityType}
             identityExceptionReason={desk.identityExceptionReason}
             onFirstNameChange={desk.setFirstName}
             onLastNameChange={desk.setLastName}
             onBirthDateChange={desk.setBirthDate}
             onNationalIdChange={desk.setNationalId}
+            onPhoneChange={desk.setPhone}
+            onIdentityTypeChange={desk.setIdentityType}
             onIdentityExceptionReasonChange={desk.setIdentityExceptionReason}
             registering={desk.registering}
             onRegister={desk.registerPatient}

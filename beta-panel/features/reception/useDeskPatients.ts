@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, formatApiError, type ApiErrorBody } from "@/lib/client";
 import { apiJson, buildQuery } from "@/lib/api";
 import { useSession } from "@/components/session/SessionProvider";
+import type { IdentityType } from "@/features/patients/PatientRegisterForm";
+import { isValidNationalIdChecksum, normalizeNationalIdInput } from "@/lib/national-id";
 import type { DeskFeedback } from "./useDeskFeedback";
 import type { Patient } from "./types";
 
@@ -12,6 +14,15 @@ const SEARCH_DEBOUNCE_MS = 300;
 export const PATIENT_SEARCH_MIN = 2;
 
 type SearchState = { q: string; items: Patient[] } | null;
+
+type IdentifierLookup = {
+  found: boolean;
+  patient_profile_id?: string | null;
+  person_id?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  masked_display?: string | null;
+};
 
 /** Patient search (debounced, cancellable), quick registration and `?patient=<id>` deep-link selection. */
 export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () => void) {
@@ -26,36 +37,68 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [nationalId, setNationalId] = useState("");
+  const [phone, setPhone] = useState("");
+  const [identityType, setIdentityType] = useState<IdentityType>("IR_NATIONAL_ID");
   const [identityExceptionReason, setIdentityExceptionReason] = useState("");
   const [registering, setRegistering] = useState(false);
 
   const term = query.trim();
-  const searchable = term.length >= PATIENT_SEARCH_MIN;
+  const nationalDigits = normalizeNationalIdInput(term);
+  const lookupByNationalId = nationalDigits.length === 10 && isValidNationalIdChecksum(nationalDigits);
+  const searchable = lookupByNationalId || term.length >= PATIENT_SEARCH_MIN;
   const patients = searchState?.q === term ? searchState.items : [];
   const searching = status === "ready" && searchable && searchState?.q !== term;
 
   useEffect(() => {
-    if (status !== "ready" || term.length < PATIENT_SEARCH_MIN) return;
+    if (status !== "ready" || !searchable) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      void apiJson<{ items?: Patient[] }>(`/api/patients${buildQuery({ q: term, limit: 20 })}`, {
-        signal: controller.signal,
-        fallbackMessage: "جستجوی بیمار ناموفق بود",
-      }).then((result) => {
-        if (!result.ok) {
-          if (result.aborted) return;
-          setError(result.message);
-          setSearchState({ q: term, items: [] });
-          return;
-        }
-        setSearchState({ q: term, items: result.data.items ?? [] });
-      });
+      const request = lookupByNationalId
+        ? apiJson<IdentifierLookup>(
+            `/api/v1/patients/lookup/identifier${buildQuery({ id_type: "IR_NATIONAL_ID", value: nationalDigits })}`,
+            { signal: controller.signal, fallbackMessage: "جستجوی کد ملی ناموفق بود" },
+          ).then((result) => {
+            if (!result.ok) {
+              if (result.aborted) return;
+              setError(result.message);
+              setSearchState({ q: term, items: [] });
+              return;
+            }
+            const hit = result.data;
+            const items: Patient[] =
+              hit.found && hit.patient_profile_id
+                ? [
+                    {
+                      patient_profile_id: hit.patient_profile_id,
+                      person_id: hit.person_id ?? hit.patient_profile_id,
+                      first_name: hit.first_name ?? "",
+                      last_name: hit.last_name ?? "",
+                      birth_date: null,
+                      is_active: true,
+                    },
+                  ]
+                : [];
+            setSearchState({ q: term, items });
+          })
+        : apiJson<{ items?: Patient[] }>(`/api/patients${buildQuery({ q: term, limit: 20 })}`, {
+            signal: controller.signal,
+            fallbackMessage: "جستجوی بیمار ناموفق بود",
+          }).then((result) => {
+            if (!result.ok) {
+              if (result.aborted) return;
+              setError(result.message);
+              setSearchState({ q: term, items: [] });
+              return;
+            }
+            setSearchState({ q: term, items: result.data.items ?? [] });
+          });
+      void request;
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [term, status, setError]);
+  }, [term, status, setError, searchable, lookupByNationalId, nationalDigits]);
 
   useEffect(() => {
     if (status !== "ready" || !requestedPatientId) return;
@@ -100,11 +143,36 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
     onSelectionChange();
   }
 
-  /** Immediate search for the Search button / Enter; short terms are explained, not sent. */
   async function searchPatients() {
     setError(null);
     if (!searchable) {
       setError(`برای جستجو حداقل ${PATIENT_SEARCH_MIN} حرف وارد کنید`);
+      return;
+    }
+    if (lookupByNationalId) {
+      const result = await apiJson<IdentifierLookup>(
+        `/api/v1/patients/lookup/identifier${buildQuery({ id_type: "IR_NATIONAL_ID", value: nationalDigits })}`,
+        { fallbackMessage: "جستجوی کد ملی ناموفق بود" },
+      );
+      if (!result.ok) {
+        if (result.status !== 401) setError(result.message);
+        return;
+      }
+      const hit = result.data;
+      const items: Patient[] =
+        hit.found && hit.patient_profile_id
+          ? [
+              {
+                patient_profile_id: hit.patient_profile_id,
+                person_id: hit.person_id ?? hit.patient_profile_id,
+                first_name: hit.first_name ?? "",
+                last_name: hit.last_name ?? "",
+                birth_date: null,
+                is_active: true,
+              },
+            ]
+          : [];
+      setSearchState({ q: term, items });
       return;
     }
     const result = await apiJson<{ items?: Patient[] }>(`/api/patients${buildQuery({ q: term, limit: 20 })}`, {
@@ -131,8 +199,10 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           birth_date: birthDate || null,
-          national_id: nationalId.trim() || null,
-          identity_exception_reason: nationalId.trim() ? null : (identityExceptionReason.trim() || null),
+          identity_type: identityType,
+          national_id: identityType === "EXCEPTION" ? null : nationalId.trim() || null,
+          phone: phone.trim() || null,
+          identity_exception_reason: identityType === "EXCEPTION" ? identityExceptionReason.trim() || null : null,
         }),
       });
       if (response.status === 401) {
@@ -151,6 +221,8 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
       setLastName("");
       setBirthDate("");
       setNationalId("");
+      setPhone("");
+      setIdentityType("IR_NATIONAL_ID");
       setIdentityExceptionReason("");
     } catch {
       setError("ارتباط برای ثبت بیمار برقرار نشد — نتیجه نامشخص است؛ پیش از ثبت دوباره، جستجو کنید");
@@ -176,6 +248,10 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
     setBirthDate,
     nationalId,
     setNationalId,
+    phone,
+    setPhone,
+    identityType,
+    setIdentityType,
     identityExceptionReason,
     setIdentityExceptionReason,
     registering,

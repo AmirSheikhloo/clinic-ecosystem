@@ -159,9 +159,11 @@ def test_patient_register_success(app_principal) -> None:
                     "first_name": "Nima",
                     "last_name": "Test",
                     "birth_date": "1991-01-02",
+                    "identity_type": "EXCEPTION",
+                    "identity_exception_reason": "no_documents_at_desk",
                 },
             )
-        assert response.status_code == 201
+        assert response.status_code == 201, response.text
         body = response.json()
         assert body["patient_profile_id"] == str(patient_id)
         assert body["person_id"] == str(person_id)
@@ -172,6 +174,38 @@ def test_patient_register_success(app_principal) -> None:
         patients_mod.require_permission = original_perm
         patients_mod.SqlPatientRepository = original_repo
         patients_mod.SqlAuditStore = original_audit
+
+
+def test_patient_register_crypto_unavailable_when_national_id(app_principal, monkeypatch) -> None:
+    app, _, token = app_principal
+    monkeypatch.setenv("CLINIC_ENV", "test")
+    monkeypatch.delenv("CLINIC_PII_AES_KEY_HEX", raising=False)
+    monkeypatch.delenv("CLINIC_PII_AES_KEY", raising=False)
+    monkeypatch.delenv("CLINIC_PII_HMAC_KEY_HEX", raising=False)
+    monkeypatch.delenv("CLINIC_PII_HMAC_KEY", raising=False)
+
+    async def allow(*_a, **_k):
+        return None
+
+    original_perm = patients_mod.require_permission
+    patients_mod.require_permission = allow
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/patients",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "first_name": "Nima",
+                    "last_name": "Test",
+                    "identity_type": "IR_NATIONAL_ID",
+                    "national_id": "0013542419",
+                },
+            )
+        assert response.status_code == 503
+        detail = response.json()["detail"]
+        assert detail["error"] == "identifier_crypto_unavailable"
+    finally:
+        patients_mod.require_permission = original_perm
 
 
 def test_resources_list_success(app_principal) -> None:
