@@ -15,6 +15,11 @@ dependencies = [
   "sqlalchemy[asyncio]>=2.0",
   "uuid6==2024.7.10",
   "rfc8785==0.1.4",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "argon2-cffi>=23.1",
+  "PyJWT>=2.9",
+  "pydantic>=2.7",
 ]
 
 [project.optional-dependencies]
@@ -31,7 +36,7 @@ where = ["src"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "src"]
 markers = [
   "integration: requires Docker and PostgreSQL Testcontainers",
 ]

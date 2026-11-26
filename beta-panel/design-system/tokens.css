@@ -1,0 +1,213 @@
+/*
+ * Semantic design tokens — themes, spacing, typography, motion, z-index.
+ * Feature pages must use these variables; do not scatter raw hex values.
+ */
+
+:root,
+[data-theme="ocean"] {
+  --ds-primary: #0f6e8c;
+  --ds-primary-strong: #0a4f66;
+  --ds-secondary: #3d7ea6;
+  --ds-bg: #f3f7fa;
+  --ds-bg-accent: rgba(15, 110, 140, 0.1);
+  --ds-surface: #ffffff;
+  --ds-surface-muted: #e8eef4;
+  --ds-text: #1a2b3c;
+  --ds-text-muted: rgba(26, 43, 60, 0.68);
+  --ds-border: #d7e0ea;
+  --ds-border-strong: #c9d5e1;
+  --ds-success: #067647;
+  --ds-warning: #b54708;
+  --ds-danger: #b42318;
+  --ds-info: #175cd3;
+  --ds-focus: #0f6e8c;
+  --ds-overlay: rgba(15, 30, 40, 0.45);
+  --ds-sidebar: #0a4f66;
+  --ds-sidebar-text: #f5fafc;
+  --ds-sidebar-muted: rgba(245, 250, 252, 0.72);
+  --ds-shadow: 0 16px 40px rgba(15, 110, 140, 0.1);
+}
+
+[data-theme="midnight"] {
+  --ds-primary: #3b5bdb;
+  --ds-primary-strong: #2f3eb2;
+  --ds-secondary: #5c7cfa;
+  --ds-bg: #eef1f8;
+  --ds-bg-accent: rgba(59, 91, 219, 0.1);
+  --ds-surface: #ffffff;
+  --ds-surface-muted: #e4e9f5;
+  --ds-text: #1b2340;
+  --ds-text-muted: rgba(27, 35, 64, 0.68);
+  --ds-border: #d5dcf0;
+  --ds-border-strong: #c2cbe5;
+  --ds-success: #067647;
+  --ds-warning: #b54708;
+  --ds-danger: #b42318;
+  --ds-info: #3538cd;
+  --ds-focus: #3b5bdb;
+  --ds-overlay: rgba(20, 24, 48, 0.5);
+  --ds-sidebar: #1b2340;
+  --ds-sidebar-text: #f4f6ff;
+  --ds-sidebar-muted: rgba(244, 246, 255, 0.72);
+  --ds-shadow: 0 16px 40px rgba(59, 91, 219, 0.12);
+}
+
+[data-theme="emerald"] {
+  --ds-primary: #0f766e;
+  --ds-primary-strong: #115e59;
+  --ds-secondary: #2dd4bf;
+  --ds-bg: #f2faf7;
+  --ds-bg-accent: rgba(15, 118, 110, 0.1);
+  --ds-surface: #ffffff;
+  --ds-surface-muted: #e4f2ee;
+  --ds-text: #134e4a;
+  --ds-text-muted: rgba(19, 78, 74, 0.68);
+  --ds-border: #d0e5df;
+  --ds-border-strong: #b9d6ce;
+  --ds-success: #067647;
+  --ds-warning: #b54708;
+  --ds-danger: #b42318;
+  --ds-info: #0e7490;
+  --ds-focus: #0f766e;
+  --ds-overlay: rgba(12, 40, 36, 0.45);
+  --ds-sidebar: #115e59;
+  --ds-sidebar-text: #f0fdfa;
+  --ds-sidebar-muted: rgba(240, 253, 250, 0.72);
+  --ds-shadow: 0 16px 40px rgba(15, 118, 110, 0.12);
+}
+
+[data-theme="graphite"] {
+  --ds-primary: #475569;
+  --ds-primary-strong: #334155;
+  --ds-secondary: #64748b;
+  --ds-bg: #f4f6f8;
+  --ds-bg-accent: rgba(71, 85, 105, 0.1);
+  --ds-surface: #ffffff;
+  --ds-surface-muted: #e8edf2;
+  --ds-text: #1e293b;
+  --ds-text-muted: rgba(30, 41, 59, 0.68);
+  --ds-border: #d8dee6;
+  --ds-border-strong: #c5ced9;
+  --ds-success: #067647;
+  --ds-warning: #b54708;
+  --ds-danger: #b42318;
+  --ds-info: #334155;
+  --ds-focus: #475569;
+  --ds-overlay: rgba(15, 23, 42, 0.48);
+  --ds-sidebar: #1e293b;
+  --ds-sidebar-text: #f8fafc;
+  --ds-sidebar-muted: rgba(248, 250, 252, 0.72);
+  --ds-shadow: 0 16px 40px rgba(71, 85, 105, 0.12);
+}
+
+:root {
+  --ds-radius-sm: 0.5rem;
+  --ds-radius-md: 0.75rem;
+  --ds-radius-lg: 1rem;
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.25rem;
+  --ds-space-6: 1.5rem;
+  --ds-space-8: 2rem;
+  --ds-font-size-xs: 0.75rem;
+  --ds-font-size-sm: 0.8125rem;
+  --ds-font-size-md: 0.9375rem;
+  --ds-font-size-lg: 1.0625rem;
+  --ds-font-size-xl: 1.375rem;
+  --ds-font-size-2xl: 1.75rem;
+  --ds-font-weight-medium: 500;
+  --ds-font-weight-semibold: 600;
+  --ds-font-weight-bold: 700;
+  --ds-icon-sm: 1rem;
+  --ds-icon-md: 1.25rem;
+  --ds-icon-lg: 1.5rem;
+  --ds-control-height: 2.5rem;
+  --ds-control-height-sm: 2rem;
+  --ds-sidebar-width: 15rem;
+  --ds-sidebar-width-rail: 4.25rem;
+  --ds-header-height: 3.75rem;
+  --ds-header-search-row: 3.25rem;
+  --ds-search-width: clamp(14rem, 32%, 26rem);
+  --ds-user-chip-width: 8.5rem;
+  --ds-content-max: 80rem;
+  --ds-line-height-tight: 1.25;
+  --ds-line-height-body: 1.6;
+  --ds-z-sidebar: 40;
+  --ds-z-popover: 65;
+  --ds-z-tooltip: 80;
+  --ds-z-header: 50;
+  --ds-z-overlay: 60;
+  --ds-z-toast: 70;
+  --ds-motion-micro: 140ms;
+  --ds-motion-dropdown: 180ms;
+  --ds-motion-expand: 220ms;
+  --ds-motion-toast: 200ms;
+  --ds-motion-page: 220ms;
+  --ds-motion-dialog: 220ms;
+  --ds-motion-drawer: 260ms;
+  --ds-motion-sidebar: 260ms;
+  --ds-motion-theme: 240ms;
+  --ds-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ds-ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  --ds-heading: var(--ds-primary-strong);
+  --ds-link: var(--ds-primary);
+  --ds-on-primary: #ffffff;
+  --ds-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --ds-primary-soft: color-mix(in srgb, var(--ds-primary) 12%, var(--ds-surface));
+  --ds-success-soft: color-mix(in srgb, var(--ds-success) 14%, var(--ds-surface));
+  --ds-warning-soft: color-mix(in srgb, var(--ds-warning) 14%, var(--ds-surface));
+  --ds-danger-soft: color-mix(in srgb, var(--ds-danger) 14%, var(--ds-surface));
+  --ds-info-soft: color-mix(in srgb, var(--ds-info) 14%, var(--ds-surface));
+  --ds-sidebar-hover: color-mix(in srgb, var(--ds-sidebar-text) 10%, transparent);
+  --ds-sidebar-active: color-mix(in srgb, var(--ds-sidebar-text) 18%, transparent);
+  --ds-sidebar-border: color-mix(in srgb, var(--ds-sidebar-text) 14%, transparent);
+  --ds-font-sans: var(--ds-font-family);
+
+  --color-ink: var(--ds-text);
+  --color-mist: var(--ds-surface-muted);
+  --color-sea: var(--ds-primary);
+  --color-sea-deep: var(--ds-primary-strong);
+  --color-sand: var(--ds-bg);
+  --color-alert: var(--ds-danger);
+  --color-ok: var(--ds-success);
+}
+
+/* Appearance overrides come last so they win over :root defaults. */
+[data-appearance="dark"] {
+  --ds-bg: #0f1720;
+  --ds-bg-accent: rgba(148, 163, 184, 0.08);
+  --ds-surface: #162032;
+  --ds-surface-muted: #1c2a3d;
+  --ds-text: #e8eef4;
+  --ds-text-muted: rgba(232, 238, 244, 0.7);
+  --ds-border: #2a3a4f;
+  --ds-border-strong: #3a4d66;
+  --ds-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  --ds-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ds-heading: var(--ds-text);
+  --ds-link: color-mix(in srgb, var(--ds-primary) 45%, #ffffff);
+  --ds-success: #4ade80;
+  --ds-warning: #fbbf24;
+  --ds-danger: #f87171;
+  --ds-info: #7dd3fc;
+  --ds-on-primary: #ffffff;
+  --ds-sidebar: color-mix(in srgb, var(--ds-primary-strong) 35%, #0b121b);
+}
+
+/* Display density (Preferences). Controls and table rows follow these; layout geometry does not. */
+:root {
+  --ds-table-cell-block: 0.7rem;
+  --ds-card-padding: 1rem;
+  --ds-page-padding-block: 1.5rem;
+}
+
+[data-density="compact"] {
+  --ds-control-height: 2.25rem;
+  --ds-control-height-sm: 1.75rem;
+  --ds-table-cell-block: 0.4rem;
+  --ds-card-padding: 0.75rem;
+  --ds-page-padding-block: 1rem;
+}

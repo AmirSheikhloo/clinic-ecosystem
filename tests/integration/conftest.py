@@ -259,3 +259,10 @@ def plane_topology():
     finally:
         cloud.stop()
         local.stop()
+
+
+@pytest.fixture(scope="module")
+def ops(plane_topology):
+    from tests.integration.beta02_support import make_ops_stack
+
+    yield from make_ops_stack(plane_topology)
