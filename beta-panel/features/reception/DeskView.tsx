@@ -60,7 +60,18 @@ export function DeskView() {
     <main className="space-y-6" data-testid="desk-page">
       <PageHeader
         title="میز پذیرش"
-        description="بیمار را پیدا یا ثبت کنید، خدمت و منابع را انتخاب کنید و نوبت را در چند مرحله ثبت کنید."
+        description={
+          <>
+            بیمار را پیدا یا ثبت کنید، خدمت و منابع را انتخاب کنید و نوبت را در چند مرحله ثبت کنید.{" "}
+            <a
+              className="text-[var(--ds-primary)] underline-offset-2 hover:underline"
+              href="/appointments?view=list&status=CHECKED_IN&date=today"
+              data-testid="waiting-room-link"
+            >
+              اتاق انتظار (حضور امروز)
+            </a>
+          </>
+        }
       />
 
       {desk.message && desk.lastBooking ? (
@@ -158,6 +169,9 @@ export function DeskView() {
           submitting={desk.submitting}
           onConfirm={desk.confirmOverlap}
           onDismiss={desk.dismissOverlap}
+          lineLabel={
+            desk.draftLines.find((line) => line.key === desk.pendingConflictLineId)?.serviceName
+          }
         />
       ) : null}
     </main>

@@ -511,6 +511,46 @@ async def test_group_overlap_returns_per_line_conflicts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_immediate_check_in_requires_permission() -> None:
+    uow = FakeUow()
+    handler = _handler(
+        uow,
+        FakeAppointments(),
+        perms=FakePermissions(False),
+    )
+    with pytest.raises(UnauthorizedScheduling):
+        await handler.handle(_command(immediate_check_in=True))
+    assert uow.rolled_back
+
+
+@pytest.mark.asyncio
+async def test_immediate_check_in_sets_checked_in_status() -> None:
+    uow = FakeUow()
+    appts = FakeAppointments()
+    outbox = FakeOutbox()
+
+    @asynccontextmanager
+    async def factory():
+        yield uow
+
+    handler = ScheduleAppointmentHandler(
+        uow_factory=factory,
+        appointments=appts,
+        idempotency=FakeIdempotency(),
+        outbox=outbox,
+        audit=FakeAudit(),
+        permissions=FakePermissions(True),
+        patient_display=FakePatientDisplay(),
+    )
+    result = await handler.handle(_command(immediate_check_in=True))
+    assert result.status == "CHECKED_IN"
+    assert appts.added is not None
+    assert appts.added.status.value == "CHECKED_IN"
+    assert any(m["message_type"] == "appointment.checked_in" for m in outbox.messages)
+    assert uow.committed
+
+
+@pytest.mark.asyncio
 async def test_group_idempotent_replay_returns_same_payload() -> None:
     uow = FakeUow()
     r1, r2, r3 = new_uuid7(), new_uuid7(), new_uuid7()

@@ -105,6 +105,7 @@ export function useReceptionDesk() {
     submitting: submit.submitting,
     registering: patients.registering,
     pendingConflicts: booking.pendingConflicts,
+    pendingConflictLineId: booking.pendingConflictLineId,
     durationMinutes: catalog.durationMinutes,
     canSubmit: submit.canSubmit,
     patientSearching: patients.searching,
@@ -121,7 +122,7 @@ export function useReceptionDesk() {
       !!booking.localStart &&
       !submit.submitting,
     removeDraftLine: drafts.removeDraftLine,
-    setWalkInNow: () => drafts.setWalkInNow(booking.setLocalStart),
+    setWalkInNow: () => drafts.setWalkInNow(booking.markWalkInNow),
     canSubmitGroup: drafts.draftLines.length > 0 && !!patients.selectedPatient && !submit.submitting,
     submitGroup: submit.submitGroup,
     startNext,

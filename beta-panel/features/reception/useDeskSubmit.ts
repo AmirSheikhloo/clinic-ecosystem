@@ -7,9 +7,9 @@ import {
   formatTehran,
   sortedConflictIds,
   type BookingIntent,
-  type GroupBookingIntent,
   type OverlapConflict,
 } from "@/lib/client";
+import type { GroupBookingIntent } from "@/lib/booking";
 import {
   eligibleResourcesForRequirements,
   requiredSelectionCount,

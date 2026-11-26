@@ -229,7 +229,7 @@ export function BookingForm(props: Props) {
         </div>
         {queuedCount > 0 && onSubmitGroup ? (
           <Button type="button" icon="check" loading={submitting} disabled={!canSubmitGroup} onClick={onSubmitGroup} data-testid="group-submit" className="w-full">
-            {submitting ? "در حال ثبت گروه…" : `ثبت ${queuedCount} نوبت مستقل`}
+            {submitting ? "در حال ثبت گروه…" : `ثبت اتمی ${queuedCount} نوبت`}
           </Button>
         ) : null}
       </div>
