@@ -136,7 +136,9 @@ Decision packet (Category C finance/inventory/waitlist/scopes/staff-service): `d
 | Waiting-room read model (CHECKED_IN) | IMPLEMENTED |
 | Dashboard unique_patients + waiting_checked_in | IMPLEMENTED |
 | Windows Docker-before-prepare + auto-browser | IMPLEMENTED |
-| Rich demo builders + loader | IMPLEMENTED / TESTED (`tests/integration/test_demo_minimal_loader.py` on PG15; INSERT under FORCE RLS; preview stack wired) |
-| Full `demo` profile count verification on disposable preview | PARTIAL (minimal profile PASS on PG15; full demo profile counts validated in-memory + generator; live full-profile PG run still recommended on Windows preview) |
-| Section 50 finance / inventory / waitlist entity / scopes / staff-service links | BLOCKED (no approved DDL beyond tp0007; see ACR-D0.5) |
+| Rich demo builders + loader | IMPLEMENTED / TESTED (`test_demo_minimal_loader` + `test_demo_full_loader` on PG15) |
+| Full `demo` profile live PG counts | TESTED — patients 520, staff 42, services 32, appointments 10500, today≥220, tomorrow 110, groups 110, overlaps 32, shared phones 32, exceptional 32, audit 5200 |
+| Secure identifier/phone lookup (POST body) | IMPLEMENTED / TESTED (no raw ID/phone in URL query) |
+| Section 50 finance / inventory / waitlist / scopes / staff-service / arrival columns / online closure / notes | BLOCKED pending approval of `ACR-D0.6-COMPLETE-OPERATIONS-CONTRACTS.md` (PROPOSED; no migrations landed) |
 | Migration lineage | tp0001–tp0007 unchanged |
+| Acceptance matrix | `docs/records/D0.5_ACCEPTANCE_MATRIX_TASK30.md` |

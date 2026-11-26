@@ -232,6 +232,17 @@ def test_patient_register_allows_missing_official_id_without_reason(app_principa
         patients_mod.SqlAuditStore = original_audit
 
 
+def test_identifier_lookup_is_post_only(app_principal) -> None:
+    app, _, token = app_principal
+    with TestClient(app) as client:
+        get_res = client.get(
+            "/api/v1/patients/lookup/identifier",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"id_type": "IR_NATIONAL_ID", "value": "0013542419"},
+        )
+        assert get_res.status_code == 405
+
+
 def test_patient_register_crypto_unavailable_when_national_id(app_principal, monkeypatch) -> None:
     app, _, token = app_principal
     monkeypatch.setenv("CLINIC_ENV", "test")

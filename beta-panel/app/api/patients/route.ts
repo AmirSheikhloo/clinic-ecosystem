@@ -20,12 +20,10 @@ export async function GET(request: Request) {
     requireBetaPanelEnabled();
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") || "";
-    const phone = searchParams.get("phone") || "";
     const limit = searchParams.get("limit") || "20";
     const offset = searchParams.get("offset") || "0";
     const query = new URLSearchParams();
     if (q) query.set("q", q);
-    if (phone) query.set("phone", phone);
     query.set("limit", limit);
     query.set("offset", offset);
     const upstream = await backendFetch(

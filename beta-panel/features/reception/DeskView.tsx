@@ -68,7 +68,7 @@ export function DeskView() {
               href="/appointments?view=list&status=CHECKED_IN&date=today"
               data-testid="waiting-room-link"
             >
-              اتاق انتظار (حضور امروز)
+              نوبت‌های با حضور ثبت‌شده (امروز)
             </a>
           </>
         }

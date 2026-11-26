@@ -54,10 +54,12 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       const request = lookupByNationalId
-        ? apiJson<IdentifierLookup>(
-            `/api/v1/patients/lookup/identifier${buildQuery({ id_type: "IR_NATIONAL_ID", value: nationalDigits })}`,
-            { signal: controller.signal, fallbackMessage: "جستجوی کد ملی ناموفق بود" },
-          ).then((result) => {
+        ? apiJson<IdentifierLookup>("/api/patients/lookup/identifier", {
+            method: "POST",
+            body: { id_type: "IR_NATIONAL_ID", value: nationalDigits },
+            signal: controller.signal,
+            fallbackMessage: "جستجوی کد ملی ناموفق بود",
+          }).then((result) => {
             if (!result.ok) {
               if (result.aborted) return;
               setError(result.message);
@@ -150,10 +152,11 @@ export function useDeskPatients(feedback: DeskFeedback, onSelectionChange: () =>
       return;
     }
     if (lookupByNationalId) {
-      const result = await apiJson<IdentifierLookup>(
-        `/api/v1/patients/lookup/identifier${buildQuery({ id_type: "IR_NATIONAL_ID", value: nationalDigits })}`,
-        { fallbackMessage: "جستجوی کد ملی ناموفق بود" },
-      );
+      const result = await apiJson<IdentifierLookup>("/api/patients/lookup/identifier", {
+        method: "POST",
+        body: { id_type: "IR_NATIONAL_ID", value: nationalDigits },
+        fallbackMessage: "جستجوی کد ملی ناموفق بود",
+      });
       if (!result.ok) {
         if (result.status !== 401) setError(result.message);
         return;

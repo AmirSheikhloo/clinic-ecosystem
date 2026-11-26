@@ -268,16 +268,29 @@ async def register_patient(
     )
 
 
-@router.get("/lookup/identifier", response_model=IdentifierLookupResponse)
+OfficialLookupType = Literal["IR_NATIONAL_ID", "FOREIGN_FIDA_CODE", "FOREIGN_PASSPORT"]
+
+
+class IdentifierLookupRequest(BaseModel):
+    value: str = Field(min_length=1, max_length=40)
+    id_type: OfficialLookupType = "IR_NATIONAL_ID"
+    issuing_country_or_authority: str | None = Field(default=None, max_length=64)
+
+
+class PhoneLookupRequest(BaseModel):
+    phone: str = Field(min_length=3, max_length=32)
+    limit: int = Field(default=20, ge=1, le=50)
+
+
+@router.post("/lookup/identifier", response_model=IdentifierLookupResponse)
 async def lookup_by_identifier(
+    body: IdentifierLookupRequest,
     principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
     uow: Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)],
-    value: Annotated[str, Query(min_length=1, max_length=40)],
-    id_type: Annotated[str, Query()] = "IR_NATIONAL_ID",
-    issuing_country_or_authority: Annotated[str | None, Query(max_length=64)] = None,
 ) -> IdentifierLookupResponse:
+    """Exact official-identifier lookup. Body-only — never put raw IDs in URLs."""
     await require_permission(PATIENTS_SEARCH, principal=principal, uow=uow)
-    kind = id_type.strip().upper()
+    kind = body.id_type.strip().upper()
     if kind not in _DEFAULT_AUTHORITY:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -287,8 +300,8 @@ async def lookup_by_identifier(
         keys = load_pii_keys()
     except CryptoUnavailable:
         raise _crypto_unavailable() from None
-    normalized = _normalize_official(identity_type=kind, raw_value=value)
-    authority = (issuing_country_or_authority or _DEFAULT_AUTHORITY[kind]).strip().upper()
+    normalized = _normalize_official(identity_type=kind, raw_value=body.value)
+    authority = (body.issuing_country_or_authority or _DEFAULT_AUTHORITY[kind]).strip().upper()
     hit = await SqlPersonIdentifierStore(uow.session).lookup_exact(
         tenant_id=principal.claims.tenant_id,
         id_type=kind,
@@ -310,55 +323,63 @@ async def lookup_by_identifier(
     )
 
 
+@router.post("/lookup/phone", response_model=PatientListResponse)
+async def lookup_by_phone(
+    body: PhoneLookupRequest,
+    principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
+    uow: Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)],
+) -> PatientListResponse:
+    """Shared-phone search. Body-only — never put raw phones in query strings."""
+    await require_permission(PATIENTS_SEARCH, principal=principal, uow=uow)
+    try:
+        keys = load_pii_keys()
+    except CryptoUnavailable:
+        raise _crypto_unavailable() from None
+    try:
+        normalize_phone_e164(body.phone)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "phone_invalid", "message": "Phone must normalize to E.164"},
+        )
+    hits = await SqlPersonPhoneStore(uow.session).search_by_phone(
+        tenant_id=principal.claims.tenant_id,
+        phone=body.phone,
+        keys=keys,
+        limit=body.limit,
+    )
+    return PatientListResponse(
+        items=[
+            PatientResponse(
+                patient_profile_id=str(h.patient_profile_id),
+                person_id=str(h.person_id),
+                first_name=h.first_name,
+                last_name=h.last_name,
+                birth_date=None,
+                is_active=True if h.is_active is None else h.is_active,
+                masked_phone=h.masked_phone,
+            )
+            for h in hits
+            if h.patient_profile_id is not None
+        ]
+    )
+
+
 @router.get("", response_model=PatientListResponse)
 async def search_patients(
     principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
     uow: Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)],
     q: Annotated[str | None, Query(max_length=120)] = None,
-    phone: Annotated[str | None, Query(max_length=32)] = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
     offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
 ) -> PatientListResponse:
+    """Name/dossier text search only. Official IDs and phones use POST lookup routes."""
     await require_permission(PATIENTS_SEARCH, principal=principal, uow=uow)
     name_q = (q or "").strip()
-    phone_q = (phone or "").strip()
-    if phone_q:
-        try:
-            keys = load_pii_keys()
-        except CryptoUnavailable:
-            raise _crypto_unavailable() from None
-        try:
-            normalize_phone_e164(phone_q)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "phone_invalid", "message": "Phone must normalize to E.164"},
-            )
-        hits = await SqlPersonPhoneStore(uow.session).search_by_phone(
-            tenant_id=principal.claims.tenant_id,
-            phone=phone_q,
-            keys=keys,
-            limit=limit,
-        )
-        return PatientListResponse(
-            items=[
-                PatientResponse(
-                    patient_profile_id=str(h.patient_profile_id),
-                    person_id=str(h.person_id),
-                    first_name=h.first_name,
-                    last_name=h.last_name,
-                    birth_date=None,
-                    is_active=True if h.is_active is None else h.is_active,
-                    masked_phone=h.masked_phone,
-                )
-                for h in hits
-                if h.patient_profile_id is not None
-            ]
-        )
     if not name_q:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "query_required", "message": "Provide q or phone"},
+            detail={"error": "query_required", "message": "Provide q"},
         )
     rows = await SqlPatientRepository(uow.session).search_by_name(
         tenant_id=principal.claims.tenant_id,
