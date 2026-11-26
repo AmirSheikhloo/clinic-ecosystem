@@ -41,6 +41,10 @@ from tests.integration.conftest import (
 )
 from tests.integration.docker_probe import DOCKER_AVAILABLE, SKIP_REASON
 
+from clinic_ecosystem.infrastructure.demo.crypto_hooks import preview_demo_pii_env
+from clinic_ecosystem.infrastructure.demo.loader import load_demo_dataset
+from clinic_ecosystem.infrastructure.demo.profiles import DEMO_SEED
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PANEL_DIR = REPO_ROOT / "beta-panel"
 
@@ -212,14 +216,32 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
 
     async def _migrate_and_seed():
         await upgrade_tenant_plane_async(migrator.sqlalchemy_async_url())
+        # Deterministic non-prod PII keys so demo can seal phones / National IDs.
+        for key, value in preview_demo_pii_env(DEMO_SEED).items():
+            os.environ.setdefault(key, value)
+        demo_profile = os.environ.get("CLINIC_DEMO_PROFILE", "demo").strip() or "demo"
         conn = await asyncpg.connect(migrator.asyncpg_dsn())
         try:
-            return await seed_beta02_operations(conn)
+            ops = await seed_beta02_operations(conn)
+            demo = await load_demo_dataset(
+                conn,
+                tenant_id=ops.base.tenant_a_id,
+                receptionist_person_id=ops.base.receptionist_person_id,
+                receptionist_account_id=ops.base.receptionist_account_id,
+                profile=demo_profile,
+                seed=DEMO_SEED,
+            )
+            return ops, demo
         finally:
             await conn.close()
 
-    ops_seed = asyncio.run(_migrate_and_seed())
+    ops_seed, demo_result = asyncio.run(_migrate_and_seed())
     seed = ops_seed.base
+    # Persist demo manifest beside artifacts for Product Owner / validation.
+    (artifact_dir / "demo_dataset_manifest.json").write_text(
+        json.dumps(demo_result.manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
 
     app_url = (
         f"postgresql+asyncpg://{quote_plus('tp_app_login')}:"
@@ -244,6 +266,9 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
             "PYTHONUNBUFFERED": "1",
         }
     )
+    # Keep the same preview PII keys available to the API process.
+    for key, value in preview_demo_pii_env(DEMO_SEED).items():
+        api_env.setdefault(key, value)
     api_log = (artifact_dir / "api.log").open("w", encoding="utf-8")
     api_proc = subprocess.Popen(
         [

@@ -1,0 +1,68 @@
+{
+  "name": "clinic-ecosystem-demo-dataset",
+  "task": "D0.5 / Task 28",
+  "seed": 20261126,
+  "default_profile": "demo",
+  "profiles": {
+    "minimal": {
+      "patients": 25,
+      "staff_total": 8,
+      "services": 6,
+      "resources_rooms": 3,
+      "appointments": 80,
+      "appointments_today": 12,
+      "appointments_tomorrow": 8,
+      "manual_overlap_pairs": 3,
+      "checked_in_waiting_today": 4,
+      "multi_service_groups": 5,
+      "audit_entries": 100,
+      "shared_phone_families": 2,
+      "national_id_patients": 5,
+      "exceptional_identity_patients": 5
+    },
+    "demo": {
+      "patients": 520,
+      "staff_total": 42,
+      "services": 32,
+      "resources_rooms": 12,
+      "appointments": 10500,
+      "appointments_today": 220,
+      "appointments_tomorrow": 110,
+      "manual_overlap_pairs": 32,
+      "checked_in_waiting_today": 36,
+      "multi_service_groups": 110,
+      "audit_entries": 5200,
+      "shared_phone_families": 32,
+      "national_id_patients": 36,
+      "exceptional_identity_patients": 32
+    },
+    "performance": {
+      "note": "Stub profile for larger preview stress runs",
+      "patients": 1200,
+      "staff_total": 60,
+      "services": 40,
+      "resources_rooms": 16,
+      "appointments": 25000,
+      "appointments_today": 400,
+      "appointments_tomorrow": 200,
+      "manual_overlap_pairs": 40,
+      "checked_in_waiting_today": 50,
+      "multi_service_groups": 200,
+      "audit_entries": 12000,
+      "shared_phone_families": 40,
+      "national_id_patients": 60,
+      "exceptional_identity_patients": 40
+    }
+  },
+  "integrity": [
+    "Synthetic data only; never production PII",
+    "Tenant GUC set; RLS not disabled",
+    "Appointment statuses restricted to allowed enum values",
+    "ONLINE occupying allocations must not overlap (GiST EXCLUDE)",
+    "MANUAL capacity_pool used for intentional overlap scenarios",
+    "Multi-service groups correlated via patient_booking_note prefix GROUP:",
+    "Encrypted phones/National IDs only when CLINIC_ENV non-prod and CLINIC_PII_* keys present",
+    "No finance/inventory rows under tp0001–tp0007"
+  ],
+  "preview_invocation": "tests.e2e.beta01b.stack.start_browser_stack → seed_beta02_operations → load_demo_dataset(profile=demo)"
+}
