@@ -2,7 +2,7 @@
 
 Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
-**Tested tip:** `a9dc03b8610ee9dd184970008e9f1e7f2bdd6c3d`  
+**Tested tip:** `b803ddefc9b7543d099180d3e20ddbe527e90a86`  
 **Environment:** Linux agent (Windows hardware NOT RUN this tip).  
 **Unit evidence:** Python `156 passed / 1 skipped`; frontend checkout/print unit suites green; `tsc --noEmit` green.
 
