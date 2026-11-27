@@ -226,34 +226,27 @@ test("delayed session and data responses keep the shell fixed (skeletons hold th
 test("dialogs and drawers open and close without moving the shell", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
-  for (const path of ["/patients", "/access"]) {
-    await page.goto(path);
-    await settle(page);
-    const reference = await shellRects(page);
-    const opener = path === "/patients" ? page.getByTestId("patients-new") : page.getByTestId("theme-menu-button");
-    await startSampling(page);
-    await opener.click();
-    await page.waitForTimeout(500);
-    if (path === "/patients") {
-      await expect(page.getByTestId("patients-register-dialog")).toBeVisible();
-      await expect(page.locator("html")).toHaveAttribute("data-scroll-locked", "true");
-      // The overlay must paint above the sidebar and header (no stacking context trapping it).
-      const topmost = await page.getByTestId("patients-register-dialog").evaluate((panel) => {
-        const box = panel.getBoundingClientRect();
-        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-        return Boolean(hit && panel.contains(hit));
-      });
-      expect(topmost).toBe(true);
-    } else {
-      await expect(page.getByTestId("theme-select")).toBeVisible();
-    }
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(500);
-    const samples = await stopSampling(page);
-    expectWithin(`${path} overlay per-frame`, maxFrameDeviation(samples));
-    expectWithin(`${path} overlay settled`, rectDeltas(reference, await shellRects(page)));
-    await expect(page.locator("html")).not.toHaveAttribute("data-scroll-locked", "true");
-  }
+  // Top-bar theme menu removed (UX-04); exercise patient register dialog only.
+  await page.goto("/patients");
+  await settle(page);
+  const reference = await shellRects(page);
+  await startSampling(page);
+  await page.getByTestId("patients-new").click();
+  await page.waitForTimeout(500);
+  await expect(page.getByTestId("patients-register-dialog")).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-scroll-locked", "true");
+  const topmost = await page.getByTestId("patients-register-dialog").evaluate((panel) => {
+    const box = panel.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return Boolean(hit && panel.contains(hit));
+  });
+  expect(topmost).toBe(true);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(500);
+  const samples = await stopSampling(page);
+  expectWithin("/patients overlay per-frame", maxFrameDeviation(samples));
+  expectWithin("/patients overlay settled", rectDeltas(reference, await shellRects(page)));
+  await expect(page.locator("html")).not.toHaveAttribute("data-scroll-locked", "true");
 });
 
 test("navigation does not remount the shell and keeps the same DOM nodes", async ({ page }) => {

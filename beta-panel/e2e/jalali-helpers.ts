@@ -13,7 +13,7 @@ export async function fillJalaliDateTime(page: Page, testId: string, local: stri
   await page.getByTestId(`${testId}-time`).fill(time);
 }
 
-/** Opens the app theme menu so the theme controls become interactable. */
+/** Navigate to preferences so theme controls are interactable (top-bar menu removed). */
 export async function openThemeMenu(page: Page) {
-  await page.getByTestId("theme-menu-button").click();
+  await page.goto("/preferences");
 }
