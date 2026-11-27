@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { tehranTodayYmd } from "../lib/tehran";
-import { assertHttpOnlySession } from "./helpers";
+import { assertHttpOnlySession, navLink } from "./helpers";
 import { fillJalaliDateTime } from "./jalali-helpers";
 
 const CSRF = "ce_beta_csrf";
@@ -77,7 +77,8 @@ export async function bff(
 }
 
 export async function gotoNav(page: Page, linkName: string, testId: string) {
-  await page.getByRole("link", { name: linkName, exact: true }).click();
+  // Scope to the main sidebar — dashboard/in-page CTAs reuse the same labels (e.g. مدیریت نوبت‌ها).
+  await navLink(page, linkName).click();
   await expect(page.getByTestId(testId)).toBeVisible({ timeout: 30_000 });
 }
 
