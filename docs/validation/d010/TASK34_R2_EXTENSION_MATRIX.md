@@ -37,8 +37,8 @@ Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 | FIN-05 | Discount largest-remainder; no type combine; no silent clamp | finance.py + unit | PASS (unit) | |
 | MULTI-01 | Multi-patient cart independent invoices | MultiPatientCartPanel; shared OFF | IMPLEMENTED | |
 | MULTI-02 | Shared settlement | ACR-D0.12 candidate | BLOCKED (ratification) | Guards preserved |
-| PRINT-01 | 80/58mm Persian RTL; batch; privacy | features/print/* | IMPLEMENTED (synthetic) | Hardware NOT RUN |
-| PRINT-02 | Enrollment/test-print; job recovery; QZ blocked | printJobs + workstationPrinter | IMPLEMENTED (synthetic) | Real QZ BLOCKED |
+| PRINT-01 | 80/58mm Persian RTL; independent + batch; privacy; course/next hints | `features/print/*` unit tests | IMPLEMENTED (synthetic) | Physical hardware NOT RUN |
+| PRINT-02 | Enrollment/test-print; job identity; failed/unknown/disconnect; reprint≠checkout; QZ blocked | printJobs + workstationPrinter + snapshot API | IMPLEMENTED (synthetic) | Real QZ signing/hardware BLOCKED pending approval |
 | COURSE-01 | Versioned templates + sessions + conservation SQL | proposed_treatment_courses.sql + store/service | IMPLEMENTED (disposable) | Prepaid disabled |
 | RECALL-01 | Mehr→Aban→Azar rolling from completion | `test_rolling_recall_mehr_aban` | PASS | |
 | RECALL-02 | Synthetic reminder worker (dedupe/retry/quiet/opt-out) | reminder_worker.py | IMPLEMENTED | No real SMS |
