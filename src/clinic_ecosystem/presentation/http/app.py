@@ -36,6 +36,7 @@ from clinic_ecosystem.presentation.http import patients as patient_routes
 from clinic_ecosystem.presentation.http.common import install_problem_handlers
 from clinic_ecosystem.presentation.http import resources as resource_routes
 from clinic_ecosystem.presentation.http import staff as staff_routes
+from clinic_ecosystem.presentation.http import treatment_courses as treatment_courses_routes
 from clinic_ecosystem.presentation.http import waitlist as waitlist_routes
 
 logger = logging.getLogger("clinic_ecosystem.http")
@@ -138,4 +139,5 @@ def create_app(
     app.include_router(ops_management_routes.router)
     app.include_router(patient_ops_routes.router)
     app.include_router(historical_routes.router)
+    app.include_router(treatment_courses_routes.router)
     return app

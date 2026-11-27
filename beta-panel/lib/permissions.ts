@@ -51,6 +51,8 @@ export const P = {
   cashierShiftManage: "BETA02_CASHIER_SHIFT_MANAGE",
   financeAdjustment: "BETA02_FINANCE_ADJUSTMENT",
   headReceptionist: "BETA02_HEAD_RECEPTIONIST",
+  coursesView: "BETA02_COURSES_VIEW",
+  coursesManage: "BETA02_COURSES_MANAGE",
 } as const;
 
 export type NavGroupId = "work" | "clinic" | "admin" | "personal";

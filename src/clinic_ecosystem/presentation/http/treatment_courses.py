@@ -197,7 +197,7 @@ async def list_templates(principal: Principal, uow: Uow) -> dict[str, Any]:
     require(granted, perm.COURSES_VIEW)
     await _require_courses_schema(uow)
     result = await uow.session.execute(
-        __import__("sqlalchemy", fromlist=["text"]).text(
+        text(
             """
             SELECT t.id, t.service_id, t.template_code, t.template_name,
                    t.current_version_no, t.is_active,
@@ -242,7 +242,6 @@ async def synthetic_reminder_health(principal: Principal, uow: Uow) -> dict[str,
     granted = await load_granted(principal, uow)
     require(granted, perm.COURSES_VIEW)
     await _require_courses_schema(uow)
-    text = __import__("sqlalchemy", fromlist=["text"]).text
     pending = await uow.session.execute(
         text(
             """
