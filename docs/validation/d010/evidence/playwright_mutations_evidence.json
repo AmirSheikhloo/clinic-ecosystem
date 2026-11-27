@@ -1,0 +1,51 @@
+{
+  "tip_sha": "577e4724a4444a0103f1f92141e5dfe25a1744b8",
+  "environment": "Linux synthetic preview (PG15 testcontainers + next start)",
+  "playwright": {
+    "spec": "beta-panel/e2e/task34-r2-mutations.spec.ts",
+    "run_log": "/opt/cursor/artifacts/task34-r2-playwright/run4.log",
+    "result": "3 passed / 0 failed",
+    "test_ids": [
+      "R2-MUT-01",
+      "R2-MUT-02",
+      "R2-MUT-03"
+    ]
+  },
+  "visuals": {
+    "dir": "/opt/cursor/artifacts/task34-r2-visuals",
+    "widths_px": [
+      375,
+      768,
+      1280,
+      1440
+    ],
+    "routes": [
+      "dashboard",
+      "desk",
+      "appointments-month"
+    ],
+    "files": [
+      "appointments-calendar-1280.png",
+      "appointments-calendar-1440.png",
+      "appointments-calendar-375.png",
+      "appointments-calendar-768.png",
+      "appointments-month-1280.png",
+      "appointments-month-1440.png",
+      "appointments-month-375.png",
+      "appointments-month-768.png",
+      "dashboard-1280.png",
+      "dashboard-1440.png",
+      "dashboard-375.png",
+      "dashboard-768.png",
+      "desk-1280.png",
+      "desk-1440.png",
+      "desk-375.png",
+      "desk-768.png",
+      "reception-desk-1280.png",
+      "reception-desk-1440.png",
+      "reception-desk-375.png",
+      "reception-desk-768.png"
+    ]
+  },
+  "captured_at_utc": "2026-11-27T22:09:08.420448+00:00"
+}

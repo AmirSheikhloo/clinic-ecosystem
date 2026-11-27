@@ -2,7 +2,7 @@
 
 Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
-**Tested tip:** `4bacceec796b51cb3205a95d84b1fde19ed94024`  
+**Tested tip:** `PENDING_NEXT_COMMIT`  
 **Environment:** Linux agent (Windows hardware NOT RUN this tip).  
 **Unit evidence:** Python `156 passed / 1 skipped`; frontend checkout/print unit suites green; `tsc --noEmit` green.
 

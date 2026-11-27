@@ -21,5 +21,10 @@
   ],
   "skipped": [
     "12.sql"
-  ]
+  ],
+  "treatment_courses": {
+    "applied": true,
+    "file": "proposed_treatment_courses.sql",
+    "label": "treatment_courses_r2_v1"
+  }
 }

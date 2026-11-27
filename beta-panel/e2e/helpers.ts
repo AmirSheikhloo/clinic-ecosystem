@@ -41,8 +41,11 @@ export async function loginAsReceptionist(page: Page) {
   await page.getByTestId("login-identifier").fill(loginId());
   await page.getByTestId("login-password").fill(password());
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/desk/, { timeout: 45_000 });
-  await expect(page.getByTestId("desk-page")).toBeVisible({ timeout: 45_000 });
+  // Login lands on dashboard (Task 34 R2); older builds redirected to /desk.
+  await expect(page).toHaveURL(/\/(dashboard|desk)/, { timeout: 45_000 });
+  await expect(page.getByTestId("app-sidebar").or(page.getByTestId("desk-page"))).toBeVisible({
+    timeout: 45_000,
+  });
   await assertHttpOnlySession(page);
 }
 

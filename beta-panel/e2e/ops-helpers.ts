@@ -41,8 +41,10 @@ export async function loginAs(page: Page, creds: Creds, label = "user") {
   await page.getByTestId("login-identifier").fill(creds.login);
   await page.getByTestId("login-password").fill(creds.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/desk/, { timeout: 45_000 });
-  await expect(page.getByTestId("app-sidebar")).toBeVisible({ timeout: 45_000 });
+  await expect(page).toHaveURL(/\/(dashboard|desk)/, { timeout: 45_000 });
+  await expect(page.getByTestId("app-sidebar").or(page.getByTestId("desk-page"))).toBeVisible({
+    timeout: 45_000,
+  });
   await assertHttpOnlySession(page);
 }
 
@@ -93,7 +95,25 @@ export async function deskRegisterPatient(page: Page, first: string, last: strin
   await expect(page.getByTestId("patient-register-submit")).toBeEnabled({ timeout: 10_000 });
   await page.getByTestId("patient-register-submit").click();
   await expect(page.getByTestId("desk-status")).toContainText("بیمار ثبت شد", { timeout: 30_000 });
-  await expect(page.getByTestId("selected-patient")).toContainText(`${first} ${last}`);
+  // Stage rail advances to booking and unmounts selected-patient; cashier mirrors the selection.
+  await expect(
+    page.getByTestId("selected-patient").or(page.getByTestId("invoice-patient")),
+  ).toContainText(`${first} ${last}`, { timeout: 15_000 });
+  await expect(page.getByTestId("desk-stage-booking").or(page.getByTestId("desk-stage-patient"))).toBeVisible();
+}
+
+/** Prefer the sr-only native <select> backing SearchableCombobox; fall back to listbox. */
+export async function pickComboboxOption(page: Page, testId: string, label: string) {
+  const native = page.getByTestId(testId);
+  const isSelect = await native.evaluate((el) => el.tagName.toLowerCase() === "select").catch(() => false);
+  if (isSelect) {
+    await native.selectOption({ label });
+    return;
+  }
+  const input = page.getByTestId(`${testId}-input`);
+  await input.click();
+  await input.fill(label);
+  await page.getByRole("option", { name: label }).first().click();
 }
 
 /** Dense demo days often collide; accept either a clean booking or an acknowledged overlap. */
@@ -120,7 +140,7 @@ export async function findAppointmentRow(page: Page, patientToken: string) {
 export async function deskBook(page: Page, startLocal: string) {
   const service = process.env.BETA01B_SERVICE_NAME || "Tenant A Consultation";
   const resourceName = process.env.BETA01B_RESOURCE_NAME || "Room Alpha";
-  await page.getByTestId("service-select").selectOption({ label: service });
+  await pickComboboxOption(page, "service-select", service);
   await expect(page.getByTestId("resource-fieldset")).toBeEnabled({ timeout: 30_000 });
   const resource = page.getByTestId("resource-option").filter({ hasText: resourceName });
   await expect(resource).toBeVisible();
