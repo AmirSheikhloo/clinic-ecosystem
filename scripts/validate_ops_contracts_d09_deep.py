@@ -868,20 +868,8 @@ async def test_inventory(app: asyncpg.Connection, ids, suite: Suite) -> None:
 async def test_scopes_eligibility_lifecycle(app: asyncpg.Connection, ids, suite: Suite) -> None:
     await set_tenant(app, ids.tenant_id)
     now = datetime.now(timezone.utc)
-    # ALL scope
-    await app.execute(
-        """
-        INSERT INTO role_permission_scopes (
-          id, tenant_id, role_permission_assignment_id, scope_mode, created_by_user_id, created_at_utc
-        ) VALUES ($1,$2,$3,'ALL',$4,$5)
-        """,
-        new_uuid7(),
-        ids.tenant_id,
-        ids.rpa_id,
-        ids.user_id,
-        now,
-    )
-    # FILTER alongside ALL should fail
+    # seed_ops_graph fail-closed backfill already wrote ALL on ids.rpa_id.
+    # FILTER alongside that ALL must be rejected by ops_role_permission_scope_guard.
     both = False
     try:
         await app.execute(

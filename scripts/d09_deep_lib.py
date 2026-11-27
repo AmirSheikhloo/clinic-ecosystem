@@ -187,6 +187,40 @@ async def seed_ops_graph(conn: asyncpg.Connection) -> DeepIds:
         base.tenant_id,
         base.role_id,
     )
+    # Fail-closed scopes: backfill explicit ALL for every grant in this tenant.
+    grant_rows = await conn.fetch(
+        """
+        SELECT rpa.id AS grant_id
+        FROM role_permission_assignments rpa
+        WHERE rpa.tenant_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM role_permission_scopes rps
+            WHERE rps.tenant_id = rpa.tenant_id
+              AND rps.role_permission_assignment_id = rpa.id
+          )
+        """,
+        base.tenant_id,
+    )
+    for row in grant_rows:
+        await conn.execute(
+            """
+            INSERT INTO role_permission_scopes (
+              id, tenant_id, role_permission_assignment_id, scope_mode,
+              department_id, service_id, provider_resource_id,
+              created_by_user_id, created_at_utc
+            )
+            SELECT $1,$2,$3,'ALL',NULL,NULL,NULL,$4,$5
+            WHERE NOT EXISTS (
+              SELECT 1 FROM role_permission_scopes
+              WHERE tenant_id = $2 AND role_permission_assignment_id = $3
+            )
+            """,
+            new_uuid7(),
+            base.tenant_id,
+            row["grant_id"],
+            base.user_account_id,
+            now,
+        )
     await conn.execute(
         """
         INSERT INTO billable_items (

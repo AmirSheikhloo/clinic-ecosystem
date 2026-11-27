@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from clinic_ecosystem.domain.access import permissions as perm
 from clinic_ecosystem.infrastructure.persistence.audit import SqlAuditStore
 from clinic_ecosystem.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
+from clinic_ecosystem.presentation.http.audit_projection import project_audit_details
 from clinic_ecosystem.presentation.http.common import load_granted, require
 from clinic_ecosystem.presentation.http.dependencies import (
     AuthenticatedPrincipal,
@@ -70,7 +71,7 @@ async def list_audit_entries(
                 operation=r.operation,
                 target_type=r.target_type,
                 target_id=str(r.target_id) if r.target_id else None,
-                details=r.details_json,
+                details=project_audit_details(r.operation, r.details_json or {}),
                 created_at_utc=r.created_at_utc,
             )
             for r in rows

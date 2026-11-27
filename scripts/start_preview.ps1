@@ -60,6 +60,10 @@ if (-not (Test-Path $venvPython)) {
   Write-Host "Creating .venv ..."
   python -m venv .venv
 }
+if (-not (Test-Path $venvPython)) {
+  Write-Error "Virtual environment Python was not found at $venvPython"
+  exit 2
+}
 
 $env:PYTHONPATH = "$repo\src;$repo"
 # Disposable ACR-D0.11 ops schema for full-operations preview (never official Alembic).
@@ -76,6 +80,25 @@ if ($Force) { $prepare += "--force" }
 Write-Host "Preparing cached dependencies/build ..."
 & $venvPython @prepare
 if ($LASTEXITCODE -ne 0) { throw "prepare_preview failed" }
+
+Write-Host "Validating Asia/Tehran timezone support in .venv (requires tzdata on Windows) ..."
+& $venvPython scripts\check_tehran_timezone.py
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "Timezone preflight failed; forcing dependency reinstall so tzdata is installed ..."
+  & $venvPython scripts\prepare_preview.py --force
+  if ($LASTEXITCODE -ne 0) { throw "prepare_preview --force failed after timezone preflight" }
+  & $venvPython scripts\check_tehran_timezone.py
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error @"
+Asia/Tehran is still unavailable after dependency repair.
+Install tzdata into the repository virtual environment, then re-run:
+  .\.venv\Scripts\python.exe -m pip install -e `".[dev]`"
+  powershell -ExecutionPolicy Bypass -File scripts\start_preview.ps1
+"@
+    exit 2
+  }
+}
+Write-Host "Timezone preflight OK (Asia/Tehran)."
 
 Write-Host "Starting the preview stack (Ctrl+C stops it and deletes disposable data) ..."
 & $venvPython scripts\start_preview_stack.py

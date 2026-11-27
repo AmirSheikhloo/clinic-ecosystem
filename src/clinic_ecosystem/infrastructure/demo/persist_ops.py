@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 import asyncpg
 
@@ -14,8 +13,9 @@ from clinic_ecosystem.infrastructure.demo.builders_catalog import CatalogBundle
 from clinic_ecosystem.infrastructure.demo.builders_people import PeopleBundle
 from clinic_ecosystem.infrastructure.demo.ids import demo_uuid
 from clinic_ecosystem.infrastructure.demo.profiles import DemoTargets
+from clinic_ecosystem.infrastructure.timezones import require_tehran_zoneinfo
 
-TEHRAN = ZoneInfo("Asia/Tehran")
+TEHRAN = require_tehran_zoneinfo()
 
 
 async def ops_schema_present(conn: asyncpg.Connection) -> bool:
@@ -668,14 +668,19 @@ async def persist_ops_demo(
         tenant_id,
     )
     for idx, row in enumerate(grant_rows):
-        await conn.execute(
+        inserted = await conn.fetchval(
             """
             INSERT INTO role_permission_scopes (
               id, tenant_id, role_permission_assignment_id, scope_mode,
               department_id, service_id, provider_resource_id,
               created_by_user_id, created_at_utc
-            ) VALUES ($1,$2,$3,'ALL',NULL,NULL,NULL,$4,$5)
-            ON CONFLICT DO NOTHING
+            )
+            SELECT $1,$2,$3,'ALL',NULL,NULL,NULL,$4,$5
+            WHERE NOT EXISTS (
+              SELECT 1 FROM role_permission_scopes
+              WHERE tenant_id = $2 AND role_permission_assignment_id = $3
+            )
+            RETURNING id
             """,
             demo_uuid(seed, "scope_all", idx),
             tenant_id,
@@ -683,7 +688,8 @@ async def persist_ops_demo(
             operator_account_id,
             now,
         )
-        scope_rows += 1
+        if inserted is not None:
+            scope_rows += 1
 
     # Scoped receptionist demo: FILTER department grant for PATIENTS_VIEW_PROFILE only
     # on a dedicated role so ALL vs FILTER mutual exclusivity stays intact.

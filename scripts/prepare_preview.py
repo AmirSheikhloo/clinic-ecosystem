@@ -84,11 +84,23 @@ def main() -> int:
         return 2
 
     stamps = _load()
+    python_deps_digest = _hash_files([REPO / "pyproject.toml"])
+    # Do not skip python-deps solely because an old stamp exists: verify the
+    # installed environment can resolve Asia/Tehran (Windows needs tzdata).
+    tehran_ok = False
+    try:
+        sys.path.insert(0, str(REPO / "src"))
+        from clinic_ecosystem.infrastructure.timezones import tehran_zoneinfo_preflight
+
+        tehran_ok = bool(tehran_zoneinfo_preflight().get("ok"))
+    except Exception:  # noqa: BLE001 — treat any import/runtime failure as rebuild
+        tehran_ok = False
+
     steps = [
         (
             "python-deps",
-            _hash_files([REPO / "pyproject.toml"]),
-            True,
+            python_deps_digest,
+            tehran_ok,
             [sys.executable, "-m", "pip", "install", "-e", ".[dev]"],
             REPO,
         ),
@@ -123,6 +135,12 @@ def main() -> int:
         if name == "npm-ci":
             stamps.pop("next-build", None)
             _save(stamps)
+        if name == "python-deps":
+            # Re-verify timezone data after install; fail loudly if still missing.
+            from clinic_ecosystem.infrastructure.timezones import require_tehran_zoneinfo
+
+            require_tehran_zoneinfo()
+            print("[ok  ] python-deps: Asia/Tehran ZoneInfo resolved")
     print("Preview inputs are ready.")
     return 0
 

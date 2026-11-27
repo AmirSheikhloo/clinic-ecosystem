@@ -5,14 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
-from zoneinfo import ZoneInfo
+from clinic_ecosystem.infrastructure.timezones import require_tehran_zoneinfo
 
 from clinic_ecosystem.infrastructure.demo.builders_catalog import CatalogBundle, ResourceRow
 from clinic_ecosystem.infrastructure.demo.builders_people import PatientRow, StaffRow
 from clinic_ecosystem.infrastructure.demo.ids import demo_uuid
 from clinic_ecosystem.infrastructure.demo.profiles import DemoTargets
 
-TEHRAN = ZoneInfo("Asia/Tehran")
+TEHRAN = require_tehran_zoneinfo()
 
 # Final statuses we insert directly (valid CHECK / enum values).
 STATUS_WEIGHTS = (

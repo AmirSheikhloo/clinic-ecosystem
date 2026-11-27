@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 import asyncpg
 
@@ -36,7 +35,9 @@ from clinic_ecosystem.infrastructure.demo.profiles import (
     targets_as_dict,
 )
 
-TEHRAN = ZoneInfo("Asia/Tehran")
+from clinic_ecosystem.infrastructure.timezones import require_tehran_zoneinfo
+
+TEHRAN = require_tehran_zoneinfo()
 
 
 @dataclass(frozen=True)

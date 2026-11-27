@@ -37,14 +37,17 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
   const all = draft ? [...lines, draft] : lines;
   const previewTotal = all.reduce((sum, line) => sum + line.priceIrr, 0);
   const [discountFixed, setDiscountFixed] = useState(0);
+  const [discountBps, setDiscountBps] = useState(0);
   const [payMethod, setPayMethod] = useState<"CASH" | "POS" | "NONE">("CASH");
   const [payAmount, setPayAmount] = useState<number | "">("");
+  const [acceptCredit, setAcceptCredit] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutResult | null>(null);
 
   const canCheckout = can(P.financeInvoiceDraft) && can(P.financeInvoicePost) && can(P.financeReceiptRecord);
-  const payablePreview = Math.max(0, previewTotal - (discountFixed || 0));
+  const bpsCut = discountBps > 0 ? Math.floor((previewTotal * discountBps) / 10_000) : 0;
+  const payablePreview = Math.max(0, previewTotal - (discountFixed || 0) - bpsCut);
 
   async function checkout(mode: "post_only" | "pay") {
     if (!patient || lines.length === 0 || busy) return;
@@ -58,6 +61,7 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
     const body = {
       patient_id: patient.patient_profile_id,
       post: true,
+      accept_unapplied_credit: acceptCredit,
       payment_method: mode === "pay" && payMethod !== "NONE" ? payMethod : null,
       payment_amount_irr:
         mode === "pay" && payMethod !== "NONE"
@@ -68,15 +72,24 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
         appointment_id:
           lastBooking && lines.length === 1 ? lastBooking.appointmentId : null,
         description: line.serviceName,
-        code: line.serviceId.slice(0, 8),
-        unit_price_irr: line.priceIrr,
-        discount_amount: lineDiscountEach + (idx === 0 ? rem : 0),
+        // Server tariff is authoritative; omit client price to avoid mismatch races.
+        discount_amount: can(P.financeDiscount) ? lineDiscountEach + (idx === 0 ? rem : 0) : 0,
+        discount_percent_bps: can(P.financeDiscount) && discountBps > 0 ? discountBps : null,
       })),
     };
+    const stableKey = [
+      "desk-checkout",
+      patient.patient_profile_id,
+      ...lines.map((l) => l.serviceId),
+      String(discountFixed),
+      String(discountBps),
+      payMethod,
+      String(body.payment_amount_irr ?? "none"),
+    ].join(":");
     const response = await apiJson<CheckoutResult>("/api/v1/finance/desk-checkout", {
       method: "POST",
       body,
-      idempotencyKey: `desk-checkout-${patient.patient_profile_id}-${Date.now()}`,
+      idempotencyKey: stableKey.slice(0, 128),
       fallbackMessage: "ثبت صورتحساب ناموفق بود",
     });
     setBusy(false);
@@ -146,17 +159,31 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
       </div>
 
       {can(P.financeDiscount) ? (
-        <label className="block text-sm">
-          تخفیف ثابت (ریال)
-          <input
-            type="number"
-            min={0}
-            className="ds-input mt-1"
-            value={discountFixed}
-            onChange={(e) => setDiscountFixed(Math.max(0, Number(e.target.value) || 0))}
-            data-testid="cashier-discount"
-          />
-        </label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block text-sm">
+            تخفیف ثابت (ریال)
+            <input
+              type="number"
+              min={0}
+              className="ds-input mt-1"
+              value={discountFixed}
+              onChange={(e) => setDiscountFixed(Math.max(0, Number(e.target.value) || 0))}
+              data-testid="cashier-discount"
+            />
+          </label>
+          <label className="block text-sm">
+            تخفیف درصدی (bps، ۱۰۰۰۰=۱۰۰٪)
+            <input
+              type="number"
+              min={0}
+              max={10000}
+              className="ds-input mt-1"
+              value={discountBps}
+              onChange={(e) => setDiscountBps(Math.max(0, Math.min(10000, Number(e.target.value) || 0)))}
+              data-testid="cashier-discount-bps"
+            />
+          </label>
+        </div>
       ) : null}
 
       <div className="flex items-center justify-between text-sm">
@@ -182,17 +209,28 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
             ))}
           </div>
           {payMethod !== "NONE" ? (
-            <label className="block text-sm">
-              مبلغ پرداخت (خالی = کامل)
-              <input
-                type="number"
-                min={0}
-                className="ds-input mt-1"
-                value={payAmount}
-                onChange={(e) => setPayAmount(e.target.value === "" ? "" : Number(e.target.value))}
-                data-testid="cashier-pay-amount"
-              />
-            </label>
+            <>
+              <label className="block text-sm">
+                مبلغ پرداخت (خالی = کامل)
+                <input
+                  type="number"
+                  min={0}
+                  className="ds-input mt-1"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                  data-testid="cashier-pay-amount"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={acceptCredit}
+                  onChange={(e) => setAcceptCredit(e.target.checked)}
+                  data-testid="cashier-accept-credit"
+                />
+                پذیرش اضافه پرداخت به‌عنوان اعتبار بیمار
+              </label>
+            </>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button

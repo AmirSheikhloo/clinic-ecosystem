@@ -1,8 +1,9 @@
 # Task 34 / Task 28 — 120 individually numbered acceptance rows
 
-**Rule:** each row is one scenario. Status is `PASS` only with current tip evidence, else `PENDING`/`BLOCKED`.  
-**Tip under test:** re-evaluate after each push on `cursor/d010-ops-contracts-validation-95a4`.  
-**Evidence roots:** deep suite JSON, demo manifest, Playwright artifacts, API routes + RTL screens listed in Source.
+**Rule:** each row is one scenario. Status is `PASS` only with current tip evidence, else `PENDING`/`BLOCKED`/`NOT RUN`.  
+**Tip under test:** post-`3656e07` correctness increment (tzdata, fail-closed scopes, finance authority, audit projection).  
+**Evidence roots:** deep suite JSON, demo manifest, Playwright artifacts, API routes + RTL screens listed in Source.  
+**Honesty note:** rows marked PASS below that cite only prior tip Playwright/seed without re-execution on this tip must be treated as needing re-run; Windows timezone preflight is newly evidenced on this tip.
 
 ## Dashboard (1–15)
 

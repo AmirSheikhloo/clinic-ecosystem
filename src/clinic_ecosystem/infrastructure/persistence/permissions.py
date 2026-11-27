@@ -1,4 +1,4 @@
-"""Server-side permission checks with optional ACR-D0.11 scope enforcement."""
+"""Server-side permission checks with ACR-D0.11 fail-closed scope enforcement."""
 
 from __future__ import annotations
 
@@ -16,6 +16,30 @@ class PermissionScope:
     department_id: UUID | None
     service_id: UUID | None
     provider_resource_id: UUID | None
+
+    def matches(
+        self,
+        *,
+        department_id: UUID | None = None,
+        service_id: UUID | None = None,
+        provider_resource_id: UUID | None = None,
+    ) -> bool:
+        """Within-row AND: every non-null FILTER dimension on the row must match."""
+        if self.scope_mode == "ALL":
+            return True
+        if self.scope_mode != "FILTER":
+            return False
+        if self.department_id is not None and self.department_id != department_id:
+            return False
+        if self.service_id is not None and self.service_id != service_id:
+            return False
+        if (
+            self.provider_resource_id is not None
+            and self.provider_resource_id != provider_resource_id
+        ):
+            return False
+        # FILTER row must constrain at least one dimension (enforced by schema CHECK).
+        return True
 
 
 class SqlPermissionService:
@@ -43,45 +67,24 @@ class SqlPermissionService:
 
         When ``role_permission_scopes`` is present, ACR-D0.11 default-deny applies:
         a grant is effective only if it has at least one scope row (ALL or FILTER).
-        Without the scopes table (pre-ops schema), flat TP0003 grants remain effective.
+        Missing scopes never widen access — there is no flat-permission fallback.
+        Without the scopes table (pre-ops TP0001–7 only), flat TP0003 grants apply.
         """
-        flat_sql = text(
-            """
-            SELECT DISTINCT rpa.permission_code
-            FROM user_role_assignments ura
-            JOIN role_permission_assignments rpa
-              ON rpa.tenant_id = ura.tenant_id AND rpa.role_id = ura.role_id
-            WHERE ura.tenant_id = :tenant_id
-              AND ura.user_account_id = :principal_id
-            """
-        )
         params = {"tenant_id": tenant_id, "principal_id": principal_id}
         if not await self._scopes_table_ready():
-            result = await self._session.execute(flat_sql, params)
-            return {row.permission_code for row in result}
-
-        # Cutover: enforce scopes only after at least one scope row exists for this
-        # principal's grants. Pre-cutover fixtures (deep suite without backfill) keep
-        # flat grants until demo/ops seed writes explicit ALL/FILTER rows.
-        cutover = await self._session.execute(
-            text(
-                """
-                SELECT 1
-                FROM user_role_assignments ura
-                JOIN role_permission_assignments rpa
-                  ON rpa.tenant_id = ura.tenant_id AND rpa.role_id = ura.role_id
-                JOIN role_permission_scopes rps
-                  ON rps.tenant_id = rpa.tenant_id
-                 AND rps.role_permission_assignment_id = rpa.id
-                WHERE ura.tenant_id = :tenant_id
-                  AND ura.user_account_id = :principal_id
-                LIMIT 1
-                """
-            ),
-            params,
-        )
-        if cutover.first() is None:
-            result = await self._session.execute(flat_sql, params)
+            result = await self._session.execute(
+                text(
+                    """
+                    SELECT DISTINCT rpa.permission_code
+                    FROM user_role_assignments ura
+                    JOIN role_permission_assignments rpa
+                      ON rpa.tenant_id = ura.tenant_id AND rpa.role_id = ura.role_id
+                    WHERE ura.tenant_id = :tenant_id
+                      AND ura.user_account_id = :principal_id
+                    """
+                ),
+                params,
+            )
             return {row.permission_code for row in result}
 
         result = await self._session.execute(
@@ -155,17 +158,49 @@ class SqlPermissionService:
             for row in result
         ]
 
+    def allows(
+        self,
+        scopes: list[PermissionScope],
+        *,
+        department_id: UUID | None = None,
+        service_id: UUID | None = None,
+        provider_resource_id: UUID | None = None,
+    ) -> bool:
+        """Across-row OR of within-row AND matches. Empty scopes ⇒ deny."""
+        if not scopes:
+            return False
+        if any(s.scope_mode == "ALL" for s in scopes):
+            return True
+        return any(
+            s.matches(
+                department_id=department_id,
+                service_id=service_id,
+                provider_resource_id=provider_resource_id,
+            )
+            for s in scopes
+        )
+
     def allows_department(
         self, scopes: list[PermissionScope], department_id: UUID | None
     ) -> bool:
-        """Within-row AND / across-row OR: ALL wins; else department FILTER must match."""
+        return self.allows(scopes, department_id=department_id)
+
+    def allows_service(
+        self, scopes: list[PermissionScope], service_id: UUID | None
+    ) -> bool:
+        return self.allows(scopes, service_id=service_id)
+
+    def allows_practitioner(
+        self, scopes: list[PermissionScope], provider_resource_id: UUID | None
+    ) -> bool:
+        """ALL or FILTER without provider constraint covers all practitioners."""
+        if not scopes:
+            return False
         if any(s.scope_mode == "ALL" for s in scopes):
             return True
-        if department_id is None:
-            return False
-        return any(
-            s.scope_mode == "FILTER" and s.department_id == department_id for s in scopes
-        )
+        if any(s.scope_mode == "FILTER" and s.provider_resource_id is None for s in scopes):
+            return True
+        return self.allows(scopes, provider_resource_id=provider_resource_id)
 
     async def governance_roles(self, *, tenant_id: UUID, person_id: UUID) -> set[str]:
         result = await self._session.execute(
