@@ -132,7 +132,7 @@ export function SearchableCombobox({
           className="ds-input pe-9"
           placeholder={selected && !open ? selected.label : placeholder}
           value={display}
-          data-testid={testId}
+          data-testid={testId ? `${testId}-input` : undefined}
           onFocus={() => {
             setOpen(true);
             setQuery("");
@@ -204,7 +204,7 @@ export function SearchableCombobox({
           )}
         </ul>
       ) : null}
-      {/* Native select kept for progressive enhancement / Playwright selectOption compatibility */}
+      {/* Native select: Playwright selectOption + form required validation */}
       <select
         className="sr-only"
         tabIndex={-1}
@@ -212,7 +212,7 @@ export function SearchableCombobox({
         value={value}
         disabled={disabled}
         required={required}
-        data-testid={testId ? `${testId}-native` : undefined}
+        data-testid={testId}
         onChange={(e) => onChange(e.target.value)}
       >
         <option value="">—</option>

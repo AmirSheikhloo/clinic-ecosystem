@@ -15,6 +15,10 @@ import { shiftTehranYmd, tehranTodayYmd } from "@/lib/client";
 import { P } from "@/lib/permissions";
 import { CATALOG_CACHE_MS } from "@/lib/query-cache";
 import { useApiQuery } from "@/lib/use-api-query";
+import {
+  AppointmentFinanceDrawer,
+  type FinanceDrawerTarget,
+} from "@/features/finance/AppointmentFinanceDrawer";
 import { AppointmentDetailsDialog } from "./AppointmentDetailsDialog";
 import { AppointmentListView } from "./AppointmentListView";
 import { AppointmentTable } from "./AppointmentTable";
@@ -66,6 +70,7 @@ export function AppointmentsView() {
   const [refresh, setRefresh] = useState(0);
   const [listTotal, setListTotal] = useState<number | null>(null);
   const [listLoading, setListLoading] = useState(false);
+  const [financeTarget, setFinanceTarget] = useState<FinanceDrawerTarget | null>(null);
   const allowed = can(P.appointmentsList);
   const calendarMode = mode !== "list";
 
@@ -192,8 +197,13 @@ export function AppointmentsView() {
           appointmentId={openId}
           onClose={() => setOpenId(null)}
           onChanged={() => setRefresh((v) => v + 1)}
+          onOpenFinance={(target) => setFinanceTarget(target)}
         />
       )}
+      <AppointmentFinanceDrawer
+        target={financeTarget}
+        onClose={() => setFinanceTarget(null)}
+      />
     </main>
   );
 }

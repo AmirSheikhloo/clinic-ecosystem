@@ -9,6 +9,8 @@ import { allocateFixedDiscountIrr, CheckoutIntentStore } from "@/lib/checkout-in
 import { formatCount } from "@/lib/format/numbers";
 import { P } from "@/lib/permissions";
 import { useSession } from "@/components/session/SessionProvider";
+import { PrintActions } from "@/features/print/PrintActions";
+import { tehranTodayJalaliLabel } from "@/lib/tehran";
 import type { DraftServiceLine, Patient } from "./types";
 import type { BookedSummary } from "./useDeskBookingState";
 
@@ -319,14 +321,42 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
 
       {error ? <Alert testId="cashier-error">{error}</Alert> : null}
       {result ? (
-        <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] p-3 text-sm" data-testid="cashier-result">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge tone="success">ثبت شد</StatusBadge>
-            <span className="tabular-nums">شماره: {result.invoice_number ?? result.id}</span>
+        <div className="space-y-3" data-testid="cashier-result">
+          <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] p-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone="ok">ثبت شد</StatusBadge>
+              <span className="tabular-nums">شماره: {result.invoice_number ?? result.id}</span>
+            </div>
+            <p className="mt-1 text-[var(--ds-text-muted)]">
+              وضعیت مالی: {result.financial_status} · مانده: {formatCount(result.outstanding)} ریال
+            </p>
           </div>
-          <p className="mt-1 text-[var(--ds-text-muted)]">
-            وضعیت مالی: {result.financial_status} · مانده: {formatCount(result.outstanding)} ریال
-          </p>
+          {can(P.financeInvoiceView) ? (
+            <PrintActions
+              invoices={[
+                {
+                  invoiceId: result.id,
+                  invoiceNumber: result.invoice_number ?? result.id,
+                  patientDisplay: patient
+                    ? `${patient.first_name} ${patient.last_name}`
+                    : "بیمار",
+                  jalaliDate: tehranTodayJalaliLabel(),
+                  lines: lines.map((line) => ({
+                    description: line.serviceName,
+                    amountIrr: line.priceIrr,
+                  })),
+                  discountIrr: usingFixed
+                    ? fixedCuts.reduce((s, v) => s + v, 0)
+                    : bpsCut || undefined,
+                  totalPayableIrr: result.patient_payable_total,
+                  paidIrr: result.received_irr ?? result.allocated_total,
+                  methodLabel:
+                    payMethod === "CASH" ? "نقدی" : payMethod === "POS" ? "کارتخوان" : "بدون دریافت",
+                  financialStatus: result.financial_status,
+                },
+              ]}
+            />
+          ) : null}
         </div>
       ) : null}
     </section>

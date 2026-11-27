@@ -13,6 +13,10 @@ import { shiftTehranYmd, tehranDayBoundsUtc, tehranTodayYmd } from "@/lib/client
 import { P } from "@/lib/permissions";
 import { useApiQuery } from "@/lib/use-api-query";
 import type { ManagementResponse } from "@/features/appointments/types";
+import {
+  AppointmentFinanceDrawer,
+  type FinanceDrawerTarget,
+} from "@/features/finance/AppointmentFinanceDrawer";
 import { DashboardMetrics } from "./DashboardMetrics";
 import { resolveDashboardAudience } from "./dashboard-role";
 import { buildMetricCards } from "./metric-cards";
@@ -30,6 +34,7 @@ export function DashboardView() {
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  const [financeTarget, setFinanceTarget] = useState<FinanceDrawerTarget | null>(null);
   const today = tehranTodayYmd();
   const tomorrow = shiftTehranYmd(today, 1);
   const bounds = tehranDayBoundsUtc(today);
@@ -152,12 +157,15 @@ export function DashboardView() {
           offset={offset}
           onOffsetChange={setOffset}
           total={day.data?.total ?? 0}
+          onOpenFinance={setFinanceTarget}
         />
       ) : null}
 
       {nothingToShow ? (
         <EmptyState icon="info" title="برای حساب شما شاخصی قابل نمایش نیست" description="مجوزهای لازم برای مشاهدهٔ آمار تخصیص داده نشده است." />
       ) : null}
+
+      <AppointmentFinanceDrawer target={financeTarget} onClose={() => setFinanceTarget(null)} />
     </main>
   );
 }

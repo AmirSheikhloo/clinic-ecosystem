@@ -14,6 +14,7 @@ import { appointmentStatusLabel, appointmentStatusTone } from "@/lib/format/stat
 import { P } from "@/lib/permissions";
 import { useNow } from "@/lib/use-now";
 import type { CalendarItem } from "@/features/appointments/types";
+import type { FinanceDrawerTarget } from "@/features/finance/AppointmentFinanceDrawer";
 import { DAY_PAGE_SIZES } from "./types";
 
 type DayQuery = {
@@ -35,6 +36,7 @@ type Props = {
   offset: number;
   onOffsetChange: (value: number) => void;
   total: number;
+  onOpenFinance?: (target: FinanceDrawerTarget) => void;
 };
 
 function needsStatus(row: CalendarItem, now: number): boolean {
@@ -56,6 +58,7 @@ export function TodaySchedule({
   offset,
   onOffsetChange,
   total,
+  onOpenFinance,
 }: Props) {
   const now = useNow();
   const items = query.data?.items ?? [];
@@ -190,9 +193,26 @@ export function TodaySchedule({
             {
               key: "finance",
               header: "وضعیت مالی",
-              cell: (row) => (
-                <span className="text-sm text-[var(--ds-text-muted)]">{row.financial_status_label || "—"}</span>
-              ),
+              cell: (row) =>
+                onOpenFinance && can(P.financeInvoiceView) ? (
+                  <button
+                    type="button"
+                    className="text-sm text-[var(--ds-primary)] underline-offset-2 hover:underline"
+                    data-testid="dashboard-open-finance"
+                    onClick={() =>
+                      onOpenFinance({
+                        appointmentId: row.appointment_id,
+                        patientId: row.patient_profile_id,
+                        patientName: `${row.patient_first_name} ${row.patient_last_name}`,
+                        serviceName: row.service_name,
+                      })
+                    }
+                  >
+                    {row.financial_status_label || "مشاهده مالی"}
+                  </button>
+                ) : (
+                  <span className="text-sm text-[var(--ds-text-muted)]">{row.financial_status_label || "—"}</span>
+                ),
             },
             {
               key: "ops",

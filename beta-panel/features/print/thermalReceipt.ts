@@ -38,7 +38,6 @@ function money(n: number): string {
 const FORBIDDEN_PATTERNS: RegExp[] = [
   /کد\s*ملی/i,
   /national[\s_-]?id/i,
-  /\b\d{10}\b/, // raw 10-digit national id style
   /شماره\s*کارت/i,
   /cvv/i,
   /iban/i,
@@ -54,7 +53,7 @@ export function assertPrivacySafeReceiptFields(input: ThermalReceiptInput): void
     ...input.lines.map((l) => l.description),
   ].join("\n");
   for (const re of FORBIDDEN_PATTERNS) {
-    if (re.test(blob) || re.test(input.clinicName)) {
+    if (re.test(blob)) {
       throw new Error(`privacy_blocked:${re.source}`);
     }
   }

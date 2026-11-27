@@ -107,6 +107,8 @@ export function useReceptionDesk() {
     pendingConflicts: booking.pendingConflicts,
     pendingConflictLineId: booking.pendingConflictLineId,
     durationMinutes: catalog.durationMinutes,
+    setDurationMinutes: (minutes: number) => catalog.setDurationMinutes(minutes),
+    resources: catalog.resources,
     canSubmit: submit.canSubmit,
     patientSearching: patients.searching,
     patientSearched: patients.searched,

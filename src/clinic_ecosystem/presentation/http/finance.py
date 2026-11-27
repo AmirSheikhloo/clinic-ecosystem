@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -243,6 +244,313 @@ async def get_invoice(principal: Principal, uow: Uow, invoice_id: UUID) -> dict:
         ],
         "allocations": allocations,
         **bal,
+    }
+
+
+def _gregorian_to_jalali(gy: int, gm: int, gd: int) -> tuple[int, int, int]:
+    """Compact civil Jalali conversion for receipt labels (presentation only)."""
+    g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+    gy2 = gy + 1 if gm > 2 else gy
+    days = (
+        355666
+        + (365 * gy)
+        + ((gy2 + 3) // 4)
+        - ((gy2 + 99) // 100)
+        + ((gy2 + 399) // 400)
+        + gd
+        + g_d_m[gm - 1]
+    )
+    jy = -1595 + 33 * (days // 12053)
+    days %= 12053
+    jy += 4 * (days // 1461)
+    days %= 1461
+    if days > 365:
+        jy += (days - 1) // 365
+        days = (days - 1) % 365
+    if days < 186:
+        jm = 1 + days // 31
+        jd = 1 + (days % 31)
+    else:
+        jm = 7 + (days - 186) // 30
+        jd = 1 + ((days - 186) % 30)
+    return jy, jm, jd
+
+
+def _jalali_label_from_utc(dt: datetime | None) -> str:
+    from clinic_ecosystem.infrastructure.timezones import require_tehran_zoneinfo
+
+    tehran = require_tehran_zoneinfo()
+    local = (dt or datetime.now(timezone.utc)).astimezone(tehran)
+    jy, jm, jd = _gregorian_to_jalali(local.year, local.month, local.day)
+    return f"{jy:04d}/{jm:02d}/{jd:02d}"
+
+
+@router.get("/invoices/{invoice_id}/print-snapshot")
+async def invoice_print_snapshot(
+    principal: Principal, uow: Uow, invoice_id: UUID
+) -> dict:
+    """Immutable authorized thermal receipt fields from posted invoice snapshots."""
+    granted = await load_granted(principal, uow)
+    require(granted, perm.FINANCE_INVOICE_VIEW)
+    scopes = await load_scopes(principal, uow, perm.FINANCE_INVOICE_VIEW)
+    finance = SqlFinanceOps(uow.session)
+    await _require_ops(finance)
+    row = await finance.get_invoice(
+        tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
+    )
+    if row is None:
+        raise NotFound("Invoice not found", code="invoice_not_found")
+    require_object_scope(
+        scopes,
+        department_id=row.get("department_id"),
+        service_id=row.get("service_id"),
+        provider_resource_id=row.get("provider_resource_id"),
+    )
+    if row["status"] not in {"POSTED", "VOIDED"}:
+        raise Conflict(
+            "Print snapshot requires a posted (or voided historical) invoice",
+            code="invoice_not_posted",
+        )
+    lines = await finance.list_lines(
+        tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
+    )
+    for ln in lines:
+        require_object_scope(
+            scopes,
+            department_id=ln.get("department_id") or row.get("department_id"),
+            service_id=ln.get("service_id"),
+            provider_resource_id=ln.get("provider_resource_id"),
+        )
+    bal = await finance.invoice_balance(
+        tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
+    )
+    from clinic_ecosystem.infrastructure.persistence.patient_display import (
+        SqlPatientDisplayDirectory,
+    )
+
+    names = await SqlPatientDisplayDirectory(uow.session).display_safe_names(
+        tenant_id=principal.claims.tenant_id,
+        patient_ids=[row["beneficiary_patient_id"]],
+    )
+    patient_display = names.get(row["beneficiary_patient_id"]) or "بیمار"
+    # Privacy: never include national ID, phone, bank, or clinical notes.
+    discount_irr = sum(int(ln["discount_amount"] or 0) for ln in lines)
+    paid_irr = int(bal.get("allocated_total") or 0)
+    from sqlalchemy import text
+
+    method_row = await uow.session.execute(
+        text(
+            """
+            SELECT pr.payment_method
+            FROM receipt_allocations ra
+            JOIN payment_receipts pr
+              ON pr.tenant_id = ra.tenant_id AND pr.id = ra.receipt_id
+            WHERE ra.tenant_id = :tenant_id AND ra.invoice_id = :invoice_id
+            ORDER BY ra.created_at_utc
+            LIMIT 1
+            """
+        ),
+        {"tenant_id": principal.claims.tenant_id, "invoice_id": invoice_id},
+    )
+    method = method_row.mappings().one_or_none()
+    method_label = None
+    if method:
+        method_label = "نقدی" if method["payment_method"] == "CASH" else "کارتخوان"
+
+    # Optional course / next-visit hints from disposable course tables when present.
+    course_hint = None
+    next_hint = None
+    course_tbl = await uow.session.execute(
+        text("SELECT to_regclass('public.treatment_courses') IS NOT NULL AS ok")
+    )
+    if course_tbl.mappings().one()["ok"]:
+        course = await uow.session.execute(
+            text(
+                """
+                SELECT completed_sessions, planned_sessions, next_suggested_date_tehran
+                FROM treatment_courses
+                WHERE tenant_id = :tenant_id
+                  AND patient_id = :patient_id
+                  AND status = 'ACTIVE'
+                ORDER BY updated_at_utc DESC
+                LIMIT 1
+                """
+            ),
+            {
+                "tenant_id": principal.claims.tenant_id,
+                "patient_id": row["beneficiary_patient_id"],
+            },
+        )
+        crow = course.mappings().one_or_none()
+        if crow:
+            course_hint = (
+                f"جلسه {int(crow['completed_sessions'])} از {int(crow['planned_sessions'])}"
+            )
+            if crow["next_suggested_date_tehran"]:
+                next_hint = (
+                    f"پیشنهاد مراجعه بعدی: {crow['next_suggested_date_tehran']}"
+                )
+
+    return {
+        "invoice_id": str(row["id"]),
+        "invoice_number": row["invoice_number"] or str(row["id"]),
+        "jalali_date": _jalali_label_from_utc(row.get("posted_at_utc")),
+        "patient_display": patient_display,
+        "lines": [
+            {
+                "description": ln["description_snapshot"],
+                "amount_irr": int(ln["patient_payable_amount"]),
+                "quantity_scaled": int(ln.get("quantity_scaled") or 1),
+            }
+            for ln in lines
+            if ln.get("line_status", "ACTIVE") == "ACTIVE"
+        ],
+        "discount_irr": discount_irr,
+        "total_payable_irr": int(bal.get("patient_payable_total") or 0),
+        "paid_irr": paid_irr,
+        "method_label": method_label,
+        "financial_status": bal.get("financial_status"),
+        "course_session_hint": course_hint,
+        "next_suggested_hint": next_hint,
+        "synthetic": True,
+        "snapshot_immutable": True,
+    }
+
+
+class PrintJobIn(BaseModel):
+    invoice_id: UUID
+    workstation_id: str = Field(min_length=1, max_length=64)
+    width_mm: Literal[58, 80] = 80
+    job_kind: Literal["RECEIPT", "TEST", "BATCH_ITEM", "REPRINT"] = "RECEIPT"
+    rendered_text: str = Field(min_length=1, max_length=8000)
+    snapshot: dict[str, Any]
+    status: Literal["QUEUED", "SPOOLED", "FAILED", "UNKNOWN", "CANCELLED"] = "SPOOLED"
+    adapter_mode: Literal["simulated", "browser_fallback", "qz_blocked"] = "simulated"
+    hardware_claim: Literal["none", "browser_dialog", "blocked_pending_approval"] = "none"
+    adapter_detail: str = Field(default="", max_length=400)
+    parent_job_id: UUID | None = None
+    batch_id: UUID | None = None
+    auto_intent_key: str | None = Field(default=None, max_length=200)
+    attempt: int = Field(default=1, ge=1, le=20)
+
+
+@router.post("/print-jobs")
+async def record_print_job(principal: Principal, uow: Uow, body: PrintJobIn) -> dict:
+    """Persist print-job identity separate from checkout; never mutates finance."""
+    granted = await load_granted(principal, uow)
+    require(granted, perm.FINANCE_INVOICE_VIEW)
+    finance = SqlFinanceOps(uow.session)
+    await _require_ops(finance)
+    from clinic_ecosystem.infrastructure.persistence.print_jobs import SqlPrintJobs
+
+    jobs = SqlPrintJobs(uow.session)
+    await jobs.ensure_schema()
+    inv = await finance.get_invoice(
+        tenant_id=principal.claims.tenant_id, invoice_id=body.invoice_id
+    )
+    if inv is None and body.job_kind != "TEST":
+        raise NotFound("Invoice not found", code="invoice_not_found")
+    # Reject privacy-sensitive keys if a client tries to stash them in snapshot.
+    banned = ("national_id", "nationalId", "phone", "iban", "card", "cvv", "کد ملی")
+    snap_blob = json.dumps(body.snapshot, ensure_ascii=False)
+    if any(b in snap_blob for b in banned):
+        raise ValidationFailed(
+            "Print snapshot contains disallowed privacy fields",
+            code="print_privacy_blocked",
+        )
+    if body.adapter_mode == "simulated" and body.hardware_claim != "none":
+        raise ValidationFailed(
+            "Simulated adapter cannot claim hardware success",
+            code="false_hardware_claim",
+        )
+    now = datetime.now(timezone.utc)
+    try:
+        job_id = await jobs.insert_job(
+            tenant_id=principal.claims.tenant_id,
+            job_kind=body.job_kind,
+            status=body.status,
+            invoice_id=None if body.job_kind == "TEST" else body.invoice_id,
+            invoice_number=inv["invoice_number"] if inv else "TEST",
+            beneficiary_patient_id=inv["beneficiary_patient_id"] if inv else None,
+            workstation_id=body.workstation_id,
+            width_mm=body.width_mm,
+            batch_id=body.batch_id,
+            parent_job_id=body.parent_job_id,
+            attempt=body.attempt,
+            adapter_mode=body.adapter_mode,
+            hardware_claim=body.hardware_claim,
+            snapshot=body.snapshot,
+            rendered_text=body.rendered_text,
+            adapter_detail=body.adapter_detail
+            or "simulated — no physical hardware claim",
+            user_id=principal.account.id,
+            now=now,
+            auto_intent_key=body.auto_intent_key,
+        )
+    except ValueError as exc:
+        if str(exc) == "auto_print_duplicate":
+            raise Conflict(
+                "Automatic reprint on refresh blocked; use explicit reprint",
+                code="auto_print_duplicate",
+            ) from exc
+        raise
+    await SqlAuditStore(uow.session).append(
+        tenant_id=principal.claims.tenant_id,
+        actor_type="USER_ACCOUNT",
+        actor_id=principal.account.id,
+        operation="finance.print_job_recorded",
+        target_type="thermal_print_job",
+        target_id=job_id,
+        details={
+            "invoice_id": str(body.invoice_id),
+            "status": body.status,
+            "job_kind": body.job_kind,
+            "adapter_mode": body.adapter_mode,
+            "hardware_claim": body.hardware_claim,
+        },
+    )
+    return {
+        "id": str(job_id),
+        "status": body.status,
+        "finance_mutated": False,
+        "hardware_claim": body.hardware_claim,
+    }
+
+
+@router.get("/invoices/{invoice_id}/print-jobs")
+async def list_print_jobs(
+    principal: Principal, uow: Uow, invoice_id: UUID
+) -> dict:
+    granted = await load_granted(principal, uow)
+    require(granted, perm.FINANCE_INVOICE_VIEW)
+    finance = SqlFinanceOps(uow.session)
+    await _require_ops(finance)
+    from clinic_ecosystem.infrastructure.persistence.print_jobs import SqlPrintJobs
+
+    jobs = SqlPrintJobs(uow.session)
+    await jobs.ensure_schema()
+    rows = await jobs.list_for_invoice(
+        tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
+    )
+    return {
+        "items": [
+            {
+                "id": str(r["id"]),
+                "job_kind": r["job_kind"],
+                "status": r["status"],
+                "invoice_number": r["invoice_number"],
+                "workstation_id": r["workstation_id"],
+                "width_mm": r["width_mm"],
+                "batch_id": str(r["batch_id"]) if r["batch_id"] else None,
+                "parent_job_id": str(r["parent_job_id"]) if r["parent_job_id"] else None,
+                "attempt": r["attempt"],
+                "adapter_mode": r["adapter_mode"],
+                "hardware_claim": r["hardware_claim"],
+                "adapter_detail": r["adapter_detail"],
+                "created_at_utc": r["created_at_utc"].isoformat(),
+            }
+            for r in rows
+        ]
     }
 
 

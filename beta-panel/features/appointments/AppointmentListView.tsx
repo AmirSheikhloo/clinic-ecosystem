@@ -20,6 +20,7 @@ import { clampOffset } from "@/lib/pagination";
 import { useApiQuery } from "@/lib/use-api-query";
 import { useDebouncedValue } from "@/lib/use-debounced";
 import type { Option } from "./CalendarToolbar";
+import { BulkAppointmentOps } from "./BulkAppointmentOps";
 import {
   CALENDAR_STATUSES,
   LIST_PAGE_SIZES,
@@ -41,6 +42,8 @@ type Props = {
   refreshKey: number;
   onTotalChange: (total: number | null) => void;
   onLoadingChange: (loading: boolean) => void;
+  onOpenFinance?: (item: CalendarItem) => void;
+  canFinance?: boolean;
 };
 
 const DATE_PRESETS = [
@@ -66,6 +69,8 @@ export function AppointmentListView({
   refreshKey,
   onTotalChange,
   onLoadingChange,
+  onOpenFinance,
+  canFinance,
 }: Props) {
   const today = tehranTodayYmd();
   const [forceCustom, setForceCustom] = useState(false);
@@ -77,6 +82,7 @@ export function AppointmentListView({
   const [limit, setLimit] = useState<(typeof LIST_PAGE_SIZES)[number]>(50);
   const [offset, setOffset] = useState(0);
   const [qDraft, setQDraft] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const q = useDebouncedValue(qDraft.trim(), 350);
 
   const bounds = tehranDayBoundsUtc(dateYmd);
