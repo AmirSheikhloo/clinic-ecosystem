@@ -124,15 +124,23 @@ export async function pickComboboxOption(page: Page, testId: string, label: stri
   const isSelect = await native.evaluate((el) => el.tagName.toLowerCase() === "select").catch(() => false);
   if (isSelect) {
     await native.selectOption({ label });
-    return;
+  } else {
+    const input = page.getByTestId(`${testId}-input`);
+    await input.click();
+    await input.fill(label);
+    // Prefer the visible listbox option — a hidden native <select> also exposes role=option.
+    const listbox = page.getByRole("listbox");
+    await listbox
+      .getByRole("option", { name: new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })
+      .first()
+      .click();
   }
-  const input = page.getByTestId(`${testId}-input`);
-  await input.click();
-  await input.fill(label);
-  // Prefer the visible listbox option — a hidden native <select> also exposes role=option.
-  const listbox = page.getByRole("listbox");
-  await listbox.getByRole("option", { name: new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }).first().click();
-  await expect(listbox).toHaveCount(0);
+  // Desk autofocus can leave the APG listbox open after a native selectOption — dismiss it.
+  const openList = page.getByRole("listbox");
+  if ((await openList.count()) > 0) {
+    await page.keyboard.press("Escape");
+  }
+  await expect(openList).toHaveCount(0);
 }
 
 /** Dense demo days often collide; accept either a clean booking or an acknowledged overlap. */
@@ -161,11 +169,14 @@ export async function deskBook(page: Page, startLocal: string) {
   const resourceName = process.env.BETA01B_RESOURCE_NAME || "Room Alpha";
   await pickComboboxOption(page, "service-select", service);
   await expect(page.getByTestId("resource-fieldset")).toBeEnabled({ timeout: 30_000 });
+  // Ensure no sticky service listbox covers the resource checkboxes.
+  await expect(page.getByRole("listbox")).toHaveCount(0);
   const resource = page.getByTestId("resource-option").filter({ hasText: resourceName });
   await expect(resource).toBeVisible();
-  // Click the option row (label) — checkbox alone can be intercepted by an open combobox layer.
-  await resource.click();
-  await expect(resource.locator('input[type="checkbox"]')).toBeChecked();
+  const checkbox = resource.locator('input[type="checkbox"]');
+  // Force bypasses residual popover hit-testing; still assert checked state afterward.
+  await checkbox.check({ force: true });
+  await expect(checkbox).toBeChecked();
   await fillJalaliDateTime(page, "appointment-start", startLocal);
   await expect(page.getByTestId("appointment-submit")).toBeEnabled({ timeout: 15_000 });
   await page.getByTestId("appointment-submit").click();

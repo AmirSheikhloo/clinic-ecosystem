@@ -213,7 +213,11 @@ export function SearchableCombobox({
         disabled={disabled}
         required={required}
         data-testid={testId}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setQuery("");
+          setOpen(false);
+        }}
       >
         <option value="">—</option>
         {options.map((o) => (

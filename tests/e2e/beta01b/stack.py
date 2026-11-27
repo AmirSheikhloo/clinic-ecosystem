@@ -25,10 +25,6 @@ from urllib.parse import quote_plus
 import asyncpg
 
 from tests.integration.alembic_runner import upgrade_tenant_plane_async
-from tests.integration.beta01b_seed import (
-    TEST_RECEPTIONIST_PASSWORD,
-    TEST_UNAUTHORIZED_PASSWORD,
-)
 from tests.integration.beta02_seed import (
     DEPUTY_PASSWORD,
     MANAGER_PASSWORD,
@@ -356,7 +352,8 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
         receptionist_login=seed.receptionist_login,
         receptionist_password=preview_password,
         unauthorized_login=seed.unauthorized_login,
-        unauthorized_password=TEST_UNAUTHORIZED_PASSWORD,
+        # Alias seed rewrites clerk-no-perms to the shared demo password.
+        unauthorized_password=preview_password,
         owner_login=ops_seed.owner_login,
         owner_password=preview_password,
         manager_login=ops_seed.manager_login,
