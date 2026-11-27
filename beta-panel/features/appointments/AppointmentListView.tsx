@@ -246,6 +246,7 @@ export function AppointmentListView({
                       className="ds-check"
                       checked={selectedIds.includes(row.appointment_id)}
                       data-testid="appointment-select"
+                      aria-label={`انتخاب نوبت ${row.patient_first_name} ${row.patient_last_name}`}
                       onChange={(e) => {
                         setSelectedIds((prev) =>
                           e.target.checked

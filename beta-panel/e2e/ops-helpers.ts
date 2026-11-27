@@ -87,6 +87,16 @@ export function tehranSlot(offsetMinutes = 0, hour = 16): string {
 }
 
 export async function deskRegisterPatient(page: Page, first: string, last: string) {
+  // After a booking confirmation the desk stays on stage 2 — reset to identification first.
+  const nextPatient = page.getByTestId("desk-next-patient");
+  if (await nextPatient.first().isVisible().catch(() => false)) {
+    await nextPatient.first().click();
+  }
+  const stage1 = page.getByTestId("desk-stage-1");
+  if (await stage1.isVisible().catch(() => false)) {
+    await stage1.click();
+  }
+  await expect(page.getByTestId("patient-first-name")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("patient-first-name").fill(first);
   await page.getByTestId("patient-last-name").fill(last);
   // Identity is required for submit readiness; use the approved exception path (no forged ID).
@@ -97,9 +107,11 @@ export async function deskRegisterPatient(page: Page, first: string, last: strin
   await expect(page.getByTestId("desk-status")).toContainText("بیمار ثبت شد", { timeout: 30_000 });
   // Stage rail advances to booking and unmounts selected-patient; cashier mirrors the selection.
   await expect(
-    page.getByTestId("selected-patient").or(page.getByTestId("invoice-patient")),
+    page.getByTestId("selected-patient").or(page.getByTestId("invoice-patient")).or(page.getByTestId("summary-patient")),
   ).toContainText(`${first} ${last}`, { timeout: 15_000 });
-  await expect(page.getByTestId("desk-stage-booking").or(page.getByTestId("desk-stage-patient"))).toBeVisible();
+  await expect(
+    page.getByTestId("desk-stage-booking").or(page.getByTestId("desk-stage-patient")).or(page.getByTestId("desk-stage-2")),
+  ).toBeVisible();
 }
 
 /** Prefer the sr-only native <select> backing SearchableCombobox; fall back to listbox. */

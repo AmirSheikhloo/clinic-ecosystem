@@ -17,6 +17,7 @@ import {
   AppointmentFinanceDrawer,
   type FinanceDrawerTarget,
 } from "@/features/finance/AppointmentFinanceDrawer";
+import { DashboardGreeting } from "./DashboardGreeting";
 import { DashboardMetrics } from "./DashboardMetrics";
 import { resolveDashboardAudience } from "./dashboard-role";
 import { buildMetricCards } from "./metric-cards";
@@ -111,11 +112,19 @@ export function DashboardView() {
   const actions = quickActionsFor(audience).filter((item) => item.allowed(can));
   const nothingToShow = !loading && cards.length === 0 && actions.length === 0 && !can(P.appointmentsList);
 
+  const firstName = (me?.first_name ?? "").trim();
+
   return (
     <main className="space-y-5" data-testid="dashboard-page" data-dashboard={audience.composition}>
       <PageHeader
         title={audience.composition === "management" ? "داشبورد مدیریت" : "میز کار پذیرش"}
         description={audience.label}
+      />
+      <DashboardGreeting
+        todayYmd={today}
+        firstName={firstName}
+        roleLabel={audience.label}
+        composition={audience.composition}
       />
 
       {summary.error ? <Alert testId="dashboard-error">{summary.error.message}</Alert> : null}

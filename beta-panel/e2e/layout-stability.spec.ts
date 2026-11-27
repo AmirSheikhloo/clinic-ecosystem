@@ -1,8 +1,8 @@
 /**
  * Shell geometry regression suite (real BFF + API + PG15, synthetic data).
  *
- * Contract: the sidebar, top bar, search slot, account controls and the page frame keep the same
- * position and size across navigation, loading, long names, dialogs and scrollbar changes at a
+ * Contract: the sidebar, top bar, Tehran clock slot, account controls and the page frame keep the
+ * same position and size across navigation, loading, long names, dialogs and scrollbar changes at a
  * given viewport and sidebar mode (tolerance: 1 CSS px). Rectangles are sampled on every animation
  * frame while the interaction runs, so intermediate movement is measured and not only the settled
  * state. Layout-shift entries are recorded too; limitation: Chrome flags shifts that follow a
@@ -26,7 +26,7 @@ test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
 test.describe.configure({ mode: "serial" });
 
 const TOLERANCE = 1;
-const PARTS: ShellPart[] = ["sidebar", "topbar", "search", "account", "frame"];
+const PARTS: ShellPart[] = ["sidebar", "topbar", "clock", "account", "frame"];
 const PAGES: [label: string, path: string][] = [
   ["داشبورد", "/dashboard"],
   ["میز پذیرش", "/desk"],
@@ -117,7 +117,7 @@ test("sidebar width is identical on every page in both modes", async ({ page }) 
   }
 });
 
-test("long account names and breadcrumbs do not resize the search or account areas", async ({ page }) => {
+test("long account names and breadcrumbs do not resize the clock or account areas", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await loginAs(page, credsFromEnv("OWNER"), "owner");
   const created = await bff(page, "POST", "/api/patients", {
@@ -255,7 +255,7 @@ test("navigation does not remount the shell and keeps the same DOM nodes", async
   await expect(page.getByTestId("dashboard-page")).toBeVisible({ timeout: 45_000 });
   await page.evaluate(() => {
     const w = window as unknown as { __shell: Element[] };
-    w.__shell = ["app-sidebar", "app-topbar", "global-search", "topbar-account"].map(
+    w.__shell = ["app-sidebar", "app-topbar", "tehran-clock", "topbar-account"].map(
       (id) => document.querySelector(`[data-testid="${id}"]`)!,
     );
   });
@@ -265,7 +265,7 @@ test("navigation does not remount the shell and keeps the same DOM nodes", async
   }
   const same = await page.evaluate(() => {
     const w = window as unknown as { __shell: Element[] };
-    return ["app-sidebar", "app-topbar", "global-search", "topbar-account"].every(
+    return ["app-sidebar", "app-topbar", "tehran-clock", "topbar-account"].every(
       (id, index) => document.querySelector(`[data-testid="${id}"]`) === w.__shell[index] && w.__shell[index].isConnected,
     );
   });

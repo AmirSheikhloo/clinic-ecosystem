@@ -42,6 +42,8 @@ test("all theme × appearance combinations apply without non-Latin digits", asyn
 test("responsive shell and sidebar keyboard toggle", async ({ page }) => {
   requireCreds();
   await loginAsReceptionist(page);
+  await page.goto("/desk");
+  await expect(page.getByTestId("desk-page")).toBeVisible({ timeout: 45_000 });
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page.getByRole("navigation", { name: "ناوبری اصلی" })).toBeVisible();

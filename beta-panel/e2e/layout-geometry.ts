@@ -5,10 +5,11 @@
  */
 import type { Page } from "@playwright/test";
 
+/** Top-bar global search removed (UX-04); clock occupies the former search slot. */
 export const SHELL_PARTS = {
   sidebar: '[data-testid="app-sidebar"]',
   topbar: '[data-testid="app-topbar"]',
-  search: '[data-testid="global-search"]',
+  clock: '[data-testid="tehran-clock"]',
   account: '[data-testid="topbar-account"]',
   frame: '[data-testid="page-frame"]',
 } as const;
