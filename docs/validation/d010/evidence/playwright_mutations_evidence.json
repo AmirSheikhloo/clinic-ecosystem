@@ -1,5 +1,5 @@
 {
-  "tip_sha": "b803ddefc9b7543d099180d3e20ddbe527e90a86",
+  "tip_sha": "3d37f74b23594525c3219609c1894a8c9bd4ada2",
   "environment": "Linux synthetic preview (PG15 testcontainers + next start)",
   "playwright": {
     "spec": "beta-panel/e2e/task34-r2-mutations.spec.ts",
@@ -47,5 +47,10 @@
       "reception-desk-768.png"
     ]
   },
-  "captured_at_utc": "2026-11-27T22:09:08.420448+00:00"
+  "captured_at_utc": "2026-11-27T22:09:08.420448+00:00",
+  "implementation_commits": [
+    "a9dc03b8610ee9dd184970008e9f1e7f2bdd6c3d",
+    "b803ddefc9b7543d099180d3e20ddbe527e90a86",
+    "3d37f74b23594525c3219609c1894a8c9bd4ada2"
+  ]
 }

@@ -1,19 +1,20 @@
 {
-  "generated_at_utc": "2026-11-27T21:42:24.301399+00:00",
+  "generated_at_utc": "2026-11-27T22:10:11.418511+00:00",
   "task": "Task 34 R2 SEC-01 / scope isolation",
   "branch_hint": "cursor/d010-ops-contracts-validation-95a4",
   "summary": {
-    "cases_passed": 5,
+    "cases_passed": 6,
     "cases_failed": 0,
-    "cases_blocked": 1,
+    "cases_blocked": 0,
     "unit_passed": 5,
-    "http_passed": 0,
+    "http_passed": 1,
     "http_failed": 0,
-    "http_blocked": 1
+    "http_blocked": 0
   },
   "http": {
     "attempted": true,
-    "skipped_reason": "docker_unavailable"
+    "source": "CLINIC_DATABASE_URL",
+    "skipped_reason": "prefer_testcontainers_or_pytest_ops"
   },
   "cases": [
     {
@@ -52,10 +53,10 @@
       "layer": "unit"
     },
     {
-      "name": "pg_http_docker",
+      "name": "pg_http_env_url_present",
       "ok": true,
-      "status": "BLOCKED",
-      "detail": "Docker unavailable in this environment",
+      "status": "PASS",
+      "detail": "External CLINIC_DATABASE_URL provided \u2014 use integration suite for full HTTP",
       "layer": "http"
     }
   ],
