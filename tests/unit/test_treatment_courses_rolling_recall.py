@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-
-import pytest
+from pathlib import Path
 
 from clinic_ecosystem.domain.treatment_courses.jalali import (
+    JalaliDate,
     add_jalali_months,
     from_jalali,
     is_jalali_leap,
@@ -18,7 +18,6 @@ from clinic_ecosystem.domain.treatment_courses.rolling import (
     defer_for_quiet_hours,
     shift_tehran_days,
 )
-from clinic_ecosystem.features import __doc__ as _unused  # noqa: F401 — keep import surface calm
 
 
 def _ymd_jalali(jy: int, jm: int, jd: int) -> date:
@@ -38,19 +37,27 @@ def test_ext_recall_01_mehr_aban_azar_rolling_from_completion() -> None:
         reminder_lead_days=2,
         scheduling_mode="ROLLING",
     )
-    assert to_jalali(plan1.suggested_tehran.year, plan1.suggested_tehran.month, plan1.suggested_tehran.day) == to_jalali(
-        *_ymd_jalali(1405, 8, 5).timetuple()[:3]
-    )
     assert plan1.suggested_tehran == _ymd_jalali(1405, 8, 5)
     assert plan1.reminder_tehran == _ymd_jalali(1405, 8, 3)
+    assert to_jalali(
+        plan1.suggested_tehran.year, plan1.suggested_tehran.month, plan1.suggested_tehran.day
+    ) == JalaliDate(1405, 8, 5)
+    assert to_jalali(
+        plan1.reminder_tehran.year, plan1.reminder_tehran.month, plan1.reminder_tehran.day
+    ) == JalaliDate(1405, 8, 3)
 
     s2 = _ymd_jalali(1405, 8, 15)  # 15 Aban — completion date, NOT booking/payment
     plan2 = compute_rolling_reminder_plan(completion_tehran=s2)
     assert plan2.suggested_tehran == _ymd_jalali(1405, 9, 15)
     assert plan2.reminder_tehran == _ymd_jalali(1405, 9, 13)
+    assert to_jalali(
+        plan2.suggested_tehran.year, plan2.suggested_tehran.month, plan2.suggested_tehran.day
+    ) == JalaliDate(1405, 9, 15)
+    assert to_jalali(
+        plan2.reminder_tehran.year, plan2.reminder_tehran.month, plan2.reminder_tehran.day
+    ) == JalaliDate(1405, 9, 13)
 
-    # Booking date must not drive rolling: a booking on 1 Aban with completion 15 Aban
-    # still yields Azar 15 from completion.
+    # Booking date must not drive rolling.
     booking = _ymd_jalali(1405, 8, 1)
     assert booking != s2
     assert compute_rolling_reminder_plan(completion_tehran=s2).suggested_tehran != (
@@ -65,15 +72,11 @@ def test_jalali_leap_and_end_of_month_clamp() -> None:
     assert jalali_month_length(1404, 12) == 29
 
     # 30 Esfand 1403 + 12 months → clamp into 29 Esfand 1404
-    assert add_jalali_months(1403, 12, 30, 12) == add_jalali_months(1403, 12, 29, 12).__class__(
-        1404, 12, 29
-    )
     clamped = add_jalali_months(1403, 12, 30, 12)
-    assert (clamped.year, clamped.month, clamped.day) == (1404, 12, 29)
+    assert clamped == JalaliDate(1404, 12, 29)
 
     # 31 Farvardin + 7 months → Aban has 30 days → clamp to 30
-    assert add_jalali_months(1405, 1, 31, 7).day == 30
-    assert add_jalali_months(1405, 1, 31, 7).month == 8
+    assert add_jalali_months(1405, 1, 31, 7) == JalaliDate(1405, 8, 30)
 
 
 def test_fixed_days_interval() -> None:
@@ -110,21 +113,40 @@ def test_quiet_hours_deferral_wraps_midnight() -> None:
 def test_calendar_month_alias_matches_jalali_kind() -> None:
     d = _ymd_jalali(1405, 7, 5)
     a = compute_rolling_reminder_plan(completion_tehran=d, interval_kind="CALENDAR_MONTH")
-    b = compute_rolling_reminder_plan(completion_tehran=d, interval_kind="JALALI_CALENDAR_MONTH")
+    b = compute_rolling_reminder_plan(
+        completion_tehran=d, interval_kind="JALALI_CALENDAR_MONTH"
+    )
     assert a.suggested_tehran == b.suggested_tehran
     assert a.reminder_tehran == b.reminder_tehran
 
 
 def test_nowruz_boundaries_match_intl() -> None:
-    assert to_jalali(2025, 3, 20) == to_jalali(*from_jalali(1403, 12, 30))
+    assert to_jalali(2025, 3, 20) == JalaliDate(1403, 12, 30)
     assert from_jalali(1403, 12, 30) == (2025, 3, 20)
     assert from_jalali(1404, 1, 1) == (2025, 3, 21)
 
 
 def test_pay_per_session_stub_flags() -> None:
-    # Frontend stub mirrored as a tiny contract check without importing TS.
-    from pathlib import Path
-
     stub = Path("beta-panel/features/courses/payPerSession.ts").read_text(encoding="utf-8")
     assert "prepaidEntitlementEnabled: false" in stub
     assert "sharedSettlementEnabled: false" in stub
+
+
+def test_architecture_doc_and_sql_present() -> None:
+    arch = Path(
+        "docs/validation/d010/proposed/TREATMENT_COURSES_ROLLING_RECALL_ARCHITECTURE.md"
+    )
+    sql = Path("docs/validation/d010/d09_extracted/proposed_treatment_courses.sql")
+    assert arch.is_file()
+    assert sql.is_file()
+    body = sql.read_text(encoding="utf-8")
+    for needle in (
+        "treatment_course_sessions",
+        "notification_outbox_synthetic",
+        "treatment_reminder_policy_snapshots",
+        "JALALI_CALENDAR_MONTH",
+        "prepaid_entitlement_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+        "ops_treatment_session_performed_guard",
+        "SYNTHETIC_SINK",
+    ):
+        assert needle in body
