@@ -2,47 +2,58 @@
 
 Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
-**Tested tip:** pending commit after R2 increment. Environment: Linux agent (Windows hardware NOT RUN).
+**Tested tip:** `df4647eab9340a51efeb2345d8520cd5e43ed9c7`  
+**Environment:** Linux agent (Windows hardware NOT RUN this tip).  
+**Unit evidence:** Python `156 passed / 1 skipped`; frontend checkout/print unit suites green; `tsc --noEmit` green.
 
 | Decision ID | Scenario | Test / evidence | Status | Limitation |
 |---|---|---|---|---|
 | UX-01 | Persian labels + ASCII digits + Jalali Tehran display | Panel RTL shell + `tehran.ts` | IMPLEMENTED | Full seed Persian richness needs demo re-run |
 | UX-02 | Four themes light/dark + shared tokens | Existing `config/theme.ts` | PASS (prior) | Visual re-inspect pending |
-| UX-03 | Eight demo aliases + Clinic123! one-click login | `demo_aliases.py`, login role selector, preview seed | IMPLEMENTED | Requires preview stack with CLINIC_DEMO_ALIASES_ENABLED |
-| UX-04 | Top bar without search/theme/logout; sidebar red logout | TopBar/Sidebar rewrite | IMPLEMENTED | E2E selectors may need update |
+| UX-03 | Eight demo aliases + Clinic123! one-click login | `demo_aliases.py` fail-closed disposable marker; login clears session | PASS (unit) | Requires preview stack env |
+| UX-04 | Top bar without search/theme/logout; sidebar red logout | TopBar/Sidebar | IMPLEMENTED | |
 | UX-05 | Hierarchical breadcrumbs + live clock | Breadcrumbs + LiveTehranClock | IMPLEMENTED | |
-| UX-06 | Auto refresh 20s + focus | DashboardView poll | IMPLEMENTED | Mutation invalidation incomplete for all views |
+| UX-06 | Auto refresh 20s + focus/reconnect | DashboardView poll | IMPLEMENTED | |
 | DASH-01 | 3 quick actions only | `quick-actions.ts` | IMPLEMENTED | |
-| DASH-02 | 4 metric cards blue/purple/amber/rose | `metric-cards.ts` | IMPLEMENTED | Server needs_status_count optional |
+| DASH-02 | 4 exact metric predicates (server) | `operational_metric_counts` + summary fields | IMPLEMENTED | PG15 multi-user adversarial pending |
 | DASH-03 | Needs-status badge ≤2 pulses | StatusNeedsAttentionBadge | IMPLEMENTED | |
-| DASH-04 | Six RTL schedule columns | TodaySchedule | IMPLEMENTED | Enrichment fields optional until API expands |
-| DASH-05 | Debounced filters + pagination | Partial (appointments mgmt prior) | PARTIAL | Dashboard search panel not complete |
+| DASH-04 | Six RTL schedule columns + finance action | TodaySchedule + finance drawer | IMPLEMENTED | Enrichment still partial |
+| DASH-05 | Server search/sort/filters + 25/50/100 | `GET /api/v1/dashboard/day` | IMPLEMENTED | |
 | DASH-06 | Filled secondary appointments button | TodaySchedule link | IMPLEMENTED | |
-| APPT-01 | One ordinary completion action | Prior lifecycle + details drawer | PARTIAL | Bulk completion pending |
-| APPT-02 | Jalali calendar day/week/month | Prior AppointmentsView | PASS (prior) | Period aggregates incomplete |
-| APPT-03 | Independent rows + group view | PARTIAL | Group expansion pending |
-| PAT-01 | Exact ID + inline register + exceptions | Prior PatientQuickRegister | PARTIAL | Clause 755 ACR reconciliation pending |
-| PAT-02 | DB insurance catalog | Proposed disposable SQL | PROPOSED | Seed/catalog UI pending full wire |
+| APPT-01 | Ordinary completion + bulk ops | Details dialog + BulkAppointmentOps | IMPLEMENTED | |
+| APPT-02 | Jalali calendar day/week/month | AppointmentsView | PASS (prior) | Period aggregates incomplete |
+| APPT-03 | Independent rows + group view | Prior group booking | PARTIAL | |
+| PAT-01 | Exact ID + inline register + exceptions | PatientQuickRegister | IMPLEMENTED | Clause 755 ACR reconciliation pending |
+| PAT-02 | Insurance catalog Persian UI | `insurance-catalog.ts` + register select | IMPLEMENTED | Disposable DB catalog seed optional |
 | PAT-03 | Directory/dossier invoices expandable | Prior PatientDossierOps | PARTIAL | |
-| DESK-01 | Three-step reception 65/35 | PARTIAL | Layout redesign in progress |
-| DESK-02 | Interdependent comboboxes | PARTIAL | APG combobox component pending |
-| DESK-03 | Distinct appointment drafts | Prior draft lines | PARTIAL | |
-| DESK-04 | Manual overlap + historical | Prior OverlapDialog | PASS (prior deep) | |
-| FIN-01–05 | Server pricing, discounts, refunds, drawer | Prior finance + a3401b8 tip | PARTIAL | Left finance drawer pending |
-| MULTI-01/02 | Multi-patient cart; shared settlement OFF | Feature-flagged OFF; ACR-D0.12 candidate | BLOCKED (ratification) | Unabridged candidate at `ACR_D0.12_SETTLEMENT_BATCH_ATTRIBUTION_CANDIDATE.md`; guards preserved |
-| PRINT-01 | 80/58mm Persian RTL; independent + batch; privacy; course/next hints | `features/print/*` unit tests | IMPLEMENTED (synthetic) | Physical hardware NOT RUN |
-| PRINT-02 | Enrollment/test-print; job identity; failed/unknown/disconnect; reprint≠checkout; QZ blocked | printJobs + workstationPrinter tests + snapshot API | IMPLEMENTED (synthetic) | Real QZ signing/hardware BLOCKED pending approval |
-| COURSE-01/02 | Pay-per-session courses | Disposable schema + API stub | PROPOSED/IMPLEMENTED stub | Ratification required |
-| RECALL-01–03 | Rolling recall + synthetic sink | Proposed worker contract | PROPOSED | Synthetic only |
+| DESK-01 | Three-stage reception ~65/35 sticky cart | DeskView stage rail + layout | IMPLEMENTED | Nested-scroll regression needs Playwright |
+| DESK-02 | Searchable accessible comboboxes | SearchableCombobox + BookingForm | IMPLEMENTED | |
+| DESK-03 | Distinct appointment drafts + multi-line links | draft lines + BookedSummary.lines | IMPLEMENTED | |
+| DESK-04 | Manual overlap + historical | OverlapDialog | PASS (prior deep) | |
+| FIN-01 | Server tariffs; no client money authority | desk-checkout | PASS (unit/prior deep) | |
+| FIN-02 | Durable UUID checkout intent (no truncation) | `checkout-intent.ts` unit | PASS | |
+| FIN-03 | Left finance drawer dashboard+appointments | AppointmentFinanceDrawer | IMPLEMENTED | |
+| FIN-04 | Reason catalogs + OTHER explanation | finance-reasons.ts | IMPLEMENTED | |
+| FIN-05 | Discount largest-remainder; no type combine; no silent clamp | finance.py + unit | PASS (unit) | |
+| MULTI-01 | Multi-patient cart independent invoices | MultiPatientCartPanel; shared OFF | IMPLEMENTED | |
+| MULTI-02 | Shared settlement | ACR-D0.12 candidate | BLOCKED (ratification) | Guards preserved |
+| PRINT-01 | 80/58mm Persian RTL; batch; privacy | features/print/* | IMPLEMENTED (synthetic) | Hardware NOT RUN |
+| PRINT-02 | Enrollment/test-print; job recovery; QZ blocked | printJobs + workstationPrinter | IMPLEMENTED (synthetic) | Real QZ BLOCKED |
+| COURSE-01 | Versioned templates + sessions + conservation SQL | proposed_treatment_courses.sql + store/service | IMPLEMENTED (disposable) | Prepaid disabled |
+| RECALL-01 | Mehr→Aban→Azar rolling from completion | `test_rolling_recall_mehr_aban` | PASS | |
+| RECALL-02 | Synthetic reminder worker (dedupe/retry/quiet/opt-out) | reminder_worker.py | IMPLEMENTED | No real SMS |
+| RECALL-03 | Qualifying future appointment suppression | service path | IMPLEMENTED (code) | PG15 integration pending |
 | PREPAY-01/02 | Prepaid packages | Design-only; disabled | BLOCKED (policy) | |
-| SEC-01/02 | Fail-closed scopes + audit projection | a3401b8 + this tip | PASS (unit/deep) | Adversarial multi-user API incomplete |
+| SEC-01 | Object-level ALL/FILTER scopes | permissions + scope_access + appointment/finance/patient | PASS (unit) | Live multi-user PG pending |
+| SEC-02 | Demo aliases disposable-only | demo_aliases unit | PASS | |
 | OPS-01 | Manager config + inventory | Prior OpsConfigView | PARTIAL | |
-| WIN-01 | tzdata + start_preview.ps1 | a3401b8 | PASS (unit) | Actual Windows PO run NOT RUN this tip |
-| DATA-01 | Rich Persian demo | Prior demo seed | PASS (prior counts) | Waiting-room reconciliation audit pending |
-| QA-01 | Matrices + CI | This doc + Task28 matrix | PARTIAL | CI URL after push |
-| GOV-01 | ACR revision for multi-patient/courses | `ACR_D0.12_SETTLEMENT_BATCH_ATTRIBUTION_CANDIDATE.md` + R2 amendment pointer | PROPOSED | Owner/independent review required |
+| WIN-01 | tzdata + start_preview.ps1 | a3401b8 | PASS (unit) | Windows PO NOT RUN |
+| DATA-01 | Rich Persian demo | Prior demo seed | PASS (prior) | Waiting-room audit pending |
+| QA-01 | Matrices + CI branch triggers | workflows m0/m1 include PR branch | PARTIAL | CI URL after push |
+| GOV-01 | Settlement + courses ACR candidates | ACR-D0.12 + TREATMENT_COURSES arch | PROPOSED | Owner review required |
 
 ## Counts (extension)
 
-- IMPLEMENTED / PASS (this tip or preserved): see Status column
-- PROPOSED / BLOCKED / PARTIAL / NOT RUN: remaining work listed in Section 30 handoff
+- PASS / IMPLEMENTED: majority of independently solvable UX/security/finance/print/course engineering
+- BLOCKED: MULTI-02 shared settlement; PREPAY; real QZ/SMS/CARD_TO_CARD/ONLINE; canonical merge
+- PARTIAL / NOT RUN: Playwright mutation suite, multi-width visuals, adversarial PG15 multi-user, Windows PO, CI conclusion

@@ -1,10 +1,10 @@
 # Task 34 / Task 28 — 120 individually numbered acceptance rows
 
 **Rule:** each row is one scenario. Status is `PASS` only with current tip evidence, else `PENDING`/`BLOCKED`/`NOT RUN`.  
-**Tip under test:** Task 34 R2 product redesign increment (demo aliases, shell/dashboard UX, print/courses proposed).  
-**Evidence roots:** deep suite JSON, demo manifest, Playwright artifacts, API routes + RTL screens listed in Source.  
+**Tip under test:** `df4647eab9340a51efeb2345d8520cd5e43ed9c7` (Task 34 R2 remaining audit corrections).  
+**Evidence roots:** deep suite JSON, demo manifest, Playwright artifacts, API routes + RTL screens listed in Source; unit `156 passed / 1 skipped` this tip.  
 **Honesty note:** many PASS rows below still rely on prior tip evidence and need Playwright re-run on this tip SHA. Extension Appendix A is tracked in `TASK34_R2_EXTENSION_MATRIX.md`.  
-**Related:** research matrix `TASK34_R2_RESEARCH_TO_DECISION.md`, demo guide `TASK34_R2_DEMO_GUIDE.md`, ACR amendment `docs/architecture/ACR_D0.11_TASK34_R2_AMENDMENT.md`.
+**Related:** research matrix `TASK34_R2_RESEARCH_TO_DECISION.md`, demo guide `TASK34_R2_DEMO_GUIDE.md`, ACR amendment `docs/architecture/ACR_D0.11_TASK34_R2_AMENDMENT.md`, settlement candidate `ACR_D0.12_SETTLEMENT_BATCH_ATTRIBUTION_CANDIDATE.md`.
 
 ## Dashboard (1–15)
 
