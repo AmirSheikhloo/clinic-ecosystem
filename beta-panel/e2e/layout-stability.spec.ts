@@ -143,8 +143,14 @@ test("long account names and breadcrumbs do not resize the clock or account area
   await settle(page);
   expectWithin("long account name", rectDeltas(reference, await shellRects(page)));
   const chip = await page.getByTestId("current-user").evaluate((node) => {
-    const label = node.querySelector(".truncate") as HTMLElement;
-    return { truncated: label.scrollWidth > label.clientWidth, overflowsChip: node.scrollWidth > node.clientWidth + 1 };
+    // Prefer the display-name line; the outer flex wrapper may not overflow once children truncate.
+    const label =
+      (node.querySelector("span.block.truncate") as HTMLElement | null) ??
+      (node.querySelector(".truncate") as HTMLElement | null);
+    return {
+      truncated: Boolean(label && label.scrollWidth > label.clientWidth),
+      overflowsChip: node.scrollWidth > node.clientWidth + 1,
+    };
   });
   expect(chip.truncated).toBe(true);
   expect(chip.overflowsChip).toBe(false);

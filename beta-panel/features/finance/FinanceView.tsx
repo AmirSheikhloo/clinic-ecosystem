@@ -262,7 +262,7 @@ export function FinanceView() {
           {can(P.financeRefund) && detail.data.allocations.some((a) => a.allocation_kind === "APPLY") ? (
             <div className="border-t border-[var(--ds-border)] pt-3">
               <Button loading={busy} variant="danger" onClick={() => void applyRefund()} data-testid="finance-refund">
-                استرداد جزئی (تا ۱۰٬۰۰۰ ریال)
+                استرداد جزئی (تا 10,000 ریال)
               </Button>
             </div>
           ) : null}

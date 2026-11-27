@@ -106,13 +106,16 @@ export async function deskRegisterPatient(page: Page, first: string, last: strin
   await expect(page.getByTestId("patient-register-submit")).toBeEnabled({ timeout: 10_000 });
   await page.getByTestId("patient-register-submit").click();
   await expect(page.getByTestId("desk-status")).toContainText("بیمار ثبت شد", { timeout: 30_000 });
-  // Stage rail advances to booking and unmounts selected-patient; cashier mirrors the selection.
+  // Stage advances to booking; summary and cashier both show the name — assert one match.
   await expect(
-    page.getByTestId("selected-patient").or(page.getByTestId("invoice-patient")).or(page.getByTestId("summary-patient")),
-  ).toContainText(`${first} ${last}`, { timeout: 15_000 });
-  await expect(
-    page.getByTestId("desk-stage-booking").or(page.getByTestId("desk-stage-patient")).or(page.getByTestId("desk-stage-2")),
-  ).toBeVisible();
+    page
+      .getByTestId("summary-patient")
+      .or(page.getByTestId("invoice-patient"))
+      .or(page.getByTestId("selected-patient"))
+      .filter({ hasText: `${first} ${last}` })
+      .first(),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("desk-stage-booking").or(page.getByTestId("desk-stage-2")).first()).toBeVisible();
 }
 
 /** Prefer the sr-only native <select> backing SearchableCombobox; fall back to listbox. */

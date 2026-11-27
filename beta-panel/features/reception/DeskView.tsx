@@ -220,7 +220,7 @@ export function DeskView() {
         <div className="space-y-5 min-w-0">
           {stage === 1 || !desk.selectedPatient ? (
             <section className="ds-card space-y-4 p-5" aria-label="شناسایی بیمار" data-testid="desk-stage-patient">
-              <h2 className="ds-section-title">۱. شناسایی فشرده بیمار</h2>
+              <h2 className="ds-section-title">1. شناسایی فشرده بیمار</h2>
               <p className="ds-hint">جستجوی دقیق کد ملی، تلفن، یا نام — ثبت درون‌خطی با استثناهای هویت/تماس مستقل.</p>
               <PatientPicker
                 query={desk.query}
@@ -280,7 +280,7 @@ export function DeskView() {
           {stage >= 2 && desk.selectedPatient ? (
             <section className="ds-card space-y-4 p-5" aria-label="کاتالوگ و نوبت" data-testid="desk-stage-booking">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="ds-section-title">۲. خدمت، منابع و زمان مستقل</h2>
+                <h2 className="ds-section-title">2. خدمت، منابع و زمان مستقل</h2>
                 <Button variant="ghost" size="sm" onClick={() => setStage(1)} data-testid="desk-edit-patient">
                   تغییر بیمار
                 </Button>
@@ -329,7 +329,7 @@ export function DeskView() {
 
           {stage === 3 ? (
             <section className="ds-card space-y-3 p-5 xl:hidden" aria-label="بازبینی موبایل" data-testid="desk-stage-review-mobile">
-              <h2 className="ds-section-title">۳. بازبینی صورتحساب</h2>
+              <h2 className="ds-section-title">3. بازبینی صورتحساب</h2>
               <p className="ds-hint">پیش‌فاکتور زنده؛ ثبت نهایی سمت سرور است و با تکرار درخواست تکراری ساخته نمی‌شود.</p>
             </section>
           ) : null}

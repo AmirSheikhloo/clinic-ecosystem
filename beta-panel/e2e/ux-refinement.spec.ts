@@ -63,8 +63,13 @@ test("reception: keyboard patient search, selection, booking, then next-patient 
   await page.getByTestId("patient-search-query").press("Enter");
   // Stage advances to booking; patient identity is mirrored in the summary/cashier.
   await expect(
-    page.getByTestId("selected-patient").or(page.getByTestId("summary-patient")).or(page.getByTestId("invoice-patient")),
-  ).toContainText(`UxPat ${last}`, { timeout: 15_000 });
+    page
+      .getByTestId("summary-patient")
+      .or(page.getByTestId("invoice-patient"))
+      .or(page.getByTestId("selected-patient"))
+      .filter({ hasText: `UxPat ${last}` })
+      .first(),
+  ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("appointment-submit")).toBeDisabled();
   await expect(page.getByTestId("booking-missing")).toContainText("انتخاب خدمت");
 
@@ -90,8 +95,13 @@ test("desk shows required resources clearly and registers a patient with a Jalal
   await expect(page.getByTestId("requirements-summary")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("requirements-summary")).toContainText("×");
   await expect(
-    page.getByTestId("selected-patient").or(page.getByTestId("summary-patient")).or(page.getByTestId("invoice-patient")),
-  ).toContainText("UxBirth");
+    page
+      .getByTestId("summary-patient")
+      .or(page.getByTestId("invoice-patient"))
+      .or(page.getByTestId("selected-patient"))
+      .filter({ hasText: "UxBirth" })
+      .first(),
+  ).toBeVisible();
 });
 
 test("mobile navigation drawer opens, navigates and closes with Escape", async ({ page }) => {

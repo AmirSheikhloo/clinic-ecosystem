@@ -81,8 +81,13 @@ async function registerAndSelectPatient(page: Page, first: string, last: string)
     timeout: 30_000,
   });
   await expect(
-    page.getByTestId("selected-patient").or(page.getByTestId("invoice-patient")).or(page.getByTestId("summary-patient")),
-  ).toContainText(`${first} ${last}`, { timeout: 15_000 });
+    page
+      .getByTestId("summary-patient")
+      .or(page.getByTestId("invoice-patient"))
+      .or(page.getByTestId("selected-patient"))
+      .filter({ hasText: `${first} ${last}` })
+      .first(),
+  ).toBeVisible({ timeout: 15_000 });
 }
 
 async function bookConsultation(page: Page, startLocal: string) {

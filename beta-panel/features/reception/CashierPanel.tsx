@@ -239,7 +239,7 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
             />
           </label>
           <label className="block text-sm">
-            تخفیف درصدی (bps، ۱۰۰۰۰=۱۰۰٪)
+            تخفیف درصدی (bps، 10000=100%)
             <input
               type="number"
               min={0}
