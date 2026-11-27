@@ -1,0 +1,67 @@
+{
+  "generated_at_utc": "2026-11-27T21:42:24.301399+00:00",
+  "task": "Task 34 R2 SEC-01 / scope isolation",
+  "branch_hint": "cursor/d010-ops-contracts-validation-95a4",
+  "summary": {
+    "cases_passed": 5,
+    "cases_failed": 0,
+    "cases_blocked": 1,
+    "unit_passed": 5,
+    "http_passed": 0,
+    "http_failed": 0,
+    "http_blocked": 1
+  },
+  "http": {
+    "attempted": true,
+    "skipped_reason": "docker_unavailable"
+  },
+  "cases": [
+    {
+      "name": "unit_disjoint_row_isolation",
+      "ok": true,
+      "status": "PASS",
+      "detail": "a=1 b=2",
+      "layer": "unit"
+    },
+    {
+      "name": "unit_counts_match_filtered_rows",
+      "ok": true,
+      "status": "PASS",
+      "detail": "agg_a=1 agg_b=2",
+      "layer": "unit"
+    },
+    {
+      "name": "unit_cancelled_included_in_totals",
+      "ok": true,
+      "status": "PASS",
+      "detail": "{'total': 2, 'by_status': {'CHECKED_IN': 1, 'CANCELLED': 1}, 'by_day': [{'date': '2026-11-27', 'count': 2}], 'period': 'day', 'cancelled_count': 1, 'completed_count': 0, 'no_show_count': 0}",
+      "layer": "unit"
+    },
+    {
+      "name": "unit_scope_service_ids_fail_closed",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "layer": "unit"
+    },
+    {
+      "name": "unit_pagination_after_scope",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "layer": "unit"
+    },
+    {
+      "name": "pg_http_docker",
+      "ok": true,
+      "status": "BLOCKED",
+      "detail": "Docker unavailable in this environment",
+      "layer": "http"
+    }
+  ],
+  "notes": [
+    "Unit layer always runs (FILTER row isolation + aggregates).",
+    "HTTP layer uses disposable PG15 + ops schema when Docker is available.",
+    "Cross-tenant denial covered by prior RLS deep harness; this script focuses on same-tenant FILTER."
+  ]
+}
