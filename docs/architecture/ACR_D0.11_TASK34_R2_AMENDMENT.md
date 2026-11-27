@@ -8,15 +8,17 @@
 
 Inspected ACR-D0.11 enforces one beneficiary per invoice and matching receipt beneficiary on allocation. Cross-patient allocation is **not** authorized by the frozen contract.
 
-### Proposed narrow contract (feature flag `CLINIC_MULTI_PATIENT_SETTLEMENT=off` by default)
+**Authoritative review candidate (unabridged):**  
+`docs/architecture/ACR_D0.12_SETTLEMENT_BATCH_ATTRIBUTION_CANDIDATE.md`
+
+That document covers conservation, unique external evidence, idempotency, beneficiary isolation, locks, partial failure, credit, refunds, privacy, audit, recovery, and duplicate receipt prevention. Shared settlement remains **DISABLED** (`CLINIC_MULTI_PATIENT_SETTLEMENT=off`) until ratified. Do **not** weaken one-beneficiary invoice/receipt guards.
+
+### Interim product behavior (flag off)
 
 1. Keep one immutable invoice per patient beneficiary.
-2. Introduce `settlement_batches` (tenant-scoped) representing one verified external inflow exactly once (synthetic POS/CASH evidence).
-3. Introduce `settlement_batch_attributions` mapping exact IRR sub-amounts to each beneficiary invoice/receipt without cross-credit.
-4. Conservation: sum(attributions) == batch.amount_irr; reject unspecified beneficiary; reject over-allocation under concurrent locks.
-5. Refunds remain per original receipt/line; sibling patients unchanged.
-
-Until ratified and disposable PG15 races pass, UI may collect multi-patient drafts but must settle as **separate** invoices/receipts or unpaid — never weaken existing guards.
+2. UI may collect multi-patient drafts but must settle as **separate** invoices/receipts or unpaid.
+3. Batch **printing** of independent receipts is allowed without shared settlement.
+4. `settlement_batches` / attributions must not be written while the flag is off.
 
 ## 2. Treatment courses + rolling recall (COURSE / RECALL)
 
@@ -28,11 +30,11 @@ Disposable tables (ops schema only): `treatment_course_templates`, `treatment_co
 
 ## 3. Print jobs (PRINT)
 
-`print_jobs` separate from checkout idempotency. Statuses: QUEUED / SPOOLED / FAILED / UNKNOWN. Reprint never re-runs finance. Simulated adapter in preview; QZ signing private key server-side only when hardware path approved.
+`thermal_print_jobs` separate from checkout idempotency. Statuses: QUEUED / SPOOLED / FAILED / UNKNOWN / CANCELLED. Reprint never re-runs finance. Simulated adapter in preview; QZ signing private key server-side only when hardware path approved. Proposed SQL: `docs/validation/d010/d09_extracted/proposed_print_jobs.sql`. Snapshot API: `GET /api/v1/finance/invoices/{id}/print-snapshot`.
 
 ## Unresolved
 
-- Owner ratification of settlement batch model.
+- Owner ratification of settlement batch model (see ACR-D0.12 candidate §21).
 - Clinical interval policy ownership.
 - Legal/commercial prepaid forfeiture (PREPAY remain fail-closed).
 - Physical printer evidence.

@@ -152,6 +152,15 @@ export function AppointmentsView() {
           refreshKey={refresh}
           onTotalChange={onListTotal}
           onLoadingChange={onListLoading}
+          canFinance={can(P.financeInvoiceView)}
+          onOpenFinance={(row) =>
+            setFinanceTarget({
+              appointmentId: row.appointment_id,
+              patientId: row.patient_profile_id,
+              patientName: `${row.patient_first_name} ${row.patient_last_name}`,
+              serviceName: row.service_name,
+            })
+          }
         />
       ) : (
         <QueryBoundary loading={calendar.loading && !calendar.data} error={calendar.error} deniedWhat="مشاهدهٔ نوبت‌ها" onRetry={calendar.reload}>

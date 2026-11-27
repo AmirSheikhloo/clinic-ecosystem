@@ -29,8 +29,9 @@ Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 | DESK-03 | Distinct appointment drafts | Prior draft lines | PARTIAL | |
 | DESK-04 | Manual overlap + historical | Prior OverlapDialog | PASS (prior deep) | |
 | FIN-01–05 | Server pricing, discounts, refunds, drawer | Prior finance + a3401b8 tip | PARTIAL | Left finance drawer pending |
-| MULTI-01/02 | Multi-patient cart; shared settlement OFF | Feature-flagged OFF | BLOCKED (ratification) | ACR amendment drafted |
-| PRINT-01/02 | 80mm thermal + simulated adapter | Print module + templates | IMPLEMENTED (synthetic) | Hardware/QZ silent print NOT RUN |
+| MULTI-01/02 | Multi-patient cart; shared settlement OFF | Feature-flagged OFF; ACR-D0.12 candidate | BLOCKED (ratification) | Unabridged candidate at `ACR_D0.12_SETTLEMENT_BATCH_ATTRIBUTION_CANDIDATE.md`; guards preserved |
+| PRINT-01 | 80/58mm Persian RTL; independent + batch; privacy; course/next hints | `features/print/*` unit tests | IMPLEMENTED (synthetic) | Physical hardware NOT RUN |
+| PRINT-02 | Enrollment/test-print; job identity; failed/unknown/disconnect; reprint≠checkout; QZ blocked | printJobs + workstationPrinter tests + snapshot API | IMPLEMENTED (synthetic) | Real QZ signing/hardware BLOCKED pending approval |
 | COURSE-01/02 | Pay-per-session courses | Disposable schema + API stub | PROPOSED/IMPLEMENTED stub | Ratification required |
 | RECALL-01–03 | Rolling recall + synthetic sink | Proposed worker contract | PROPOSED | Synthetic only |
 | PREPAY-01/02 | Prepaid packages | Design-only; disabled | BLOCKED (policy) | |
@@ -39,7 +40,7 @@ Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 | WIN-01 | tzdata + start_preview.ps1 | a3401b8 | PASS (unit) | Actual Windows PO run NOT RUN this tip |
 | DATA-01 | Rich Persian demo | Prior demo seed | PASS (prior counts) | Waiting-room reconciliation audit pending |
 | QA-01 | Matrices + CI | This doc + Task28 matrix | PARTIAL | CI URL after push |
-| GOV-01 | ACR revision for multi-patient/courses | `docs/architecture/...R2_AMENDMENT` | PROPOSED | Owner/independent review required |
+| GOV-01 | ACR revision for multi-patient/courses | `ACR_D0.12_SETTLEMENT_BATCH_ATTRIBUTION_CANDIDATE.md` + R2 amendment pointer | PROPOSED | Owner/independent review required |
 
 ## Counts (extension)
 

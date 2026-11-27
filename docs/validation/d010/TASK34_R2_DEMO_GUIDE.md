@@ -32,7 +32,7 @@ Use the Persian role selector on `/login`, or type the alias + shared password. 
 3. **Appointments** — `/appointments`: Jalali day/week/month; lifecycle complete/no-show/cancel.
 4. **Patient dossier** — `/patients`: notes, tags, invoices.
 5. **Finance / inventory / audit** — manager/owner roles; audit shows allowlisted details only.
-6. **Print** — after checkout success, simulated thermal text is available (no hardware claim).
+6. **Print** — after checkout success: enroll workstation via test print, then Print / Print All / Reprint. 80mm default (58mm optional). Simulated only — no hardware/QZ success claim. Reprint does not re-run checkout.
 
 ## Explicitly disabled / blocked
 

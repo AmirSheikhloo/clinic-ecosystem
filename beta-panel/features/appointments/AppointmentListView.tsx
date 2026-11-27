@@ -83,6 +83,7 @@ export function AppointmentListView({
   const [offset, setOffset] = useState(0);
   const [qDraft, setQDraft] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [opsTick, setOpsTick] = useState(0);
   const q = useDebouncedValue(qDraft.trim(), 350);
 
   const bounds = tehranDayBoundsUtc(dateYmd);
@@ -102,9 +103,14 @@ export function AppointmentListView({
     [bounds.start, bounds.end, serviceId, resourceId, status, q, sort, limit, offset],
   );
 
-  const query = useApiQuery<ManagementResponse>(path, "بارگذاری فهرست نوبت‌ها ناموفق بود", refreshKey, {
-    keepPrevious: true,
-  });
+  const query = useApiQuery<ManagementResponse>(
+    path,
+    "بارگذاری فهرست نوبت‌ها ناموفق بود",
+    refreshKey + opsTick,
+    {
+      keepPrevious: true,
+    },
+  );
 
   useEffect(() => {
     onTotalChange(query.data?.total ?? null);
@@ -205,6 +211,13 @@ export function AppointmentListView({
         </Button>
       </div>
 
+      <BulkAppointmentOps
+        items={items}
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+        onChanged={() => setOpsTick((v) => v + 1)}
+      />
+
       <QueryBoundary loading={query.loading && !query.data} error={query.error} deniedWhat="مشاهدهٔ نوبت‌ها" onRetry={query.reload}>
         {data ? (
           <>
@@ -213,7 +226,7 @@ export function AppointmentListView({
               rowKey={(row) => row.appointment_id}
               rowTestId="appointment-row"
               busy={query.refreshing || query.stale}
-              minWidth="42rem"
+              minWidth="48rem"
               empty={
                 <EmptyState
                   icon="calendar"
@@ -223,6 +236,26 @@ export function AppointmentListView({
                 />
               }
               columns={[
+                {
+                  key: "select",
+                  header: "انتخاب",
+                  width: "3.5rem",
+                  cell: (row) => (
+                    <input
+                      type="checkbox"
+                      className="ds-check"
+                      checked={selectedIds.includes(row.appointment_id)}
+                      data-testid="appointment-select"
+                      onChange={(e) => {
+                        setSelectedIds((prev) =>
+                          e.target.checked
+                            ? [...prev, row.appointment_id]
+                            : prev.filter((id) => id !== row.appointment_id),
+                        );
+                      }}
+                    />
+                  ),
+                },
                 {
                   key: "time", header: "زمان", width: "9.5rem", className: "tabular-nums whitespace-nowrap",
                   cell: (row) => (
@@ -236,8 +269,21 @@ export function AppointmentListView({
                 { key: "status", header: "وضعیت", width: "8rem", cell: (row) => <StatusBadge tone={appointmentStatusTone(row.status)}>{appointmentStatusLabel(row.status)}</StatusBadge> },
                 { key: "channel", header: "کانال", width: "7rem", cell: (row) => bookingChannelLabel(row.booking_channel) },
                 {
-                  key: "open", header: "", width: "6.5rem", className: "text-end",
-                  cell: (row) => canOpen ? <Button variant="subtle" size="sm" onClick={() => onOpen(row)} data-testid="appointment-open">جزئیات</Button> : null,
+                  key: "open", header: "", width: "11rem", className: "text-end",
+                  cell: (row) => (
+                    <span className="inline-flex flex-wrap justify-end gap-1">
+                      {canFinance && onOpenFinance ? (
+                        <Button variant="ghost" size="sm" onClick={() => onOpenFinance(row)} data-testid="list-open-finance">
+                          مالی
+                        </Button>
+                      ) : null}
+                      {canOpen ? (
+                        <Button variant="subtle" size="sm" onClick={() => onOpen(row)} data-testid="appointment-open">
+                          جزئیات
+                        </Button>
+                      ) : null}
+                    </span>
+                  ),
                 },
               ]}
             />

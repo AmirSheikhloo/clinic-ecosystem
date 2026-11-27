@@ -197,7 +197,7 @@ export function AppointmentFinanceDrawer({ target, onClose }: Props) {
           invoice_id: detail.data.id,
           invoice_line_id: serviceLine.id,
           discount_scope: "LINE",
-          calculation_kind: "FIXED_AMOUNT",
+          calculation_kind: "FIXED_IRR",
           requested_value: amount,
           reason_code: reasonCode,
         },

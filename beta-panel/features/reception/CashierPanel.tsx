@@ -65,6 +65,12 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutResult | null>(null);
+  const [resultPatientDisplay, setResultPatientDisplay] = useState<string>("بیمار");
+  const [resultLines, setResultLines] = useState<
+    Array<{ description: string; amountIrr: number }>
+  >([]);
+  const [resultDiscountIrr, setResultDiscountIrr] = useState(0);
+  const [resultPayMethod, setResultPayMethod] = useState<"CASH" | "POS" | "NONE">("NONE");
 
   const canPost = can(P.financeInvoiceDraft) && can(P.financeInvoicePost);
   const canPay = canPost && can(P.financeReceiptRecord);
@@ -337,21 +343,18 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
                 {
                   invoiceId: result.id,
                   invoiceNumber: result.invoice_number ?? result.id,
-                  patientDisplay: patient
-                    ? `${patient.first_name} ${patient.last_name}`
-                    : "بیمار",
+                  patientDisplay: resultPatientDisplay,
                   jalaliDate: tehranTodayJalaliLabel(),
-                  lines: lines.map((line) => ({
-                    description: line.serviceName,
-                    amountIrr: line.priceIrr,
-                  })),
-                  discountIrr: usingFixed
-                    ? fixedCuts.reduce((s, v) => s + v, 0)
-                    : bpsCut || undefined,
+                  lines: resultLines,
+                  discountIrr: resultDiscountIrr || undefined,
                   totalPayableIrr: result.patient_payable_total,
                   paidIrr: result.received_irr ?? result.allocated_total,
                   methodLabel:
-                    payMethod === "CASH" ? "نقدی" : payMethod === "POS" ? "کارتخوان" : "بدون دریافت",
+                    resultPayMethod === "CASH"
+                      ? "نقدی"
+                      : resultPayMethod === "POS"
+                        ? "کارتخوان"
+                        : "بدون دریافت",
                   financialStatus: result.financial_status,
                 },
               ]}
