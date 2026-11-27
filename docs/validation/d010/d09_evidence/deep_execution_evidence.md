@@ -1,6 +1,6 @@
 # ACR-D0.9 deep disposable PG15 evidence
 
-Generated: `2026-11-27T00:10:27.836486+00:00`
+Generated: `2026-11-27T21:18:23.292656+00:00`
 PASS/FAIL/BLOCKED: **38/0/2**
 
 ## Cases

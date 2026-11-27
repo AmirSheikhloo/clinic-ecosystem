@@ -3,6 +3,7 @@ export type PeriodSummary = {
   by_status: Record<string, number>;
   unique_patients?: number;
   waiting_checked_in?: number;
+  needs_status_count?: number;
 };
 
 export type FinanceSummary = {
@@ -37,4 +38,6 @@ export type MetricCardDef = {
   icon: "calendar" | "patients" | "staff" | "catalog" | "layers" | "desk" | "alert" | "list";
   testId: string;
   hint?: string;
+  accent?: "blue" | "purple" | "amber" | "rose" | "green";
+  filterKey?: string;
 };

@@ -10,19 +10,29 @@ export type QuickAction = {
   allowed: (can: (code: string) => boolean) => boolean;
 };
 
+/** Ordinary receptionist: exactly three equal action cards (Task 34 §8 / DASH-01). */
 const OPERATIONAL: readonly QuickAction[] = [
-  { href: "/desk", label: "نوبت‌دهی جدید", hint: "میز پذیرش", icon: "desk", allowed: (can) => can(P.appointmentsSchedule) },
-  { href: "/patients", label: "جستجوی بیمار", hint: "فهرست بیماران", icon: "patients", allowed: (can) => can(P.patientsSearch) },
   {
-    href: "/patients?register=1",
-    label: "ثبت بیمار",
-    hint: "ثبت هویت اولیه",
-    icon: "plus",
-    allowed: (can) => can(P.patientsRegister),
+    href: "/desk",
+    label: "نوبت‌دهی جدید",
+    hint: "ثبت نوبت و پذیرش",
+    icon: "desk",
+    allowed: (can) => can(P.appointmentsSchedule),
   },
-  { href: "/appointments", label: "مدیریت نوبت‌ها", hint: "فهرست، روز، هفته و ماه", icon: "calendar", allowed: (can) => can(P.appointmentsList) },
-  { href: "/waitlist", label: "لیست انتظار", hint: "انتظار آینده", icon: "list", allowed: (can) => can(P.waitlistView) },
-  { href: "/finance", label: "امور مالی", hint: "صورتحساب و رسید", icon: "desk", allowed: (can) => can(P.financeInvoiceView) },
+  {
+    href: "/patients",
+    label: "جستجوی بیمار",
+    hint: "شناسایی و پرونده",
+    icon: "patients",
+    allowed: (can) => can(P.patientsSearch),
+  },
+  {
+    href: "/appointments",
+    label: "تقویم نوبت‌ها",
+    hint: "روز، هفته و ماه",
+    icon: "calendar",
+    allowed: (can) => can(P.appointmentsList),
+  },
 ];
 
 const MANAGEMENT: readonly QuickAction[] = [
@@ -33,13 +43,7 @@ const MANAGEMENT: readonly QuickAction[] = [
   { href: "/desk", label: "میز پذیرش", hint: "ثبت نوبت دستی", icon: "desk", allowed: (can) => can(P.appointmentsSchedule) },
 ];
 
-const SUPERVISION: readonly QuickAction[] = [
-  { href: "/staff", label: "نظارت کارکنان", hint: "فقط در محدودهٔ مجوز شما", icon: "staff", allowed: (can) => can(P.staffView) },
-  { href: "/access", label: "حساب‌های کاربری", hint: "وضعیت ورود همکاران", icon: "access", allowed: (can) => can(P.accountsView) },
-];
-
 export function quickActionsFor(audience: DashboardAudience): readonly QuickAction[] {
   if (audience.composition === "management") return MANAGEMENT;
-  if (audience.headReception) return [...OPERATIONAL, ...SUPERVISION];
   return OPERATIONAL;
 }

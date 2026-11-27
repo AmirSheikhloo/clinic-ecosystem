@@ -14,15 +14,33 @@ type Props = {
   footer?: ReactNode;
   /** Shows a value-sized placeholder instead of the number, keeping the card height fixed. */
   loading?: boolean;
+  accent?: "blue" | "purple" | "amber" | "rose" | "green";
+  active?: boolean;
+  onClick?: () => void;
 };
 
-export function StatCard({ label, value, hint, testId, icon, href, footer, loading = false }: Props) {
+export function StatCard({
+  label,
+  value,
+  hint,
+  testId,
+  icon,
+  href,
+  footer,
+  loading = false,
+  accent,
+  active = false,
+  onClick,
+}: Props) {
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
         <p className="min-w-0 truncate text-sm text-[var(--ds-text-muted)]">{label}</p>
         {icon ? (
-          <span className="ds-avatar !h-9 !w-9 flex-none !rounded-[var(--ds-radius-md)]">
+          <span
+            className="ds-avatar !h-9 !w-9 flex-none !rounded-[var(--ds-radius-md)]"
+            data-accent={accent || undefined}
+          >
             <Icon name={icon} size="sm" />
           </span>
         ) : null}
@@ -40,7 +58,14 @@ export function StatCard({ label, value, hint, testId, icon, href, footer, loadi
       {footer}
     </>
   );
-  const cls = "ds-card block p-4 transition-shadow duration-[var(--ds-motion-dropdown)]";
+  const cls = `ds-card block p-4 transition-shadow duration-[var(--ds-motion-dropdown)]${active ? " is-active-metric" : ""}`;
+  if (onClick) {
+    return (
+      <button type="button" className={`${cls} w-full text-start`} aria-busy={loading || undefined} aria-pressed={active} onClick={onClick}>
+        {body}
+      </button>
+    );
+  }
   return href ? (
     <Link href={href} className={`${cls} hover:border-[var(--ds-primary)]`} aria-busy={loading || undefined}>
       {body}

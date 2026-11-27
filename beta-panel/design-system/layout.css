@@ -473,3 +473,67 @@
     font-weight: var(--ds-font-weight-semibold);
   }
 }
+
+@layer components {
+  .ds-quick-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  @media (max-width: 48rem) {
+    .ds-quick-grid-3 { grid-template-columns: 1fr; }
+  }
+  .ds-quick-action-row { min-height: 4.75rem; }
+  .ds-metric-grid-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  @media (max-width: 64rem) {
+    .ds-metric-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .is-active-metric {
+    border-color: var(--ds-primary);
+    box-shadow: inset 0 0 0 1px var(--ds-primary);
+  }
+  .ds-avatar[data-accent="blue"] { background: color-mix(in srgb, #2563eb 18%, transparent); color: #1d4ed8; }
+  .ds-avatar[data-accent="purple"] { background: color-mix(in srgb, #7c3aed 18%, transparent); color: #6d28d9; }
+  .ds-avatar[data-accent="amber"] { background: color-mix(in srgb, #d97706 18%, transparent); color: #b45309; }
+  .ds-avatar[data-accent="rose"] { background: color-mix(in srgb, #e11d48 18%, transparent); color: #be123c; }
+  .ds-avatar[data-accent="green"] { background: color-mix(in srgb, #059669 18%, transparent); color: #047857; }
+  .ds-avatar[data-accent="action"] { background: var(--ds-primary-soft); color: var(--ds-link); }
+  .ds-logout-sidebar {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    border-radius: var(--ds-radius-md);
+    background: color-mix(in srgb, #b91c1c 88%, black);
+    color: #fff;
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+  }
+  .ds-logout-sidebar:hover { filter: brightness(1.05); }
+  .ds-logout-sidebar:focus-visible { outline: 2px solid #fecaca; outline-offset: 2px; }
+  .ds-needs-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: var(--ds-radius-sm);
+    background: color-mix(in srgb, #d97706 22%, transparent);
+    color: #92400e;
+    padding: 0.15rem 0.45rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .ds-needs-status-badge.is-pulse {
+    animation: needs-status-pulse 0.7s ease-in-out 2;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ds-needs-status-badge.is-pulse { animation: none; }
+  }
+  @keyframes needs-status-pulse {
+    0%, 100% { background: color-mix(in srgb, #d97706 22%, transparent); }
+    50% { background: color-mix(in srgb, #d97706 42%, transparent); }
+  }
+  .ltr-isolate { unicode-bidi: isolate; direction: ltr; }
+  .ds-tehran-clock { white-space: nowrap; }
+}

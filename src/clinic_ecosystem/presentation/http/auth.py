@@ -14,6 +14,7 @@ from clinic_ecosystem.application.auth.exceptions import (
     InvalidCredentials,
 )
 from clinic_ecosystem.application.auth.service import AuthService
+from clinic_ecosystem.infrastructure.auth.demo_aliases import load_demo_alias_catalog
 from clinic_ecosystem.infrastructure.persistence.access_admin import SqlAccessAdmin
 from clinic_ecosystem.infrastructure.persistence.permissions import SqlPermissionService
 from clinic_ecosystem.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
@@ -49,6 +50,34 @@ class MeResponse(BaseModel):
     last_name: str = ""
     permissions: list[str] = []
     governance_roles: list[str] = []
+
+
+class DemoAliasRole(BaseModel):
+    alias: str
+    label_fa: str
+
+
+class DemoAliasCatalogResponse(BaseModel):
+    enabled: bool
+    password_hint: str | None = None
+    roles: list[DemoAliasRole] = []
+
+
+@router.get("/demo-aliases", response_model=DemoAliasCatalogResponse)
+async def demo_alias_catalog() -> DemoAliasCatalogResponse:
+    """Expose one-click demo roles only when isolated preview aliases are enabled."""
+    catalog = load_demo_alias_catalog()
+    if not catalog.enabled:
+        return DemoAliasCatalogResponse(enabled=False, roles=[])
+    roles = [
+        DemoAliasRole(alias=alias, label_fa=catalog.labels_fa.get(alias, alias))
+        for alias in catalog.aliases
+    ]
+    return DemoAliasCatalogResponse(
+        enabled=True,
+        password_hint=catalog.password,
+        roles=roles,
+    )
 
 
 @router.post("/login", response_model=LoginResponse)

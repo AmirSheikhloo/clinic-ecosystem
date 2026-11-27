@@ -1,9 +1,10 @@
 # Task 34 / Task 28 — 120 individually numbered acceptance rows
 
 **Rule:** each row is one scenario. Status is `PASS` only with current tip evidence, else `PENDING`/`BLOCKED`/`NOT RUN`.  
-**Tip under test:** post-`3656e07` correctness increment (tzdata, fail-closed scopes, finance authority, audit projection).  
+**Tip under test:** Task 34 R2 product redesign increment (demo aliases, shell/dashboard UX, print/courses proposed).  
 **Evidence roots:** deep suite JSON, demo manifest, Playwright artifacts, API routes + RTL screens listed in Source.  
-**Honesty note:** rows marked PASS below that cite only prior tip Playwright/seed without re-execution on this tip must be treated as needing re-run; Windows timezone preflight is newly evidenced on this tip.
+**Honesty note:** many PASS rows below still rely on prior tip evidence and need Playwright re-run on this tip SHA. Extension Appendix A is tracked in `TASK34_R2_EXTENSION_MATRIX.md`.  
+**Related:** research matrix `TASK34_R2_RESEARCH_TO_DECISION.md`, demo guide `TASK34_R2_DEMO_GUIDE.md`, ACR amendment `docs/architecture/ACR_D0.11_TASK34_R2_AMENDMENT.md`.
 
 ## Dashboard (1–15)
 

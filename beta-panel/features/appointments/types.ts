@@ -15,6 +15,12 @@ export type CalendarItem = AppointmentItem & {
   capacity_pool: string;
   resource_names: string[];
   aggregate_version: number;
+  /** Optional enriched projections when available from ops APIs. */
+  patient_phone_masked?: string | null;
+  national_id_masked?: string | null;
+  insurance_label?: string | null;
+  practitioner_name?: string | null;
+  financial_status_label?: string | null;
 };
 
 export type CalendarResponse = { items: CalendarItem[]; truncated: boolean; limit: number };
