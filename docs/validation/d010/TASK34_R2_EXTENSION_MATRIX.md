@@ -2,9 +2,10 @@
 
 Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
-**Tested tip:** `3d37f74b23594525c3219609c1894a8c9bd4ada2`  
+**Tested tip:** `191d2edec76866143c24e20d03cc8a2cff8f9f85`  
 **Environment:** Linux agent (Windows hardware NOT RUN this tip).  
-**Unit evidence:** Python `156 passed / 1 skipped`; frontend checkout/print unit suites green; `tsc --noEmit` green.
+**CI:** [M1 Appointment Vertical Slice 46082122461](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122461) — BETA-01B browser + frontend validation **success** (all 6 tip checks green).  
+**Unit evidence:** Python unit/integration green in same job; frontend unit/typecheck/lint/build green; `tsc --noEmit` green.
 
 | Decision ID | Scenario | Test / evidence | Status | Limitation |
 |---|---|---|---|---|

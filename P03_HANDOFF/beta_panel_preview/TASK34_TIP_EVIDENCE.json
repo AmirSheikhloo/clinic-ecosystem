@@ -1,18 +1,28 @@
 {
-  "tip_commits": ["f113b8c", "a00d883", "ee88c75"],
-  "deep_suite": {"passed": 38, "failed": 0, "blocked": 2},
-  "unit_tests": {"passed": 122, "skipped": 1},
-  "next_build": "ok",
-  "demo_seed": {
-    "patients": 520,
-    "appointments": 10500,
-    "invoices": 2000,
-    "discounts": 100,
-    "refunds": 100
+  "tip_sha": "191d2edec76866143c24e20d03cc8a2cff8f9f85",
+  "tip_short": "191d2ed",
+  "branch": "cursor/d010-ops-contracts-validation-95a4",
+  "pr": "https://github.com/AmirSheikhloo/clinic-ecosystem/pull/10",
+  "base": "development/clinic-operations",
+  "ci": {
+    "conclusion": "success",
+    "checks": 6,
+    "m1_pr": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122461",
+    "m0_pr": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122470",
+    "m1_push": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082117310",
+    "m0_push": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082117264",
+    "beta01b_job": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122461/job/140783240797"
   },
-  "playwright": {"passed": 55, "failed": 0},
-  "measure_perf": "ok",
-  "multi_width_screens": "ok",
-  "windows_preview": "scripts/start_preview.ps1 auto-opens browser unless -NoBrowser",
-  "blocked_external": ["person_merge_events SOURCE_REQUIRED", "live CARD_TO_CARD/ONLINE Gate B"]
+  "playwright": {
+    "passed": 58,
+    "failed": 0,
+    "duration": "3.9m",
+    "python_unit_integration": {"passed": 281, "skipped": 1}
+  },
+  "blocked_external": [
+    "person_merge_events SOURCE_REQUIRED",
+    "live CARD_TO_CARD/ONLINE Gate B",
+    "MULTI-02 shared settlement ACR-D0.12 ratification",
+    "physical print hardware NOT RUN"
+  ]
 }
