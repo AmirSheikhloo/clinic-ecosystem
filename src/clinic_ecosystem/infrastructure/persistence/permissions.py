@@ -202,14 +202,27 @@ class SqlPermissionService:
     def allows_practitioner(
         self, scopes: list[PermissionScope], provider_resource_id: UUID | None
     ) -> bool:
-        """Practitioner checks must not widen via unconstrained FILTER dimensions.
+        """Practitioner-only helper — never widen via FILTER rows lacking provider.
 
-        A FILTER row without a provider constraint does **not** independently grant
-        all practitioners when other constrained dimensions are omitted — use
-        ``allows(...)`` with department/service/provider together. This method is
-        a thin alias of ``allows`` for the provider dimension only (fail-closed).
+        Prefer ``allows(...)`` with all object dimensions. This helper grants only when:
+        - an ALL scope exists, or
+        - a FILTER row explicitly constrains ``provider_resource_id`` and matches.
+
+        FILTER rows that omit provider do **not** independently authorize any
+        practitioner (even when other dimensions are also unconstrained/omitted).
         """
-        return self.allows(scopes, provider_resource_id=provider_resource_id)
+        if not scopes:
+            return False
+        if any(s.scope_mode == "ALL" for s in scopes):
+            return True
+        if provider_resource_id is None:
+            return False
+        return any(
+            s.scope_mode == "FILTER"
+            and s.provider_resource_id is not None
+            and s.provider_resource_id == provider_resource_id
+            for s in scopes
+        )
 
     def is_unrestricted(self, scopes: list[PermissionScope]) -> bool:
         return any(s.scope_mode == "ALL" for s in scopes)

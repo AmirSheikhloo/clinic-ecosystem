@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
@@ -47,6 +48,7 @@ async def dashboard_summary(
     tenant_id = principal.claims.tenant_id
     appointments = None
     tomorrow_appointments = None
+    allowed_services: set[UUID] | None = set()
     if perm.APPOINTMENTS_LIST in granted:
         from clinic_ecosystem.presentation.http.scope_access import (
             load_scopes,
@@ -56,10 +58,16 @@ async def dashboard_summary(
         appt_scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
         allowed_services = scope_service_ids(appt_scopes) if appt_scopes else set()
         by_status = await queries.appointment_status_counts(
-            tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
+            tenant_id=tenant_id,
+            start_at_utc=start,
+            end_at_utc=end,
+            service_ids=allowed_services,
         )
         unique_patients = await queries.unique_patient_count(
-            tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
+            tenant_id=tenant_id,
+            start_at_utc=start,
+            end_at_utc=end,
+            service_ids=allowed_services,
         )
         ops_metrics = await queries.operational_metric_counts(
             tenant_id=tenant_id,
@@ -68,11 +76,13 @@ async def dashboard_summary(
             now_utc=datetime.now(timezone.utc),
             service_ids=allowed_services,
         )
+        # Single scoped CHECKED_IN source — never diverge from waiting_room.
+        waiting_checked_in = int(by_status.get("CHECKED_IN", 0))
         appointments = {
             "total": ops_metrics["today"],
             "by_status": by_status,
             "unique_patients": unique_patients,
-            "waiting_checked_in": int(by_status.get("CHECKED_IN", 0)),
+            "waiting_checked_in": waiting_checked_in,
             "upcoming_count": ops_metrics["upcoming"],
             "needs_status_count": ops_metrics["needs_status"],
             "cancelled_count": ops_metrics["cancelled"],
@@ -81,13 +91,19 @@ async def dashboard_summary(
         span = end - start
         if span.total_seconds() > 0 and span <= timedelta(days=31):
             tomorrow_by = await queries.appointment_status_counts(
-                tenant_id=tenant_id, start_at_utc=end, end_at_utc=end + span
+                tenant_id=tenant_id,
+                start_at_utc=end,
+                end_at_utc=end + span,
+                service_ids=allowed_services,
             )
             tomorrow_appointments = {
                 "total": sum(tomorrow_by.values()),
                 "by_status": tomorrow_by,
                 "unique_patients": await queries.unique_patient_count(
-                    tenant_id=tenant_id, start_at_utc=end, end_at_utc=end + span
+                    tenant_id=tenant_id,
+                    start_at_utc=end,
+                    end_at_utc=end + span,
+                    service_ids=allowed_services,
                 ),
             }
     waiting_room = None
@@ -95,11 +111,25 @@ async def dashboard_summary(
     if perm.WAITLIST_VIEW in granted or perm.APPOINTMENTS_LIST in granted:
         wait_ops = SqlWaitlistOps(uow.session)
         if await wait_ops.schema_ready():
-            waiting_room = {
-                "checked_in_count": await wait_ops.physical_waiting_count(
-                    tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
+            # Same scoped CHECKED_IN count as appointments.waiting_checked_in.
+            if appointments is not None:
+                wr_count = int(appointments["waiting_checked_in"])
+            else:
+                from clinic_ecosystem.presentation.http.scope_access import (
+                    load_scopes,
+                    scope_service_ids,
                 )
-            }
+
+                wr_scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
+                wr_services = scope_service_ids(wr_scopes) if wr_scopes else set()
+                wr_by = await queries.appointment_status_counts(
+                    tenant_id=tenant_id,
+                    start_at_utc=start,
+                    end_at_utc=end,
+                    service_ids=wr_services,
+                )
+                wr_count = int(wr_by.get("CHECKED_IN", 0))
+            waiting_room = {"checked_in_count": wr_count}
             if perm.WAITLIST_VIEW in granted:
                 future_waitlist = {
                     "open_count": await wait_ops.future_waitlist_open_count(tenant_id=tenant_id)
@@ -153,8 +183,9 @@ async def dashboard_day(
     scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
     allowed_services = scope_service_ids(scopes) if scopes else set()
     queries = SqlOverviewQueries(uow.session)
+    tenant_id = principal.claims.tenant_id
     rows, total = await queries.list_operational_day(
-        tenant_id=principal.claims.tenant_id,
+        tenant_id=tenant_id,
         start_at_utc=start,
         end_at_utc=end,
         now_utc=datetime.now(timezone.utc),
@@ -164,25 +195,48 @@ async def dashboard_day(
         offset=offset,
         service_ids=allowed_services,
     )
+    patient_ids = [r["patient_profile_id"] for r in rows]
+    insurance_by_patient = await queries.insurance_labels_for_patients(
+        tenant_id=tenant_id, patient_ids=patient_ids
+    )
+    finance_by_appt: dict[UUID, dict] = {}
+    # Fail-closed: finance enrichment only with invoice-view permission + ops schema.
+    if perm.FINANCE_INVOICE_VIEW in granted and rows:
+        finance_ops = SqlFinanceOps(uow.session)
+        if await finance_ops.schema_ready():
+            finance_by_appt = await finance_ops.balances_for_appointments(
+                tenant_id=tenant_id,
+                appointment_ids=[r["appointment_id"] for r in rows],
+            )
+    items: list[dict] = []
+    for r in rows:
+        resources = list(r.get("resource_names") or [])
+        fin = finance_by_appt.get(r["appointment_id"])
+        item: dict = {
+            "appointment_id": str(r["appointment_id"]),
+            "patient_profile_id": str(r["patient_profile_id"]),
+            "patient_first_name": r["patient_first_name"],
+            "patient_last_name": r["patient_last_name"],
+            "service_id": str(r["service_id"]),
+            "service_name": r["service_name"],
+            "status": r["status"],
+            "scheduled_start_at_utc": r["scheduled_start_at_utc"].isoformat(),
+            "scheduled_end_at_utc": r["scheduled_end_at_utc"].isoformat(),
+            "booking_channel": r["booking_channel"],
+            "capacity_pool": r["capacity_pool"],
+            "aggregate_version": r["aggregate_version"],
+            "resource_names": resources,
+            "national_id_masked": r.get("national_id_masked"),
+            "patient_phone_masked": r.get("patient_phone_masked"),
+            "insurance_label": insurance_by_patient.get(r["patient_profile_id"]),
+            "practitioner_name": resources[0] if resources else None,
+        }
+        if fin is not None:
+            item["financial_status_label"] = fin.get("financial_status")
+            item["outstanding_irr"] = fin.get("outstanding")
+        items.append(item)
     return {
-        "items": [
-            {
-                "appointment_id": str(r["appointment_id"]),
-                "patient_profile_id": str(r["patient_profile_id"]),
-                "patient_first_name": r["patient_first_name"],
-                "patient_last_name": r["patient_last_name"],
-                "service_id": str(r["service_id"]),
-                "service_name": r["service_name"],
-                "status": r["status"],
-                "scheduled_start_at_utc": r["scheduled_start_at_utc"].isoformat(),
-                "scheduled_end_at_utc": r["scheduled_end_at_utc"].isoformat(),
-                "booking_channel": r["booking_channel"],
-                "capacity_pool": r["capacity_pool"],
-                "aggregate_version": r["aggregate_version"],
-                "resource_names": [],
-            }
-            for r in rows
-        ],
+        "items": items,
         "total": total,
         "limit": limit,
         "offset": offset,

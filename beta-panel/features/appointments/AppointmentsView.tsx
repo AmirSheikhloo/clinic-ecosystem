@@ -130,7 +130,12 @@ export function AppointmentsView() {
         onModeChange={setMode}
         anchor={anchor}
         onAnchorChange={setAnchor}
-        count={mode === "list" ? listTotal : items ? items.length : null}
+        count={
+          mode === "list"
+            ? listTotal
+            : calendar.data?.aggregates?.total ?? (items ? items.length : null)
+        }
+        aggregates={mode === "list" ? null : calendar.data?.aggregates ?? null}
         loading={mode === "list" ? listLoading : calendar.loading}
         onRefresh={() => setRefresh((v) => v + 1)}
         filters={filters}
@@ -192,6 +197,13 @@ export function AppointmentsView() {
               range={range}
               anchor={anchor}
               groups={groups}
+              dayCounts={
+                calendar.data.aggregates
+                  ? Object.fromEntries(
+                      calendar.data.aggregates.by_day.map((d) => [d.date, d.count]),
+                    )
+                  : undefined
+              }
               todayYmd={tehranTodayYmd()}
               onPickDay={(ymd) => {
                 setAnchor(ymd);

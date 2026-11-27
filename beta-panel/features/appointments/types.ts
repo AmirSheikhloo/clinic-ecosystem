@@ -21,9 +21,25 @@ export type CalendarItem = AppointmentItem & {
   insurance_label?: string | null;
   practitioner_name?: string | null;
   financial_status_label?: string | null;
+  outstanding_irr?: number | null;
 };
 
-export type CalendarResponse = { items: CalendarItem[]; truncated: boolean; limit: number };
+export type CalendarAggregates = {
+  total: number;
+  by_status: Record<string, number>;
+  by_day: Array<{ date: string; count: number }>;
+  period: "day" | "week" | "month" | "custom" | string;
+  cancelled_count?: number;
+  completed_count?: number;
+  no_show_count?: number;
+};
+
+export type CalendarResponse = {
+  items: CalendarItem[];
+  truncated: boolean;
+  limit: number;
+  aggregates?: CalendarAggregates;
+};
 
 export type AppointmentDetails = CalendarItem & {
   created_at_utc: string;

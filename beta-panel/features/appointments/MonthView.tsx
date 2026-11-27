@@ -8,13 +8,15 @@ type Props = {
   range: VisibleRange;
   anchor: string;
   groups: Map<string, CalendarItem[]>;
+  /** Authoritative server-side per-day totals when available (may exceed loaded preview items). */
+  dayCounts?: Record<string, number>;
   todayYmd: string;
   onPickDay: (ymd: string) => void;
 };
 
 const PREVIEW = 3;
 
-export function MonthView({ range, anchor, groups, todayYmd, onPickDay }: Props) {
+export function MonthView({ range, anchor, groups, dayCounts, todayYmd, onPickDay }: Props) {
   const currentMonth = jalaliParts(anchor).jm;
   const days = rangeDays(range);
   return (
@@ -28,6 +30,7 @@ export function MonthView({ range, anchor, groups, todayYmd, onPickDay }: Props)
         {days.map((ymd) => {
           const { jd, jm } = jalaliParts(ymd);
           const items = groups.get(ymd) ?? [];
+          const count = dayCounts?.[ymd] ?? items.length;
           const outside = jm !== currentMonth;
           return (
             <button
@@ -36,14 +39,14 @@ export function MonthView({ range, anchor, groups, todayYmd, onPickDay }: Props)
               role="gridcell"
               onClick={() => onPickDay(ymd)}
               data-testid="month-cell"
-              data-count={items.length}
-              aria-label={`${jd} — ${formatCount(items.length)} نوبت`}
+              data-count={count}
+              aria-label={`${jd} — ${formatCount(count)} نوبت`}
               className={`ds-card min-h-24 p-2 text-start align-top hover:bg-[var(--ds-surface-muted)] ${outside ? "opacity-50" : ""} ${ymd === todayYmd ? "ring-2 ring-[var(--ds-primary)]" : ""}`}
             >
               <span className="flex items-center justify-between text-sm">
                 <span className="tabular-nums font-semibold">{jd}</span>
-                {items.length > 0 && (
-                  <span className="ds-badge ds-badge-ok tabular-nums">{formatCount(items.length)}</span>
+                {count > 0 && (
+                  <span className="ds-badge ds-badge-ok tabular-nums">{formatCount(count)}</span>
                 )}
               </span>
               <ul className="mt-1 space-y-0.5 text-xs">

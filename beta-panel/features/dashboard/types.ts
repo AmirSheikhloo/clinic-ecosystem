@@ -8,6 +8,16 @@ export type PeriodSummary = {
   cancelled_count?: number;
 };
 
+/** Enriched dashboard/day row fields (optional when data/permission present). */
+export type DayEnrichment = {
+  national_id_masked?: string | null;
+  patient_phone_masked?: string | null;
+  insurance_label?: string | null;
+  practitioner_name?: string | null;
+  financial_status_label?: string | null;
+  outstanding_irr?: number | null;
+};
+
 export type FinanceSummary = {
   posted_invoices: number;
   draft_invoices: number;

@@ -92,6 +92,56 @@ def _parse_range(start_at_utc: datetime, end_at_utc: datetime) -> tuple[datetime
     return start, end
 
 
+def infer_calendar_period(start: datetime, end: datetime) -> str:
+    """Classify requested UTC window into day/week/month/custom (Tehran-day oriented)."""
+    hours = (end - start).total_seconds() / 3600.0
+    if hours <= 26:
+        return "day"
+    if hours <= 7 * 26:
+        return "week"
+    if hours <= 42 * 26:
+        return "month"
+    return "custom"
+
+
+def build_calendar_aggregates(
+    scoped: list[dict[str, Any]],
+    *,
+    period: str,
+) -> dict[str, Any]:
+    """Scope-aware period totals (Tehran local day buckets; includes terminal/cancelled)."""
+    from zoneinfo import ZoneInfo
+
+    tehran = ZoneInfo("Asia/Tehran")
+    by_status: dict[str, int] = {}
+    by_day: dict[str, int] = {}
+    for row in scoped:
+        st = str(row.get("status") or "")
+        by_status[st] = by_status.get(st, 0) + 1
+        start = row.get("scheduled_start_at_utc")
+        if start is not None:
+            if getattr(start, "tzinfo", None) is None:
+                start = start.replace(tzinfo=timezone.utc)
+            day_key = start.astimezone(tehran).date().isoformat()
+            by_day[day_key] = by_day.get(day_key, 0) + 1
+    return {
+        "total": len(scoped),
+        "by_status": by_status,
+        "by_day": [{"date": d, "count": by_day[d]} for d in sorted(by_day)],
+        "period": period,
+        "cancelled_count": int(by_status.get("CANCELLED", 0)),
+        "completed_count": int(by_status.get("COMPLETED", 0)),
+        "no_show_count": int(by_status.get("NO_SHOW", 0)),
+    }
+
+
+# Back-compat alias used by older call sites / tests.
+def _calendar_aggregates(
+    scoped: list[dict[str, Any]], *, period: str = "custom"
+) -> dict[str, Any]:
+    return build_calendar_aggregates(scoped, period=period)
+
+
 @router.get("/calendar")
 async def calendar(
     principal: Principal,
@@ -106,26 +156,37 @@ async def calendar(
 ) -> dict:
     require(await load_granted(principal, uow), perm.APPOINTMENTS_LIST)
     scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
+    start, end = _parse_range(start_at_utc, end_at_utc)
+    period = infer_calendar_period(start, end)
+    empty_agg = build_calendar_aggregates([], period=period)
     if not scopes:
-        return {"items": [], "truncated": False, "limit": limit}
+        return {"items": [], "truncated": False, "limit": limit, "aggregates": empty_agg}
     allowed_services = scope_service_ids(scopes)
     if allowed_services is not None and len(allowed_services) == 0:
-        return {"items": [], "truncated": False, "limit": limit}
+        return {"items": [], "truncated": False, "limit": limit, "aggregates": empty_agg}
     if service_id is not None and allowed_services is not None and service_id not in allowed_services:
-        return {"items": [], "truncated": False, "limit": limit}
-    start, end = _parse_range(start_at_utc, end_at_utc)
+        return {"items": [], "truncated": False, "limit": limit, "aggregates": empty_agg}
     if status_filter and status_filter not in CALENDAR_STATUSES:
         raise ValidationFailed("Unknown status filter", code="invalid_status")
+    # Fetch full period window for authoritative aggregates, then page items.
     rows = await SqlAppointmentAdmin(uow.session).list_calendar(
         tenant_id=principal.claims.tenant_id,
         start_at_utc=start, end_at_utc=end,
         service_id=service_id, resource_id=resource_id,
         status=status_filter, patient_profile_id=patient_profile_id,
-        limit=min(2000, (limit + 1) * 4),
+        limit=2000,
     )
     scoped = filter_rows_by_scope(scopes, [dict(r) for r in rows])
-    truncated = len(scoped) > limit
-    return {"items": [_item(r) for r in scoped[:limit]], "truncated": truncated, "limit": limit}
+    if allowed_services is not None:
+        scoped = [r for r in scoped if r.get("service_id") in allowed_services]
+    aggregates = build_calendar_aggregates(scoped, period=period)
+    truncated = len(scoped) > limit or len(rows) >= 2000
+    return {
+        "items": [_item(r) for r in scoped[:limit]],
+        "truncated": truncated,
+        "limit": limit,
+        "aggregates": aggregates,
+    }
 
 
 @router.get("/management")

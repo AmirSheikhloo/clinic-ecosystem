@@ -101,6 +101,50 @@ class SqlFinanceOps:
             "financial_status": financial_status,
         }
 
+    async def balances_for_appointments(
+        self, *, tenant_id: UUID, appointment_ids: list[UUID]
+    ) -> dict[UUID, dict[str, Any]]:
+        """Aggregate payable/allocated/outstanding per appointment (fail-closed if empty)."""
+        if not appointment_ids:
+            return {}
+        # Map appointment → distinct invoices first, then reuse invoice_balance.
+        result = await self._session.execute(
+            text(
+                """
+                SELECT DISTINCT il.appointment_id AS appointment_id, il.invoice_id AS invoice_id
+                FROM invoice_lines il
+                WHERE il.tenant_id = :tenant_id
+                  AND il.appointment_id = ANY(:ids)
+                  AND il.appointment_id IS NOT NULL
+                """
+            ),
+            {"tenant_id": tenant_id, "ids": appointment_ids},
+        )
+        by_appt: dict[UUID, list[UUID]] = {}
+        for row in result.mappings().all():
+            by_appt.setdefault(row["appointment_id"], []).append(row["invoice_id"])
+        out: dict[UUID, dict[str, Any]] = {}
+        for appt_id, invoice_ids in by_appt.items():
+            payable = paid = 0
+            for invoice_id in invoice_ids:
+                bal = await self.invoice_balance(tenant_id=tenant_id, invoice_id=invoice_id)
+                payable += int(bal["patient_payable_total"])
+                paid += int(bal["allocated_total"])
+            outstanding = max(0, payable - paid)
+            if paid <= 0:
+                status = "UNPAID"
+            elif outstanding == 0:
+                status = "PAID"
+            else:
+                status = "PARTIAL"
+            out[appt_id] = {
+                "patient_payable_total": payable,
+                "allocated_total": paid,
+                "outstanding": outstanding,
+                "financial_status": status,
+            }
+        return out
+
     async def get_invoice(self, *, tenant_id: UUID, invoice_id: UUID) -> dict[str, Any] | None:
         result = await self._session.execute(
             text(
