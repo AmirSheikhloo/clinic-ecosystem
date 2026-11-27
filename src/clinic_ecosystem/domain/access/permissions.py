@@ -68,6 +68,9 @@ ELIGIBILITY_MANAGE = "BETA02_ELIGIBILITY_MANAGE"
 ONLINE_CLOSURE_MANAGE = "BETA02_ONLINE_CLOSURE_MANAGE"
 CASHIER_SHIFT_MANAGE = "BETA02_CASHIER_SHIFT_MANAGE"
 HEAD_RECEPTIONIST = "BETA02_HEAD_RECEPTIONIST"
+# Task 34 R2 §9 — treatment courses / rolling recall (synthetic disposable).
+COURSES_VIEW = "BETA02_COURSES_VIEW"
+COURSES_MANAGE = "BETA02_COURSES_MANAGE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,6 +137,13 @@ _DEFS: tuple[PermissionDefinition, ...] = (
     PermissionDefinition(ONLINE_CLOSURE_MANAGE, "ops", "بستن ظرفیت آنلاین", "Temporary online closures"),
     PermissionDefinition(CASHIER_SHIFT_MANAGE, "finance", "شیفت صندوق", "Open/configure cashier shifts"),
     PermissionDefinition(HEAD_RECEPTIONIST, "ops", "سرپرست پذیرش", "Explicit head receptionist privileges"),
+    PermissionDefinition(COURSES_VIEW, "courses", "مشاهده دوره‌های درمان", "View patient treatment courses"),
+    PermissionDefinition(
+        COURSES_MANAGE,
+        "courses",
+        "مدیریت دوره‌های درمان",
+        "Enroll/complete/pause pay-per-session treatment courses (prepaid disabled)",
+    ),
 )
 
 PERMISSION_CATALOG: dict[str, PermissionDefinition] = {d.code: d for d in _DEFS}

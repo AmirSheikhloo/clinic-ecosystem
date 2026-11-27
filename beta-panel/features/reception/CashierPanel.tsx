@@ -152,6 +152,16 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
     }
     intentStore.current.complete();
     setResult(response.data);
+    setResultPatientDisplay(
+      patient ? `${patient.first_name} ${patient.last_name}` : "بیمار",
+    );
+    setResultLines(
+      lines.map((line) => ({ description: line.serviceName, amountIrr: line.priceIrr })),
+    );
+    setResultDiscountIrr(
+      usingFixed ? fixedCuts.reduce((s, v) => s + v, 0) : usingBps ? bpsCut : 0,
+    );
+    setResultPayMethod(mode === "pay" && payMethod !== "NONE" ? payMethod : "NONE");
     onCleared?.();
   }
 

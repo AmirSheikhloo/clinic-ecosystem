@@ -234,7 +234,12 @@ async def apply_ops_schema(
         "SELECT to_regclass('public.invoice_documents') IS NOT NULL"
     )
     if exists:
-        return {"applied": False, "reason": "already_present"}
+        courses = await apply_treatment_courses_schema(conn, explicit=explicit)
+        return {
+            "applied": False,
+            "reason": "already_present",
+            "treatment_courses": courses,
+        }
 
     applied: list[str] = []
     for _step, files in APPLY_STEPS:
@@ -246,4 +251,43 @@ async def apply_ops_schema(
                 await _prepare_rls_tables(conn)
             await _exec_script(conn, path.read_text(encoding="utf-8"))
             applied.append(name)
-    return {"applied": True, "files": applied, "skipped": sorted(SKIP)}
+    courses = await apply_treatment_courses_schema(conn, explicit=explicit)
+    return {
+        "applied": True,
+        "files": applied,
+        "skipped": sorted(SKIP),
+        "treatment_courses": courses,
+    }
+
+
+async def apply_treatment_courses_schema(
+    conn: asyncpg.Connection, *, explicit: bool = False
+) -> dict:
+    """Apply disposable treatment-course / rolling-recall DDL (Task 34 R2 §9).
+
+    Idempotent via ``ops_treatment_courses_schema_marker``. Requires disposable
+    mode. Does not create official Alembic revisions.
+    """
+    if not ops_schema_authorized(explicit=explicit):
+        raise RuntimeError(
+            "Treatment courses schema apply refused: set CLINIC_OPS_SCHEMA_MODE=disposable "
+            "or pass explicit=True for an isolated harness only."
+        )
+    marker = await conn.fetchval(
+        "SELECT to_regclass('public.ops_treatment_courses_schema_marker') IS NOT NULL"
+    )
+    if marker:
+        return {"applied": False, "reason": "already_present"}
+    # Prefer services + patient_profiles present (ops or baseline); fail soft if missing.
+    services_ok = await conn.fetchval(
+        "SELECT to_regclass('public.services') IS NOT NULL"
+    )
+    if not services_ok:
+        return {"applied": False, "reason": "services_missing"}
+    path = EXTRACTED / "proposed_treatment_courses.sql"
+    await _exec_script(conn, path.read_text(encoding="utf-8"))
+    return {
+        "applied": True,
+        "file": "proposed_treatment_courses.sql",
+        "label": "treatment_courses_r2_v1",
+    }
