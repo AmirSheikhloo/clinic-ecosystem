@@ -193,26 +193,40 @@ export function TodaySchedule({
             {
               key: "finance",
               header: "وضعیت مالی",
-              cell: (row) =>
-                onOpenFinance && can(P.financeInvoiceView) ? (
-                  <button
-                    type="button"
-                    className="text-sm text-[var(--ds-primary)] underline-offset-2 hover:underline"
-                    data-testid="dashboard-open-finance"
-                    onClick={() =>
-                      onOpenFinance({
-                        appointmentId: row.appointment_id,
-                        patientId: row.patient_profile_id,
-                        patientName: `${row.patient_first_name} ${row.patient_last_name}`,
-                        serviceName: row.service_name,
-                      })
-                    }
-                  >
-                    {row.financial_status_label || "مشاهده مالی"}
-                  </button>
+              cell: (row) => {
+                const label = row.financial_status_label || (onOpenFinance && can(P.financeInvoiceView) ? "مشاهده مالی" : "—");
+                const outstanding =
+                  typeof row.outstanding_irr === "number" ? (
+                    <span className="ltr-isolate text-xs text-[var(--ds-text-muted)]" dir="ltr" data-testid="dashboard-outstanding">
+                      مانده {row.outstanding_irr}
+                    </span>
+                  ) : null;
+                return onOpenFinance && can(P.financeInvoiceView) ? (
+                  <span className="inline-flex flex-col items-start">
+                    <button
+                      type="button"
+                      className="text-sm text-[var(--ds-primary)] underline-offset-2 hover:underline"
+                      data-testid="dashboard-open-finance"
+                      onClick={() =>
+                        onOpenFinance({
+                          appointmentId: row.appointment_id,
+                          patientId: row.patient_profile_id,
+                          patientName: `${row.patient_first_name} ${row.patient_last_name}`,
+                          serviceName: row.service_name,
+                        })
+                      }
+                    >
+                      {label}
+                    </button>
+                    {outstanding}
+                  </span>
                 ) : (
-                  <span className="text-sm text-[var(--ds-text-muted)]">{row.financial_status_label || "—"}</span>
-                ),
+                  <span className="inline-flex flex-col text-sm text-[var(--ds-text-muted)]">
+                    <span>{label}</span>
+                    {outstanding}
+                  </span>
+                );
+              },
             },
             {
               key: "ops",

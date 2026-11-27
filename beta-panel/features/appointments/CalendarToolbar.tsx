@@ -68,9 +68,10 @@ export function CalendarToolbar(props: Props) {
             </span>
             {props.aggregates ? (
               <span className="ms-2 text-xs text-[var(--ds-text-muted)]" data-testid="calendar-aggregates">
-                تکمیل {formatCount(props.aggregates.completed_count)} · لغو{" "}
-                {formatCount(props.aggregates.cancelled_count)} · عدم‌حضور{" "}
-                {formatCount(props.aggregates.no_show_count)}
+                تکمیل {formatCount(props.aggregates.completed_count ?? 0)} · لغو{" "}
+                {formatCount(props.aggregates.cancelled_count ?? 0)} · عدم‌حضور{" "}
+                {formatCount(props.aggregates.no_show_count ?? 0)}
+                {props.aggregates.period ? ` · ${props.aggregates.period}` : ""}
               </span>
             ) : null}
           </>

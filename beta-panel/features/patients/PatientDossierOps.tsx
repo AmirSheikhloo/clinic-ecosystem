@@ -35,6 +35,7 @@ export function PatientDossierOps({ patientId }: { patientId: string }) {
   const [tagCode, setTagCode] = useState("ALERT");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
 
   const notes = useApiQuery<{ items: Note[] }>(
     can(P.patientsViewProfile) ? `/api/v1/patients/${patientId}/notes` : null,
@@ -139,13 +140,62 @@ export function PatientDossierOps({ patientId }: { patientId: string }) {
               {formatCount(balance.data.patient_credit_irr)} · {formatCount(balance.data.posted_invoices)} صورتحساب
             </p>
           ) : null}
-          <ul className="space-y-2">
-            {(invoices.data?.items ?? []).map((inv) => (
-              <li key={inv.id} className="flex justify-between gap-2 text-sm">
-                <span className="tabular-nums">{inv.invoice_number ?? inv.id.slice(0, 8)}</span>
-                <StatusBadge tone={inv.outstanding === 0 ? "ok" : "warn"}>{inv.financial_status}</StatusBadge>
-              </li>
-            ))}
+          <ul className="space-y-2" data-testid="patient-invoice-list">
+            {(invoices.data?.items ?? []).map((inv) => {
+              const open = expandedInvoice === inv.id;
+              return (
+                <li key={inv.id} className="rounded border border-[var(--ds-border)] text-sm">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-start"
+                    data-testid="patient-invoice-toggle"
+                    aria-expanded={open}
+                    onClick={() => setExpandedInvoice(open ? null : inv.id)}
+                  >
+                    <span className="tabular-nums">{inv.invoice_number ?? inv.id.slice(0, 8)}</span>
+                    <StatusBadge tone={inv.outstanding === 0 ? "ok" : "warn"}>{inv.financial_status}</StatusBadge>
+                  </button>
+                  {open ? (
+                    <div
+                      className="space-y-2 border-t border-[var(--ds-border)] px-3 py-2"
+                      data-testid="patient-invoice-detail"
+                    >
+                      <p className="tabular-nums text-[var(--ds-text-muted)]">
+                        قابل پرداخت {formatCount(inv.patient_payable_total)} · مانده {formatCount(inv.outstanding)}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        loading={busy}
+                        data-testid="patient-invoice-print"
+                        onClick={() => {
+                          void (async () => {
+                            setBusy(true);
+                            setError(null);
+                            const result = await apiJson(
+                              `/api/v1/finance/invoices/${inv.id}/print-snapshot`,
+                              { method: "GET" },
+                            );
+                            setBusy(false);
+                            if (!result.ok) {
+                              setError(result.message);
+                              return;
+                            }
+                            const blob = new Blob([JSON.stringify(result.data, null, 2)], {
+                              type: "application/json",
+                            });
+                            const url = URL.createObjectURL(blob);
+                            window.open(url, "_blank", "noopener,noreferrer");
+                            window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+                          })();
+                        }}
+                      >
+                        چاپ / خروجی مجاز
+                      </Button>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
