@@ -62,6 +62,13 @@ async def _require_courses_schema(uow: Uow) -> None:
         )
 
 
+def _parse_if_match(raw: str | None) -> int | None:
+    if raw is None:
+        return None
+    token = raw.strip().strip('"')
+    return int(token) if token.isdigit() else None
+
+
 @router.get("/patients/{patient_id}")
 async def list_patient_courses(
     patient_id: UUID, principal: Principal, uow: Uow
@@ -143,7 +150,7 @@ async def complete_session(
     granted = await load_granted(principal, uow)
     require(granted, perm.COURSES_MANAGE)
     await _require_courses_schema(uow)
-    expected = int(if_match) if if_match and if_match.isdigit() else None
+    expected = _parse_if_match(if_match)
     svc = TreatmentCourseService(uow.session)
     result = await svc.record_session_completion(
         tenant_id=principal.claims.tenant_id,
@@ -178,7 +185,7 @@ async def course_lifecycle(
     granted = await load_granted(principal, uow)
     require(granted, perm.COURSES_MANAGE)
     await _require_courses_schema(uow)
-    expected = int(if_match) if if_match and if_match.isdigit() else None
+    expected = _parse_if_match(if_match)
     svc = TreatmentCourseService(uow.session)
     row = await svc.set_lifecycle(
         tenant_id=principal.claims.tenant_id,

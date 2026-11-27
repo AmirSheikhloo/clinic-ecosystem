@@ -82,7 +82,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/finance", label: "امور مالی", icon: "desk", group: "work", anyOf: [P.financeInvoiceView, P.financeSummary] },
   { href: "/patients", label: "بیماران", icon: "patients", group: "clinic", anyOf: [P.patientsSearch, P.patientsRegister] },
   { href: "/catalog", label: "خدمات و منابع", icon: "catalog", group: "clinic", anyOf: [P.catalogServicesRead, P.resourcesRead, P.servicesManage, P.resourcesManage] },
-  { href: "/ops", label: "پیکربندی عملیات", icon: "catalog", group: "clinic", anyOf: [P.departmentsView, P.eligibilityManage, P.inventoryView] },
+  { href: "/ops", label: "پیکربندی عملیات", icon: "catalog", group: "clinic", anyOf: [P.departmentsView, P.eligibilityManage, P.inventoryView, P.coursesView] },
   { href: "/staff", label: "کارکنان", icon: "staff", group: "admin", anyOf: [P.staffView] },
   { href: "/access", label: "کاربران و دسترسی", icon: "access", group: "admin", anyOf: [P.accountsView, P.rolesView, P.governanceView] },
   { href: "/audit", label: "حسابرسی", icon: "list", group: "admin", anyOf: [P.auditView] },

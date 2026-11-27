@@ -6,6 +6,7 @@ import { useSession } from "@/components/session/SessionProvider";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { CourseTemplatesStub } from "@/features/courses/CourseTemplatesStub";
 import { apiJson } from "@/lib/api";
 import { formatCount } from "@/lib/format/numbers";
 import { P } from "@/lib/permissions";
@@ -30,7 +31,8 @@ type EligList = { items: { id: string; service_name: string; practitioner_mappin
 export function OpsConfigView() {
   const { can, status } = useSession();
   const [refresh, setRefresh] = useState(0);
-  const canAny = can(P.departmentsView) || can(P.eligibilityManage) || can(P.inventoryView);
+  const canAny =
+    can(P.departmentsView) || can(P.eligibilityManage) || can(P.inventoryView) || can(P.coursesView);
   const depts = useApiQuery<DeptList>(
     status === "ready" && can(P.departmentsView) ? "/api/v1/ops/departments" : null,
     "بارگذاری بخش‌ها ناموفق بود",
@@ -105,6 +107,8 @@ export function OpsConfigView() {
           </ul>
         </section>
       ) : null}
+
+      <CourseTemplatesStub />
 
       {can(P.inventoryView) ? (
         <section data-testid="ops-inventory" className="space-y-3">
