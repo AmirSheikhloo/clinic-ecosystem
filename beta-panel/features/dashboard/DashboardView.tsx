@@ -12,13 +12,13 @@ import { buildQuery } from "@/lib/api";
 import { shiftTehranYmd, tehranDayBoundsUtc, tehranTodayYmd } from "@/lib/client";
 import { P } from "@/lib/permissions";
 import { useApiQuery } from "@/lib/use-api-query";
-import type { UpcomingResponse } from "@/features/appointments/types";
+import type { ManagementResponse } from "@/features/appointments/types";
 import { DashboardMetrics } from "./DashboardMetrics";
 import { resolveDashboardAudience } from "./dashboard-role";
 import { buildMetricCards } from "./metric-cards";
 import { quickActionsFor } from "./quick-actions";
 import { TodaySchedule } from "./TodaySchedule";
-import { UPCOMING_LIMIT, type Summary } from "./types";
+import { DAY_PAGE_SIZES, type Summary } from "./types";
 
 const POLL_MS = 20_000;
 
@@ -26,6 +26,10 @@ export function DashboardView() {
   const { can, status, me } = useSession();
   const [refresh, setRefresh] = useState(0);
   const [activeFilter, setActiveFilter] = useState<string>("today");
+  const [pageSize, setPageSize] = useState<(typeof DAY_PAGE_SIZES)[number]>(25);
+  const [offset, setOffset] = useState(0);
+  const [search, setSearch] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const today = tehranTodayYmd();
   const tomorrow = shiftTehranYmd(today, 1);
   const bounds = tehranDayBoundsUtc(today);
@@ -33,22 +37,37 @@ export function DashboardView() {
   const ready = status === "ready";
   const audience = resolveDashboardAudience(me?.governance_roles ?? [], can);
 
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedQ(search.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [activeFilter, debouncedQ, pageSize]);
+
   const summary = useApiQuery<Summary>(
     ready ? `/api/v1/dashboard/summary${buildQuery(range)}` : null,
     "بارگذاری آمار داشبورد ناموفق بود",
     refresh,
   );
-  const upcoming = useApiQuery<UpcomingResponse>(
+  const day = useApiQuery<ManagementResponse & { metric?: string; total: number }>(
     ready && can(P.appointmentsList)
-      ? `/api/v1/appointments/upcoming${buildQuery({ ...range, limit: UPCOMING_LIMIT })}`
+      ? `/api/v1/dashboard/day${buildQuery({
+          ...range,
+          metric: activeFilter,
+          q: debouncedQ || undefined,
+          limit: pageSize,
+          offset,
+        })}`
       : null,
     "بارگذاری نوبت‌های امروز ناموفق بود",
     refresh,
+    { keepPrevious: true },
   );
 
   const bump = useCallback(() => setRefresh((value) => value + 1), []);
 
-  // Automatic refresh: interval when visible, immediate on focus (§7).
   useEffect(() => {
     if (!ready) return;
     let timer: number | undefined;
@@ -79,7 +98,6 @@ export function DashboardView() {
   const data = summary.data;
   const cards = buildMetricCards(audience, can, today, tomorrow, data).map((card) => ({
     ...card,
-    // Operational cards filter the local schedule instead of navigating away.
     onActivate:
       audience.composition === "operational" && card.href.startsWith("#dash-")
         ? () => setActiveFilter(card.href.replace("#dash-", ""))
@@ -122,7 +140,19 @@ export function DashboardView() {
       />
 
       {can(P.appointmentsList) ? (
-        <TodaySchedule today={today} query={upcoming} can={can} filterKey={activeFilter} />
+        <TodaySchedule
+          today={today}
+          query={day}
+          can={can}
+          filterKey={activeFilter}
+          search={search}
+          onSearchChange={setSearch}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          offset={offset}
+          onOffsetChange={setOffset}
+          total={day.data?.total ?? 0}
+        />
       ) : null}
 
       {nothingToShow ? (

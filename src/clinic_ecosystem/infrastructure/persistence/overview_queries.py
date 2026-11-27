@@ -32,6 +32,160 @@ class SqlOverviewQueries:
         )
         return {row.status: int(row.n) for row in result}
 
+    async def operational_metric_counts(
+        self,
+        *,
+        tenant_id: UUID,
+        start_at_utc: datetime,
+        end_at_utc: datetime,
+        now_utc: datetime,
+        service_ids: set[UUID] | None = None,
+    ) -> dict[str, int]:
+        """Exact dashboard predicates (Task 34 R2 §8).
+
+        - today: all appointments scheduled for the Tehran day (any status)
+        - upcoming: CONFIRMED with start > now and still within the day
+        - needs_status: due for human resolution (CHECKED_IN, or CONFIRMED with end <= now)
+        - cancelled: status CANCELLED scheduled for the day
+        """
+        service_clause = ""
+        params: dict[str, Any] = {
+            "t": tenant_id,
+            "s": start_at_utc,
+            "e": end_at_utc,
+            "now": now_utc,
+        }
+        if service_ids is not None:
+            if not service_ids:
+                return {"today": 0, "upcoming": 0, "needs_status": 0, "cancelled": 0}
+            service_clause = " AND service_id = ANY(:services)"
+            params["services"] = list(service_ids)
+        result = await self._session.execute(
+            text(
+                f"""
+                SELECT
+                  count(*) FILTER (WHERE TRUE) AS today,
+                  count(*) FILTER (
+                    WHERE status = 'CONFIRMED' AND scheduled_start_at_utc > :now
+                  ) AS upcoming,
+                  count(*) FILTER (
+                    WHERE status = 'CHECKED_IN'
+                       OR (status = 'CONFIRMED' AND scheduled_end_at_utc <= :now)
+                  ) AS needs_status,
+                  count(*) FILTER (WHERE status = 'CANCELLED') AS cancelled
+                FROM appointments
+                WHERE tenant_id = :t
+                  AND scheduled_start_at_utc >= :s
+                  AND scheduled_start_at_utc < :e
+                  {service_clause}
+                """
+            ),
+            params,
+        )
+        row = result.mappings().one()
+        return {
+            "today": int(row["today"]),
+            "upcoming": int(row["upcoming"]),
+            "needs_status": int(row["needs_status"]),
+            "cancelled": int(row["cancelled"]),
+        }
+
+    async def list_operational_day(
+        self,
+        *,
+        tenant_id: UUID,
+        start_at_utc: datetime,
+        end_at_utc: datetime,
+        now_utc: datetime,
+        metric: str,
+        q: str | None,
+        limit: int,
+        offset: int,
+        service_ids: set[UUID] | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Server-paginated operational day rows matching a metric predicate."""
+        metric_sql = {
+            "today": "TRUE",
+            "upcoming": "a.status = 'CONFIRMED' AND a.scheduled_start_at_utc > :now",
+            "needs_status": (
+                "a.status = 'CHECKED_IN' OR "
+                "(a.status = 'CONFIRMED' AND a.scheduled_end_at_utc <= :now)"
+            ),
+            "cancelled": "a.status = 'CANCELLED'",
+        }.get(metric, "TRUE")
+        params: dict[str, Any] = {
+            "t": tenant_id,
+            "s": start_at_utc,
+            "e": end_at_utc,
+            "now": now_utc,
+            "limit": limit,
+            "offset": offset,
+        }
+        service_clause = ""
+        if service_ids is not None:
+            if not service_ids:
+                return [], 0
+            service_clause = " AND a.service_id = ANY(:services)"
+            params["services"] = list(service_ids)
+        search_clause = ""
+        if q and q.strip():
+            search_clause = (
+                " AND (p.first_name ILIKE :pat OR p.last_name ILIKE :pat "
+                "OR s.service_name ILIKE :pat)"
+            )
+            params["pat"] = like_contains(q.strip())
+        count_row = await self._session.execute(
+            text(
+                f"""
+                SELECT count(*) AS n
+                FROM appointments a
+                JOIN patient_profiles pp
+                  ON pp.tenant_id = a.tenant_id AND pp.id = a.beneficiary_patient_id
+                JOIN tenant_persons p
+                  ON p.tenant_id = pp.tenant_id AND p.id = pp.person_id
+                JOIN services s
+                  ON s.tenant_id = a.tenant_id AND s.id = a.service_id
+                WHERE a.tenant_id = :t
+                  AND a.scheduled_start_at_utc >= :s
+                  AND a.scheduled_start_at_utc < :e
+                  AND ({metric_sql})
+                  {service_clause}
+                  {search_clause}
+                """
+            ),
+            params,
+        )
+        total = int(count_row.scalar_one())
+        result = await self._session.execute(
+            text(
+                f"""
+                SELECT a.id AS appointment_id, a.status, a.scheduled_start_at_utc,
+                       a.scheduled_end_at_utc, a.service_id, a.beneficiary_patient_id
+                         AS patient_profile_id,
+                       p.first_name AS patient_first_name, p.last_name AS patient_last_name,
+                       s.service_name,
+                       a.booking_channel, a.capacity_pool, a.aggregate_version
+                FROM appointments a
+                JOIN patient_profiles pp
+                  ON pp.tenant_id = a.tenant_id AND pp.id = a.beneficiary_patient_id
+                JOIN tenant_persons p
+                  ON p.tenant_id = pp.tenant_id AND p.id = pp.person_id
+                JOIN services s
+                  ON s.tenant_id = a.tenant_id AND s.id = a.service_id
+                WHERE a.tenant_id = :t
+                  AND a.scheduled_start_at_utc >= :s
+                  AND a.scheduled_start_at_utc < :e
+                  AND ({metric_sql})
+                  {service_clause}
+                  {search_clause}
+                ORDER BY a.scheduled_start_at_utc ASC, a.id ASC
+                LIMIT :limit OFFSET :offset
+                """
+            ),
+            params,
+        )
+        return [dict(r) for r in result.mappings().all()], total
+
     async def unique_patient_count(
         self, *, tenant_id: UUID, start_at_utc: datetime, end_at_utc: datetime
     ) -> int:

@@ -291,6 +291,7 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
             "CLINIC_ACCESS_TOKEN_TTL_SECONDS": "900",
             "CLINIC_OPS_SCHEMA_MODE": "disposable",
             "CLINIC_DEMO_ALIASES_ENABLED": "1",
+            "CLINIC_DEMO_DISPOSABLE_MARKER": "clinic-ecosystem-synthetic-preview-v1",
             "CLINIC_DEMO_ALIAS_OWNER": ops_seed.owner_login,
             "CLINIC_DEMO_ALIAS_MANAGER": ops_seed.manager_login,
             "CLINIC_DEMO_ALIAS_DEPUTY": ops_seed.deputy_login,

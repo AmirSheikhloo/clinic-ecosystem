@@ -45,19 +45,39 @@ def _truthy(raw: str | None) -> bool:
 
 
 def demo_aliases_enabled(environ: dict[str, str] | None = None) -> bool:
-    """Require explicit synthetic flags — hostname alone is insufficient."""
+    """Require verified disposable synthetic identity — never production/persistent DBs.
+
+    Positive requirements (all must hold):
+    - CLINIC_DEMO_ALIASES_ENABLED=1
+    - CLINIC_BETA_AUTH_REALM_ENABLED=1 with realm tenant UUID set
+    - CLINIC_OPS_SCHEMA_MODE=disposable (exact)
+    - CLINIC_ENV in {test, development, preview} — never production/staging
+    - CLINIC_DEMO_DISPOSABLE_MARKER must equal the fixed synthetic marker
+    - CLINIC_DATABASE_URL must not look like a known persistent/prod DSN pattern
+    """
     env = environ if environ is not None else os.environ
     clinic_env = (env.get("CLINIC_ENV") or "production").strip().lower()
-    if clinic_env in {"production", "staging", "prod"}:
+    # Only verified synthetic labels — never arbitrary development/dev hosts.
+    if clinic_env not in {"test", "preview"}:
         return False
     if not _truthy(env.get("CLINIC_DEMO_ALIASES_ENABLED")):
         return False
     if not _truthy(env.get("CLINIC_BETA_AUTH_REALM_ENABLED")):
         return False
-    # Disposable ops preview or explicit test realm.
-    ops = (env.get("CLINIC_OPS_SCHEMA_MODE") or "").strip().lower()
-    if ops not in {"disposable", "1", "true"} and clinic_env not in {"test", "development", "dev"}:
+    realm = (env.get("CLINIC_BETA_AUTH_REALM_TENANT_ID") or "").strip()
+    if len(realm) < 32:
         return False
+    ops = (env.get("CLINIC_OPS_SCHEMA_MODE") or "").strip().lower()
+    if ops != "disposable":
+        return False
+    marker = (env.get("CLINIC_DEMO_DISPOSABLE_MARKER") or "").strip()
+    if marker != "clinic-ecosystem-synthetic-preview-v1":
+        return False
+    dsn = (env.get("CLINIC_DATABASE_URL") or "").strip().lower()
+    # Refuse obvious persistent/production DSNs even if flags are mis-set.
+    for banned in ("prod", "production", "rds.amazonaws.com", "azure.com", "neon.tech/prod"):
+        if banned in dsn and "test" not in dsn and "preview" not in dsn:
+            return False
     return True
 
 
@@ -69,13 +89,11 @@ def load_demo_alias_catalog(environ: dict[str, str] | None = None) -> DemoAliasC
         for alias in DEMO_ROLE_ALIASES:
             key = f"CLINIC_DEMO_ALIAS_{alias.upper()}"
             target = (env.get(key) or "").strip()
+            # No unrestricted defaults — every alias must be explicitly mapped.
             if target:
                 aliases[alias] = target
-            elif alias in {"owner", "manager", "deputy"}:
-                # Sensible preview defaults matching beta02 seed emails.
-                aliases[alias] = f"{alias}@beta02.test"
     return DemoAliasCatalog(
-        enabled=enabled,
+        enabled=enabled and bool(aliases),
         password=DEMO_SHARED_PASSWORD,
         aliases=aliases,
         labels_fa=dict(DEMO_ROLE_LABELS_FA),

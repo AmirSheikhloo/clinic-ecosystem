@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert } from "@/components/feedback/Alert";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { apiJson } from "@/lib/api";
+import { allocateFixedDiscountIrr, CheckoutIntentStore } from "@/lib/checkout-intent";
 import { formatCount } from "@/lib/format/numbers";
 import { P } from "@/lib/permissions";
 import { useSession } from "@/components/session/SessionProvider";
@@ -29,11 +30,29 @@ type CheckoutResult = {
   allocated_total: number;
   outstanding: number;
   financial_status: string;
+  received_irr?: number;
+  applied_irr?: number;
+  unapplied_credit_irr?: number;
 };
 
-/** Live reception cashier: draft → discount → post → CASH/POS (synthetic). */
+function appointmentIdForLine(
+  line: DraftServiceLine,
+  lastBooking: BookedSummary | null | undefined,
+): string | null {
+  if (!lastBooking) return null;
+  const fromLines = lastBooking.lines?.find(
+    (item) => item.serviceId === line.serviceId || item.clientLineId === line.key,
+  );
+  if (fromLines) return fromLines.appointmentId;
+  if (lastBooking.lines?.length === 1) return lastBooking.lines[0].appointmentId;
+  if (!lastBooking.lines?.length) return lastBooking.appointmentId;
+  return null;
+}
+
+/** Live reception cashier: durable intent key + server-tariff checkout. */
 export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onCleared }: Props) {
   const { can } = useSession();
+  const intentStore = useRef(new CheckoutIntentStore());
   const all = draft ? [...lines, draft] : lines;
   const previewTotal = all.reduce((sum, line) => sum + line.priceIrr, 0);
   const [discountFixed, setDiscountFixed] = useState(0);
@@ -45,51 +64,77 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutResult | null>(null);
 
-  const canCheckout = can(P.financeInvoiceDraft) && can(P.financeInvoicePost) && can(P.financeReceiptRecord);
-  const bpsCut = discountBps > 0 ? Math.floor((previewTotal * discountBps) / 10_000) : 0;
-  const payablePreview = Math.max(0, previewTotal - (discountFixed || 0) - bpsCut);
+  const canPost = can(P.financeInvoiceDraft) && can(P.financeInvoicePost);
+  const canPay = canPost && can(P.financeReceiptRecord);
+  const canDiscount = can(P.financeDiscount);
+
+  const fixedCuts =
+    canDiscount && discountFixed > 0
+      ? allocateFixedDiscountIrr(
+          all.map((line) => line.priceIrr),
+          discountFixed,
+        )
+      : all.map(() => 0);
+  const bpsCut = canDiscount && discountBps > 0 ? Math.floor((previewTotal * discountBps) / 10_000) : 0;
+  // Preview matches submission: either fixed OR percent (not both) — server rejects combine.
+  const usingFixed = discountFixed > 0;
+  const usingBps = !usingFixed && discountBps > 0;
+  const payablePreview = Math.max(
+    0,
+    previewTotal - (usingFixed ? fixedCuts.reduce((s, v) => s + v, 0) : bpsCut),
+  );
 
   async function checkout(mode: "post_only" | "pay") {
     if (!patient || lines.length === 0 || busy) return;
+    if (mode === "pay" && !canPay) return;
+    if (mode === "post_only" && !canPost) return;
+    if (discountFixed > 0 && discountBps > 0) {
+      setError("نمی‌توان تخفیف ثابت و درصدی را هم‌زمان اعمال کرد");
+      return;
+    }
     setBusy(true);
     setError(null);
-    const lineDiscountEach =
-      discountFixed > 0 && can(P.financeDiscount)
-        ? Math.floor(discountFixed / lines.length)
-        : 0;
-    const rem = discountFixed > 0 ? discountFixed - lineDiscountEach * lines.length : 0;
+
+    const submittedLines = lines.map((line, idx) => ({
+      service_id: line.serviceId,
+      appointment_id: appointmentIdForLine(line, lastBooking),
+      description: line.serviceName,
+      discount_amount: usingFixed && canDiscount ? fixedCuts[idx] ?? 0 : 0,
+      discount_percent_bps: usingBps && canDiscount ? discountBps : null,
+      charge_without_service_reason:
+        appointmentIdForLine(line, lastBooking) == null ? "desk_manual_charge_authorized" : null,
+    }));
+
+    const paymentAmount =
+      mode === "pay" && payMethod !== "NONE"
+        ? Number(payAmount === "" ? payablePreview : payAmount)
+        : null;
+
     const body = {
       patient_id: patient.patient_profile_id,
       post: true,
       accept_unapplied_credit: acceptCredit,
       payment_method: mode === "pay" && payMethod !== "NONE" ? payMethod : null,
-      payment_amount_irr:
-        mode === "pay" && payMethod !== "NONE"
-          ? Number(payAmount === "" ? payablePreview : payAmount)
-          : null,
-      lines: lines.map((line, idx) => ({
-        service_id: line.serviceId,
-        appointment_id:
-          lastBooking && lines.length === 1 ? lastBooking.appointmentId : null,
-        description: line.serviceName,
-        // Server tariff is authoritative; omit client price to avoid mismatch races.
-        discount_amount: can(P.financeDiscount) ? lineDiscountEach + (idx === 0 ? rem : 0) : 0,
-        discount_percent_bps: can(P.financeDiscount) && discountBps > 0 ? discountBps : null,
-      })),
+      payment_amount_irr: paymentAmount,
+      lines: submittedLines,
     };
-    const stableKey = [
-      "desk-checkout",
-      patient.patient_profile_id,
-      ...lines.map((l) => l.serviceId),
-      String(discountFixed),
-      String(discountBps),
-      payMethod,
-      String(body.payment_amount_irr ?? "none"),
-    ].join(":");
+
+    const intentKey = intentStore.current.keyFor({
+      patientId: patient.patient_profile_id,
+      lineServiceIds: lines.map((l) => l.serviceId),
+      lineAppointmentIds: submittedLines.map((l) => l.appointment_id),
+      discountFixed: usingFixed ? discountFixed : 0,
+      discountBps: usingBps ? discountBps : 0,
+      payMethod: mode === "pay" ? payMethod : "NONE",
+      paymentAmountIrr: paymentAmount,
+      acceptCredit,
+      post: true,
+    });
+
     const response = await apiJson<CheckoutResult>("/api/v1/finance/desk-checkout", {
       method: "POST",
       body,
-      idempotencyKey: stableKey.slice(0, 128),
+      idempotencyKey: intentKey,
       fallbackMessage: "ثبت صورتحساب ناموفق بود",
     });
     setBusy(false);
@@ -97,6 +142,7 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
       setError(response.message);
       return;
     }
+    intentStore.current.complete();
     setResult(response.data);
     onCleared?.();
   }
@@ -158,7 +204,7 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
         </span>
       </div>
 
-      {can(P.financeDiscount) ? (
+      {canDiscount ? (
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="block text-sm">
             تخفیف ثابت (ریال)
@@ -167,7 +213,10 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
               min={0}
               className="ds-input mt-1"
               value={discountFixed}
-              onChange={(e) => setDiscountFixed(Math.max(0, Number(e.target.value) || 0))}
+              onChange={(e) => {
+                setDiscountFixed(Math.max(0, Number(e.target.value) || 0));
+                if (Number(e.target.value) > 0) setDiscountBps(0);
+              }}
               data-testid="cashier-discount"
             />
           </label>
@@ -179,7 +228,11 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
               max={10000}
               className="ds-input mt-1"
               value={discountBps}
-              onChange={(e) => setDiscountBps(Math.max(0, Math.min(10000, Number(e.target.value) || 0)))}
+              onChange={(e) => {
+                const next = Math.max(0, Math.min(10000, Number(e.target.value) || 0));
+                setDiscountBps(next);
+                if (next > 0) setDiscountFixed(0);
+              }}
               data-testid="cashier-discount-bps"
             />
           </label>
@@ -193,31 +246,38 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
         </span>
       </div>
 
-      {canCheckout ? (
+      {canPost ? (
         <div className="space-y-2 border-t border-[var(--ds-border)] pt-3">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="روش پرداخت">
-            {(["CASH", "POS", "NONE"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                className={`ds-btn ds-btn-ghost ${payMethod === m ? "!border-[var(--ds-primary)]" : ""}`}
-                onClick={() => setPayMethod(m)}
-                data-testid={`cashier-method-${m.toLowerCase()}`}
-              >
-                {m === "CASH" ? "نقدی" : m === "POS" ? "کارتخوان شبیه‌سازی" : "فقط ثبت"}
-              </button>
-            ))}
-          </div>
-          {payMethod !== "NONE" ? (
+          {canPay ? (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="روش پرداخت">
+              {(["CASH", "POS", "NONE"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`ds-btn ds-btn-sm ${payMethod === m ? "ds-btn-primary" : "ds-btn-ghost"}`}
+                  onClick={() => setPayMethod(m)}
+                  data-testid={`cashier-pay-${m.toLowerCase()}`}
+                >
+                  {m === "CASH" ? "نقد" : m === "POS" ? "کارتخوان" : "بدون دریافت"}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="ds-hint">مجوز ثبت رسید ندارید — فقط ثبت صورتحساب بدون پرداخت ممکن است.</p>
+          )}
+          {canPay && payMethod !== "NONE" ? (
             <>
               <label className="block text-sm">
-                مبلغ پرداخت (خالی = کامل)
+                مبلغ دریافتی (ریال)
                 <input
                   type="number"
                   min={0}
                   className="ds-input mt-1"
                   value={payAmount}
-                  onChange={(e) => setPayAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                  placeholder={String(payablePreview)}
+                  onChange={(e) =>
+                    setPayAmount(e.target.value === "" ? "" : Math.max(0, Number(e.target.value) || 0))
+                  }
                   data-testid="cashier-pay-amount"
                 />
               </label>
@@ -234,31 +294,38 @@ export function CashierPanel({ patient, lines, draft, onRemove, lastBooking, onC
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
-              loading={busy}
-              disabled={!patient || lines.length === 0}
-              onClick={() => void checkout(payMethod === "NONE" ? "post_only" : "pay")}
+              type="button"
+              variant="primary"
+              disabled={busy || lines.length === 0 || !patient}
+              onClick={() => void checkout(canPay && payMethod !== "NONE" ? "pay" : "post_only")}
               data-testid="cashier-checkout"
             >
-              {payMethod === "NONE" ? "ثبت صورتحساب" : "ثبت و دریافت"}
+              {canPay && payMethod !== "NONE" ? "ثبت و دریافت" : "ثبت بدون دریافت"}
             </Button>
+            {canPay && payMethod !== "NONE" ? (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy || lines.length === 0 || !patient}
+                onClick={() => void checkout("post_only")}
+                data-testid="cashier-post-only"
+              >
+                فقط ثبت صورتحساب
+              </Button>
+            ) : null}
           </div>
         </div>
-      ) : (
-        <p className="text-xs text-[var(--ds-text-muted)]">برای صندوق به مجوزهای مالی نیاز است.</p>
-      )}
+      ) : null}
 
-      {error ? <Alert tone="danger" testId="cashier-error">{error}</Alert> : null}
+      {error ? <Alert testId="cashier-error">{error}</Alert> : null}
       {result ? (
         <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-border)] p-3 text-sm" data-testid="cashier-result">
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge tone={result.outstanding === 0 ? "ok" : result.allocated_total > 0 ? "warn" : "danger"}>
-              {result.financial_status}
-            </StatusBadge>
-            <span className="tabular-nums">{result.invoice_number ?? result.id.slice(0, 8)}</span>
+            <StatusBadge tone="success">ثبت شد</StatusBadge>
+            <span className="tabular-nums">شماره: {result.invoice_number ?? result.id}</span>
           </div>
-          <p className="mt-2 tabular-nums">
-            قابل پرداخت {formatCount(result.patient_payable_total)} · پرداخت‌شده {formatCount(result.allocated_total)} · مانده{" "}
-            {formatCount(result.outstanding)}
+          <p className="mt-1 text-[var(--ds-text-muted)]">
+            وضعیت مالی: {result.financial_status} · مانده: {formatCount(result.outstanding)} ریال
           </p>
         </div>
       ) : null}

@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - cursor/gate-a-m0-bootstrap-95a4
+      - cursor/d010-ops-contracts-validation-95a4
   pull_request:
     branches:
       - main
+      - development/clinic-operations
   workflow_dispatch:
 
 permissions:

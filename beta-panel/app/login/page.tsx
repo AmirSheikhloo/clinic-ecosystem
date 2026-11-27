@@ -47,6 +47,14 @@ function LoginForm() {
     setBusy(true);
     try {
       await ensureCsrf();
+      // Clear prior principal/session before establishing a new role (demo switch).
+      try {
+        await apiFetch("/api/auth/logout", { method: "POST", csrf: true });
+      } catch {
+        /* best-effort — login still replaces cookies */
+      }
+      clearQueryCache();
+      await ensureCsrf();
       const response = await apiFetch("/api/auth/login", {
         method: "POST",
         csrf: true,

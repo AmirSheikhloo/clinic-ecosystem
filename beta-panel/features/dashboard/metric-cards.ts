@@ -20,21 +20,12 @@ export function buildMetricCards(
   _tomorrow: string,
   data: Summary | null,
 ): MetricCardDef[] {
-  const cancelled = data?.appointments ? (data.appointments.by_status.CANCELLED ?? 0) : null;
-  const confirmed = data?.appointments ? (data.appointments.by_status.CONFIRMED ?? 0) : null;
   const total = data?.appointments?.total ?? null;
-
-  // Heuristic for "needs status": confirmed appointments that are due for resolution.
-  // Exact predicate must match table filter; server-side field preferred when available.
-  const needsStatus =
-    data?.appointments?.needs_status_count ??
-    (data?.appointments
-      ? Math.max(
-          0,
-          (data.appointments.by_status.CONFIRMED ?? 0) -
-            (data.appointments.by_status.CHECKED_IN ?? 0),
-        )
-      : null);
+  const upcoming = data?.appointments?.upcoming_count ?? null;
+  const needsStatus = data?.appointments?.needs_status_count ?? null;
+  const cancelled =
+    data?.appointments?.cancelled_count ??
+    (data?.appointments ? (data.appointments.by_status.CANCELLED ?? 0) : null);
 
   if (audience.composition === "operational") {
     if (!can(P.appointmentsList)) return [];
@@ -51,7 +42,7 @@ export function buildMetricCards(
       {
         key: "upcoming",
         label: "نوبت‌های پیش رو",
-        value: confirmed,
+        value: upcoming,
         href: dashFilter("upcoming"),
         icon: "calendar",
         testId: "dashboard-upcoming",

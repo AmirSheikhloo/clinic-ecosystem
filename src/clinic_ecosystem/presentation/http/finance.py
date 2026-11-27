@@ -29,6 +29,11 @@ from clinic_ecosystem.presentation.http.dependencies import (
     get_authenticated_principal,
     get_uow,
 )
+from clinic_ecosystem.presentation.http.scope_access import (
+    filter_rows_by_scope,
+    load_scopes,
+    require_object_scope,
+)
 from clinic_ecosystem.shared_kernel.uuid7 import new_uuid7
 
 router = APIRouter(prefix="/api/v1/finance", tags=["finance"])
@@ -105,17 +110,31 @@ async def list_invoices(
 ) -> dict:
     granted = await load_granted(principal, uow)
     require(granted, perm.FINANCE_INVOICE_VIEW)
+    scopes = await load_scopes(principal, uow, perm.FINANCE_INVOICE_VIEW)
+    if not scopes:
+        return {"items": [], "limit": limit, "offset": offset, "total": 0}
     finance = SqlFinanceOps(uow.session)
     await _require_ops(finance)
+    # Fetch a bounded window then apply object-level scopes before pagination slice.
+    fetch_limit = min(500, max(limit + offset, limit) * 4)
     rows = await finance.list_invoices(
         tenant_id=principal.claims.tenant_id,
         patient_id=patient_id,
         status=status,
-        limit=limit,
-        offset=offset,
+        limit=fetch_limit,
+        offset=0,
     )
+    scoped = filter_rows_by_scope(
+        scopes,
+        [dict(r) for r in rows],
+        department_key="department_id",
+        service_key="service_id",
+        provider_key="provider_resource_id",
+    )
+    total = len(scoped)
+    page = scoped[offset : offset + limit]
     items = []
-    for row in rows:
+    for row in page:
         bal = await finance.invoice_balance(
             tenant_id=principal.claims.tenant_id, invoice_id=row["id"]
         )
@@ -132,13 +151,14 @@ async def list_invoices(
                 **bal,
             }
         )
-    return {"items": items, "limit": limit, "offset": offset}
+    return {"items": items, "limit": limit, "offset": offset, "total": total}
 
 
 @router.get("/invoices/{invoice_id}")
 async def get_invoice(principal: Principal, uow: Uow, invoice_id: UUID) -> dict:
     granted = await load_granted(principal, uow)
     require(granted, perm.FINANCE_INVOICE_VIEW)
+    scopes = await load_scopes(principal, uow, perm.FINANCE_INVOICE_VIEW)
     finance = SqlFinanceOps(uow.session)
     await _require_ops(finance)
     row = await finance.get_invoice(
@@ -146,9 +166,23 @@ async def get_invoice(principal: Principal, uow: Uow, invoice_id: UUID) -> dict:
     )
     if row is None:
         raise NotFound("Invoice not found", code="invoice_not_found")
+    require_object_scope(
+        scopes,
+        department_id=row.get("department_id"),
+        service_id=row.get("service_id"),
+        provider_resource_id=row.get("provider_resource_id"),
+    )
     lines = await finance.list_lines(
         tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
     )
+    # Every line must independently pass scope (OR across lines is not enough to expose extras).
+    for ln in lines:
+        require_object_scope(
+            scopes,
+            department_id=ln.get("department_id") or row.get("department_id"),
+            service_id=ln.get("service_id"),
+            provider_resource_id=ln.get("provider_resource_id"),
+        )
     bal = await finance.invoice_balance(
         tenant_id=principal.claims.tenant_id, invoice_id=invoice_id
     )
@@ -509,6 +543,8 @@ class DeskCheckoutLineIn(BaseModel):
     unit_price_irr: int | None = Field(default=None, ge=0)
     discount_amount: int = Field(default=0, ge=0)
     discount_percent_bps: int | None = Field(default=None, ge=0, le=10_000)
+    # Required when appointment_id is omitted — never auto-fabricated.
+    charge_without_service_reason: str | None = Field(default=None, max_length=200)
 
 
 class DeskCheckoutIn(BaseModel):
@@ -759,14 +795,22 @@ async def desk_checkout(
                 raise ValidationFailed(
                     "payment_amount_irr required", code="missing_payment_amount"
                 )
-        if any(ln.discount_amount or ln.discount_percent_bps for ln in body.lines):
+        has_fixed = any(int(ln.discount_amount or 0) > 0 for ln in body.lines)
+        has_bps = any(ln.discount_percent_bps for ln in body.lines)
+        if has_fixed or has_bps:
             require(granted, perm.FINANCE_DISCOUNT)
+        if has_fixed and has_bps:
+            raise ValidationFailed(
+                "Cannot combine FIXED_IRR and PERCENT_BPS discounts on one checkout",
+                code="discount_types_combined",
+            )
 
         finance = SqlFinanceOps(uow.session)
         await _require_ops(finance)
         catalog = SqlServicesCatalogRepository(uow.session)
         now = datetime.now(timezone.utc)
         dept = await finance.default_department(tenant_id=principal.claims.tenant_id)
+        scopes = await load_scopes(principal, uow, perm.FINANCE_INVOICE_DRAFT)
         draft_lines = []
         for ln in body.lines:
             svc = await catalog.get_by_id(
@@ -774,6 +818,11 @@ async def desk_checkout(
             )
             if svc is None or not svc.is_active:
                 raise NotFound("Service not found", code="service_not_found")
+            require_object_scope(
+                scopes,
+                department_id=dept,
+                service_id=ln.service_id,
+            )
             server_price = int(svc.default_price_irr)
             if ln.unit_price_irr is not None and ln.unit_price_irr != server_price:
                 raise ValidationFailed(
@@ -785,15 +834,34 @@ async def desk_checkout(
                         "client_price_irr": ln.unit_price_irr,
                     },
                 )
+            if ln.appointment_id is None:
+                reason = (ln.charge_without_service_reason or "").strip()
+                if not reason:
+                    raise ValidationFailed(
+                        "SERVICE lines need appointment_id or explicit charge_without_service_reason",
+                        code="missing_charge_authority",
+                        extra={"service_id": str(ln.service_id)},
+                    )
+            else:
+                reason = None
             discount = int(ln.discount_amount or 0)
             if ln.discount_percent_bps:
                 discount = (server_price * int(ln.discount_percent_bps)) // 10_000
-            discount = min(discount, server_price)
+            if discount > server_price:
+                raise ValidationFailed(
+                    "Discount exceeds line gross",
+                    code="discount_exceeds_gross",
+                    extra={
+                        "service_id": str(ln.service_id),
+                        "gross_irr": server_price,
+                        "discount_irr": discount,
+                    },
+                )
             draft_lines.append(
                 {
                     "line_kind": "SERVICE",
-                    "description": (ln.description or svc.service_name)[:200],
-                    "code": (ln.code or (svc.service_code or str(svc.id)[:8]))[:64],
+                    "description": svc.service_name[:200],
+                    "code": (svc.service_code or str(svc.id)[:8])[:64],
                     "unit_price_irr": server_price,
                     "quantity_scaled": 1,
                     "quantity_scale": 0,
@@ -801,9 +869,7 @@ async def desk_checkout(
                     "discount_amount": discount,
                     "service_id": ln.service_id,
                     "appointment_id": ln.appointment_id,
-                    "charge_without_service_reason": None
-                    if ln.appointment_id
-                    else "desk_charge_without_linked_service",
+                    "charge_without_service_reason": reason,
                 }
             )
         invoice_id = await finance.create_draft_invoice(

@@ -3,7 +3,9 @@ export type PeriodSummary = {
   by_status: Record<string, number>;
   unique_patients?: number;
   waiting_checked_in?: number;
+  upcoming_count?: number;
   needs_status_count?: number;
+  cancelled_count?: number;
 };
 
 export type FinanceSummary = {
@@ -29,6 +31,7 @@ export type Summary = {
 };
 
 export const UPCOMING_LIMIT = 12;
+export const DAY_PAGE_SIZES = [25, 50, 100] as const;
 
 export type MetricCardDef = {
   key: string;

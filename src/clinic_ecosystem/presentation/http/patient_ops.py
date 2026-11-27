@@ -20,6 +20,11 @@ from clinic_ecosystem.presentation.http.dependencies import (
     get_authenticated_principal,
     get_uow,
 )
+from clinic_ecosystem.presentation.http.scope_access import (
+    filter_rows_by_scope,
+    load_scopes,
+    require_object_scope,
+)
 from clinic_ecosystem.shared_kernel.uuid7 import new_uuid7
 
 router = APIRouter(prefix="/api/v1/patients", tags=["patient-ops"])
@@ -56,6 +61,9 @@ class TagAssignIn(BaseModel):
 async def list_notes(principal: Principal, uow: Uow, patient_id: UUID) -> dict:
     granted = await load_granted(principal, uow)
     require(granted, perm.PATIENTS_VIEW_PROFILE)
+    scopes = await load_scopes(principal, uow, perm.PATIENTS_VIEW_PROFILE)
+    if not scopes:
+        return {"items": []}
     if not await _ops_ready(uow):
         raise Conflict("Ops notes schema unavailable", code="ops_schema_unavailable")
     result = await uow.session.execute(
@@ -86,6 +94,8 @@ async def list_notes(principal: Principal, uow: Uow, patient_id: UUID) -> dict:
         ),
         {"tenant_id": principal.claims.tenant_id, "patient_id": patient_id},
     )
+    raw = [dict(r) for r in result.mappings().all() if not r["retracted"]]
+    scoped = filter_rows_by_scope(scopes, raw)
     return {
         "items": [
             {
@@ -97,8 +107,7 @@ async def list_notes(principal: Principal, uow: Uow, patient_id: UUID) -> dict:
                 "pinned": bool(r["pinned"]),
                 "retracted": bool(r["retracted"]),
             }
-            for r in result.mappings().all()
-            if not r["retracted"]
+            for r in scoped
         ]
     }
 
@@ -109,6 +118,10 @@ async def create_note(
 ) -> dict:
     granted = await load_granted(principal, uow)
     require(granted, perm.PATIENTS_UPDATE)
+    scopes = await load_scopes(principal, uow, perm.PATIENTS_UPDATE)
+    require_object_scope(
+        scopes, department_id=body.department_id, service_id=body.service_id
+    )
     if not await _ops_ready(uow):
         raise Conflict("Ops notes schema unavailable", code="ops_schema_unavailable")
     if not body.body.strip():
@@ -158,12 +171,13 @@ async def note_action(
 ) -> dict:
     granted = await load_granted(principal, uow)
     require(granted, perm.PATIENTS_UPDATE)
+    scopes = await load_scopes(principal, uow, perm.PATIENTS_UPDATE)
     if not await _ops_ready(uow):
         raise Conflict("Ops notes schema unavailable", code="ops_schema_unavailable")
     exists = await uow.session.execute(
         text(
             """
-            SELECT id FROM patient_operational_notes
+            SELECT id, department_id, service_id FROM patient_operational_notes
             WHERE tenant_id = :tenant_id AND patient_id = :patient_id AND id = :note_id
             """
         ),
@@ -173,8 +187,14 @@ async def note_action(
             "note_id": note_id,
         },
     )
-    if exists.mappings().one_or_none() is None:
+    note_row = exists.mappings().one_or_none()
+    if note_row is None:
         raise NotFound("Note not found", code="note_not_found")
+    require_object_scope(
+        scopes,
+        department_id=note_row["department_id"],
+        service_id=note_row["service_id"],
+    )
     now = datetime.now(timezone.utc)
     await uow.session.execute(
         text(
@@ -202,12 +222,16 @@ async def note_action(
 async def list_tags(principal: Principal, uow: Uow, patient_id: UUID) -> dict:
     granted = await load_granted(principal, uow)
     require(granted, perm.PATIENTS_VIEW_PROFILE)
+    scopes = await load_scopes(principal, uow, perm.PATIENTS_VIEW_PROFILE)
+    if not scopes:
+        return {"items": []}
     if not await _ops_ready(uow):
         raise Conflict("Ops tags schema unavailable", code="ops_schema_unavailable")
     result = await uow.session.execute(
         text(
             """
-            SELECT t.id, c.tag_code, c.tag_name, t.created_at_utc
+            SELECT t.id, c.tag_code, c.tag_name, t.created_at_utc,
+                   t.department_id, t.service_id
             FROM patient_staff_tags t
             JOIN staff_tag_catalog c ON c.tenant_id = t.tenant_id AND c.id = t.tag_id
             WHERE t.tenant_id = :tenant_id AND t.patient_id = :patient_id
@@ -217,6 +241,8 @@ async def list_tags(principal: Principal, uow: Uow, patient_id: UUID) -> dict:
         ),
         {"tenant_id": principal.claims.tenant_id, "patient_id": patient_id},
     )
+    raw = [dict(r) for r in result.mappings().all()]
+    scoped = filter_rows_by_scope(scopes, raw)
     return {
         "items": [
             {
@@ -225,7 +251,7 @@ async def list_tags(principal: Principal, uow: Uow, patient_id: UUID) -> dict:
                 "tag_name": r["tag_name"],
                 "created_at_utc": r["created_at_utc"].isoformat(),
             }
-            for r in result.mappings().all()
+            for r in scoped
         ]
     }
 
@@ -236,6 +262,10 @@ async def assign_tag(
 ) -> dict:
     granted = await load_granted(principal, uow)
     require(granted, perm.PATIENTS_UPDATE)
+    scopes = await load_scopes(principal, uow, perm.PATIENTS_UPDATE)
+    require_object_scope(
+        scopes, department_id=body.department_id, service_id=body.service_id
+    )
     if not await _ops_ready(uow):
         raise Conflict("Ops tags schema unavailable", code="ops_schema_unavailable")
     now = datetime.now(timezone.utc)

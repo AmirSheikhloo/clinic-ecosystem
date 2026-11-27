@@ -24,7 +24,11 @@ class PermissionScope:
         service_id: UUID | None = None,
         provider_resource_id: UUID | None = None,
     ) -> bool:
-        """Within-row AND: every non-null FILTER dimension on the row must match."""
+        """Within-row AND: every non-null FILTER dimension on the row must match.
+
+        Missing object dimensions fail closed when the FILTER row constrains that
+        dimension (None on the object never satisfies a required FILTER value).
+        """
         if self.scope_mode == "ALL":
             return True
         if self.scope_mode != "FILTER":
@@ -183,6 +187,11 @@ class SqlPermissionService:
     def allows_department(
         self, scopes: list[PermissionScope], department_id: UUID | None
     ) -> bool:
+        """Department-only checks still require full object dimensions when known.
+
+        Prefer ``allows(...)`` with all object dimensions. A lone department check
+        fails closed when FILTER rows constrain service/provider and those are omitted.
+        """
         return self.allows(scopes, department_id=department_id)
 
     def allows_service(
@@ -193,14 +202,23 @@ class SqlPermissionService:
     def allows_practitioner(
         self, scopes: list[PermissionScope], provider_resource_id: UUID | None
     ) -> bool:
-        """ALL or FILTER without provider constraint covers all practitioners."""
-        if not scopes:
-            return False
-        if any(s.scope_mode == "ALL" for s in scopes):
-            return True
-        if any(s.scope_mode == "FILTER" and s.provider_resource_id is None for s in scopes):
-            return True
+        """Practitioner checks must not widen via unconstrained FILTER dimensions.
+
+        A FILTER row without a provider constraint does **not** independently grant
+        all practitioners when other constrained dimensions are omitted — use
+        ``allows(...)`` with department/service/provider together. This method is
+        a thin alias of ``allows`` for the provider dimension only (fail-closed).
+        """
         return self.allows(scopes, provider_resource_id=provider_resource_id)
+
+    def is_unrestricted(self, scopes: list[PermissionScope]) -> bool:
+        return any(s.scope_mode == "ALL" for s in scopes)
+
+    def filter_scopes(self, scopes: list[PermissionScope]) -> list[PermissionScope]:
+        """FILTER rows only (empty when ALL present or no scopes)."""
+        if self.is_unrestricted(scopes):
+            return []
+        return [s for s in scopes if s.scope_mode == "FILTER"]
 
     async def governance_roles(self, *, tenant_id: UUID, person_id: UUID) -> set[str]:
         result = await self._session.execute(

@@ -48,17 +48,34 @@ async def dashboard_summary(
     appointments = None
     tomorrow_appointments = None
     if perm.APPOINTMENTS_LIST in granted:
+        from clinic_ecosystem.presentation.http.scope_access import (
+            load_scopes,
+            scope_service_ids,
+        )
+
+        appt_scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
+        allowed_services = scope_service_ids(appt_scopes) if appt_scopes else set()
         by_status = await queries.appointment_status_counts(
             tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
         )
         unique_patients = await queries.unique_patient_count(
             tenant_id=tenant_id, start_at_utc=start, end_at_utc=end
         )
+        ops_metrics = await queries.operational_metric_counts(
+            tenant_id=tenant_id,
+            start_at_utc=start,
+            end_at_utc=end,
+            now_utc=datetime.now(timezone.utc),
+            service_ids=allowed_services,
+        )
         appointments = {
-            "total": sum(by_status.values()),
+            "total": ops_metrics["today"],
             "by_status": by_status,
             "unique_patients": unique_patients,
             "waiting_checked_in": int(by_status.get("CHECKED_IN", 0)),
+            "upcoming_count": ops_metrics["upcoming"],
+            "needs_status_count": ops_metrics["needs_status"],
+            "cancelled_count": ops_metrics["cancelled"],
         }
         # Next calendar period of equal length (for "tomorrow" when the range is one Tehran day).
         span = end - start
@@ -108,6 +125,68 @@ async def dashboard_summary(
         if perm.CATALOG_SERVICES_READ in granted else None,
         "resources_active": await queries.active_resources(tenant_id)
         if perm.CATALOG_RESOURCES_READ in granted else None,
+    }
+
+
+@router.get("/dashboard/day")
+async def dashboard_day(
+    principal: Principal,
+    uow: Uow,
+    start_at_utc: Annotated[datetime, Query()],
+    end_at_utc: Annotated[datetime, Query()],
+    metric: Annotated[str, Query()] = "today",
+    q: Annotated[str | None, Query(max_length=120)] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    offset: Annotated[int, Query(ge=0, le=50_000)] = 0,
+) -> dict:
+    """Authoritative operational day dataset with exact metric predicates + pagination."""
+    granted = await load_granted(principal, uow)
+    if perm.APPOINTMENTS_LIST not in granted:
+        return {"items": [], "total": 0, "limit": limit, "offset": offset, "metric": metric}
+    from clinic_ecosystem.presentation.http.scope_access import load_scopes, scope_service_ids
+
+    start, end = _aware(start_at_utc, "start_at_utc"), _aware(end_at_utc, "end_at_utc")
+    if end <= start or (end - start).days > 31:
+        raise ValidationFailed("Invalid day range", code="invalid_time_range")
+    if metric not in {"today", "upcoming", "needs_status", "cancelled"}:
+        raise ValidationFailed("Invalid metric filter", code="invalid_metric")
+    scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
+    allowed_services = scope_service_ids(scopes) if scopes else set()
+    queries = SqlOverviewQueries(uow.session)
+    rows, total = await queries.list_operational_day(
+        tenant_id=principal.claims.tenant_id,
+        start_at_utc=start,
+        end_at_utc=end,
+        now_utc=datetime.now(timezone.utc),
+        metric=metric,
+        q=q,
+        limit=limit,
+        offset=offset,
+        service_ids=allowed_services,
+    )
+    return {
+        "items": [
+            {
+                "appointment_id": str(r["appointment_id"]),
+                "patient_profile_id": str(r["patient_profile_id"]),
+                "patient_first_name": r["patient_first_name"],
+                "patient_last_name": r["patient_last_name"],
+                "service_id": str(r["service_id"]),
+                "service_name": r["service_name"],
+                "status": r["status"],
+                "scheduled_start_at_utc": r["scheduled_start_at_utc"].isoformat(),
+                "scheduled_end_at_utc": r["scheduled_end_at_utc"].isoformat(),
+                "booking_channel": r["booking_channel"],
+                "capacity_pool": r["capacity_pool"],
+                "aggregate_version": r["aggregate_version"],
+                "resource_names": [],
+            }
+            for r in rows
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "metric": metric,
     }
 
 

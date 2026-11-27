@@ -39,10 +39,15 @@ def test_filter_within_row_and_across_row_or() -> None:
     assert svc.allows(scopes, department_id=dept_a, service_id=svc_b) is False
 
 
-def test_practitioner_unscoped_filter_covers_all_practitioners() -> None:
+def test_practitioner_alone_does_not_widen_via_unconstrained_filter() -> None:
+    """FILTER with only department must not grant all practitioners when dept omitted."""
     svc = SqlPermissionService(session=None)  # type: ignore[arg-type]
-    scopes = [PermissionScope("P", "FILTER", uuid4(), None, None)]
-    assert svc.allows_practitioner(scopes, uuid4()) is True
+    dept = uuid4()
+    scopes = [PermissionScope("P", "FILTER", dept, None, None)]
+    # Calling allows_practitioner without department fails closed.
+    assert svc.allows_practitioner(scopes, uuid4()) is False
+    # Full object dimensions succeed.
+    assert svc.allows(scopes, department_id=dept, provider_resource_id=uuid4()) is True
     scoped = [PermissionScope("P", "FILTER", None, None, uuid4())]
     other = uuid4()
     assert svc.allows_practitioner(scoped, scoped[0].provider_resource_id) is True
@@ -54,3 +59,5 @@ def test_permission_scope_matches_and() -> None:
     row = PermissionScope("P", "FILTER", dept, svc_id, pract)
     assert row.matches(department_id=dept, service_id=svc_id, provider_resource_id=pract)
     assert not row.matches(department_id=dept, service_id=svc_id, provider_resource_id=uuid4())
+    # Missing required dimension fails closed.
+    assert not row.matches(department_id=None, service_id=svc_id, provider_resource_id=pract)

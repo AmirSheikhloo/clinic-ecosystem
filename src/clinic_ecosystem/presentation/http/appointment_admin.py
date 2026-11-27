@@ -22,6 +22,12 @@ from clinic_ecosystem.presentation.http.dependencies import (
     get_authenticated_principal,
     get_uow,
 )
+from clinic_ecosystem.presentation.http.scope_access import (
+    filter_rows_by_scope,
+    load_scopes,
+    require_object_scope,
+    scope_service_ids,
+)
 
 router = APIRouter(prefix="/api/v1/appointments", tags=["appointment-admin"])
 Principal = Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)]
@@ -99,6 +105,14 @@ async def calendar(
     limit: Annotated[int, Query(ge=1, le=500)] = 300,
 ) -> dict:
     require(await load_granted(principal, uow), perm.APPOINTMENTS_LIST)
+    scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
+    if not scopes:
+        return {"items": [], "truncated": False, "limit": limit}
+    allowed_services = scope_service_ids(scopes)
+    if allowed_services is not None and len(allowed_services) == 0:
+        return {"items": [], "truncated": False, "limit": limit}
+    if service_id is not None and allowed_services is not None and service_id not in allowed_services:
+        return {"items": [], "truncated": False, "limit": limit}
     start, end = _parse_range(start_at_utc, end_at_utc)
     if status_filter and status_filter not in CALENDAR_STATUSES:
         raise ValidationFailed("Unknown status filter", code="invalid_status")
@@ -107,10 +121,11 @@ async def calendar(
         start_at_utc=start, end_at_utc=end,
         service_id=service_id, resource_id=resource_id,
         status=status_filter, patient_profile_id=patient_profile_id,
-        limit=limit + 1,
+        limit=min(2000, (limit + 1) * 4),
     )
-    truncated = len(rows) > limit
-    return {"items": [_item(r) for r in rows[:limit]], "truncated": truncated, "limit": limit}
+    scoped = filter_rows_by_scope(scopes, [dict(r) for r in rows])
+    truncated = len(scoped) > limit
+    return {"items": [_item(r) for r in scoped[:limit]], "truncated": truncated, "limit": limit}
 
 
 @router.get("/management")
@@ -129,6 +144,9 @@ async def management_list(
     offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
 ) -> dict:
     require(await load_granted(principal, uow), perm.APPOINTMENTS_LIST)
+    scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
+    if not scopes:
+        return {"items": [], "total": 0, "limit": limit, "offset": offset, "truncated": False}
     start, end = _parse_range(start_at_utc, end_at_utc)
     if status_filter and status_filter not in CALENDAR_STATUSES:
         raise ValidationFailed("Unknown status filter", code="invalid_status")
@@ -137,23 +155,23 @@ async def management_list(
     term = (q or "").strip() or None
     admin = SqlAppointmentAdmin(uow.session)
     tenant_id = principal.claims.tenant_id
-    total = await admin.count_calendar(
-        tenant_id=tenant_id, start_at_utc=start, end_at_utc=end,
-        service_id=service_id, resource_id=resource_id, status=status_filter,
-        patient_profile_id=patient_profile_id, q=term,
-    )
+    # Scope before pagination: fetch bounded window, filter, then slice.
+    fetch_limit = min(2000, max(limit + offset, limit) * 4)
     rows = await admin.list_calendar(
         tenant_id=tenant_id, start_at_utc=start, end_at_utc=end,
         service_id=service_id, resource_id=resource_id, status=status_filter,
         patient_profile_id=patient_profile_id, q=term, sort=sort,
-        limit=limit, offset=offset,
+        limit=fetch_limit, offset=0,
     )
+    scoped = filter_rows_by_scope(scopes, [dict(r) for r in rows])
+    total = len(scoped)
+    page = scoped[offset : offset + limit]
     return {
-        "items": [_item(r) for r in rows],
+        "items": [_item(r) for r in page],
         "total": total,
         "limit": limit,
         "offset": offset,
-        "truncated": (offset + len(rows)) < total,
+        "truncated": (offset + len(page)) < total,
     }
 
 
@@ -166,6 +184,9 @@ async def upcoming(
     end_at_utc: Annotated[datetime | None, Query()] = None,
 ) -> dict:
     require(await load_granted(principal, uow), perm.APPOINTMENTS_LIST)
+    scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
+    if not scopes:
+        return {"items": [], "limit": limit}
     day_start = day_end = None
     if start_at_utc is not None or end_at_utc is not None:
         if start_at_utc is None or end_at_utc is None:
@@ -177,11 +198,12 @@ async def upcoming(
     rows = await SqlAppointmentAdmin(uow.session).list_upcoming(
         tenant_id=principal.claims.tenant_id,
         now=datetime.now(timezone.utc),
-        limit=limit,
+        limit=min(500, limit * 4),
         day_start_at_utc=day_start,
         day_end_at_utc=day_end,
     )
-    return {"items": [_item(r) for r in rows], "limit": limit}
+    scoped = filter_rows_by_scope(scopes, [dict(r) for r in rows])
+    return {"items": [_item(r) for r in scoped[:limit]], "limit": limit}
 
 
 @router.get("/waiting-room")
@@ -195,30 +217,31 @@ async def waiting_room(
 ) -> dict:
     """Physical waiting room: CHECKED_IN appointments in the Tehran-day window (read model)."""
     require(await load_granted(principal, uow), perm.APPOINTMENTS_LIST)
+    scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
+    if not scopes:
+        return {"items": [], "total": 0, "limit": limit, "offset": offset}
     start, end = _parse_range(start_at_utc, end_at_utc)
     admin = SqlAppointmentAdmin(uow.session)
     tenant_id = principal.claims.tenant_id
-    total = await admin.count_calendar(
-        tenant_id=tenant_id,
-        start_at_utc=start,
-        end_at_utc=end,
-        status="CHECKED_IN",
-    )
+    fetch_limit = min(2000, max(limit + offset, limit) * 4)
     rows = await admin.list_calendar(
         tenant_id=tenant_id,
         start_at_utc=start,
         end_at_utc=end,
         status="CHECKED_IN",
         sort="time",
-        limit=limit,
-        offset=offset,
+        limit=fetch_limit,
+        offset=0,
     )
+    scoped = filter_rows_by_scope(scopes, [dict(r) for r in rows])
+    total = len(scoped)
+    page = scoped[offset : offset + limit]
     return {
-        "items": [_item(r) for r in rows],
+        "items": [_item(r) for r in page],
         "total": total,
         "limit": limit,
         "offset": offset,
-        "truncated": (offset + len(rows)) < total,
+        "truncated": (offset + len(page)) < total,
     }
 
 
@@ -228,11 +251,13 @@ async def appointment_details(
 ) -> dict:
     granted = await load_granted(principal, uow)
     require(granted, perm.APPOINTMENTS_VIEW_DETAILS)
+    scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_VIEW_DETAILS)
     admin = SqlAppointmentAdmin(uow.session)
     tenant_id = principal.claims.tenant_id
     row = await admin.get_appointment(tenant_id=tenant_id, appointment_id=appointment_id)
     if row is None:
         raise NotFound("Appointment not found", code="appointment_not_found")
+    require_object_scope(scopes, service_id=row.get("service_id"))
     allocations = await admin.get_allocations(tenant_id=tenant_id, appointment_id=appointment_id)
     set_etag(response, int(row["aggregate_version"]))
     manual = row["capacity_pool"] == "MANUAL"
