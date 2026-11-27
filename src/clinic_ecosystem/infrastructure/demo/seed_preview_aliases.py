@@ -114,7 +114,9 @@ async def apply_preview_demo_aliases(
                       id, tenant_id, person_id, login_identifier, normalized_login_identifier,
                       password_hash_argon2id, is_active, failed_login_attempts, locked_until_utc,
                       password_changed_at_utc, aggregate_version, created_at_utc, updated_at_utc
-                    ) VALUES ($1,$2,$3,$4,lower($4),$5,TRUE,0,NULL,$6,1,$6,$6)
+                    ) VALUES (
+                      $1,$2,$3,$4::varchar,lower($4::text),$5,TRUE,0,NULL,$6,1,$6,$6
+                    )
                     """,
                     account_id,
                     tenant_id,
@@ -186,7 +188,9 @@ async def apply_preview_demo_aliases(
               id, tenant_id, person_id, login_identifier, normalized_login_identifier,
               password_hash_argon2id, is_active, failed_login_attempts, locked_until_utc,
               password_changed_at_utc, aggregate_version, created_at_utc, updated_at_utc
-            ) VALUES ($1,$2,$3,$4,lower($4),$5,TRUE,0,NULL,$6,1,$6,$6)
+            ) VALUES (
+              $1,$2,$3,$4::varchar,lower($4::text),$5,TRUE,0,NULL,$6,1,$6,$6
+            )
             """,
             account_id,
             tenant_id,
