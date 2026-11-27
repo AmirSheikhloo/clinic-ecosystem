@@ -202,10 +202,20 @@ test("unauthorized principal cannot use reception catalog", async ({ page }) => 
     throw new Error("Missing unauthorized fixture password for browser E2E");
   }
   await page.goto("/login");
+  await page.evaluate(async () => {
+    await fetch("/api/auth/csrf", { method: "GET", credentials: "same-origin" });
+  });
+  await expect
+    .poll(async () => (await page.context().cookies()).some((c) => c.name === CSRF && c.value.length > 0))
+    .toBe(true);
   await page.getByTestId("login-identifier").fill(unauthorizedLogin());
   await page.getByTestId("login-password").fill(unauthorizedPassword());
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/desk/, { timeout: 30_000 });
+  // Login may land on dashboard; open desk to assert fail-closed catalog boot.
+  await expect(page).toHaveURL(/\/(dashboard|desk)/, { timeout: 30_000 });
+  if (!/\/desk/.test(page.url())) {
+    await page.goto("/desk");
+  }
   // No catalog permission → boot fails closed (no bookable surface / no cross-tenant leak)
   await expect(page.getByTestId("desk-boot-error")).toBeVisible({ timeout: 45_000 });
   const bootText = await page.getByTestId("desk-boot-error").innerText();

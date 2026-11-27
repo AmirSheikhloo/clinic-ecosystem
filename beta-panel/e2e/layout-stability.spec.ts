@@ -183,8 +183,8 @@ test("narrow desktop width truncates breadcrumbs inside their column", async ({ 
     const crumbBox = (await page.getByTestId("breadcrumbs").boundingBox())!;
     const apart = (a: { x: number; width: number }, b: { x: number; width: number }) =>
       a.x + a.width <= b.x + TOLERANCE || b.x + b.width <= a.x + TOLERANCE;
-    expect(apart(rects.search!, rects.account!), "search and account overlap").toBe(true);
-    expect(apart(crumbBox, rects.search!), "breadcrumbs overlap search").toBe(true);
+    expect(apart(rects.clock!, rects.account!), "clock and account overlap").toBe(true);
+    expect(apart(crumbBox, rects.clock!), "breadcrumbs overlap clock").toBe(true);
     expect(apart(crumbBox, rects.account!), "breadcrumbs overlap account").toBe(true);
     expect(crumbBox.x).toBeGreaterThanOrEqual(rects.topbar!.x - TOLERANCE);
     expect(crumbBox.x + crumbBox.width).toBeLessThanOrEqual(rects.topbar!.x + rects.topbar!.width + TOLERANCE);

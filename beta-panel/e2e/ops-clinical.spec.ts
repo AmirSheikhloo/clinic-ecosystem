@@ -152,9 +152,10 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await page.getByTestId("overlap-confirm").click();
   await expectToast(page, "نوبت جابه‌جا شد");
 
-  // Cancel B.
+  // Cancel B — reason code is required; free-text alone no longer submits.
   await (await findAppointmentRow(page, `B${RUN}`)).getByTestId("appointment-open").click();
   await page.getByTestId("appointment-cancel").click();
+  await page.getByTestId("cancel-reason-code").selectOption("PATIENT_REQUEST");
   await page.getByTestId("cancel-reason").fill("synthetic cancel");
   await page.getByTestId("cancel-confirm").click();
   await expectToast(page, "نوبت لغو شد");

@@ -129,7 +129,10 @@ export async function pickComboboxOption(page: Page, testId: string, label: stri
   const input = page.getByTestId(`${testId}-input`);
   await input.click();
   await input.fill(label);
-  await page.getByRole("option", { name: label }).first().click();
+  // Prefer the visible listbox option — a hidden native <select> also exposes role=option.
+  const listbox = page.getByRole("listbox");
+  await listbox.getByRole("option", { name: new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }).first().click();
+  await expect(listbox).toHaveCount(0);
 }
 
 /** Dense demo days often collide; accept either a clean booking or an acknowledged overlap. */
@@ -160,7 +163,9 @@ export async function deskBook(page: Page, startLocal: string) {
   await expect(page.getByTestId("resource-fieldset")).toBeEnabled({ timeout: 30_000 });
   const resource = page.getByTestId("resource-option").filter({ hasText: resourceName });
   await expect(resource).toBeVisible();
-  await resource.locator('input[type="checkbox"]').check();
+  // Click the option row (label) — checkbox alone can be intercepted by an open combobox layer.
+  await resource.click();
+  await expect(resource.locator('input[type="checkbox"]')).toBeChecked();
   await fillJalaliDateTime(page, "appointment-start", startLocal);
   await expect(page.getByTestId("appointment-submit")).toBeEnabled({ timeout: 15_000 });
   await page.getByTestId("appointment-submit").click();
