@@ -1,5 +1,5 @@
 {
-  "tip_sha": "577e4724a4444a0103f1f92141e5dfe25a1744b8",
+  "tip_sha": "a9dc03b8610ee9dd184970008e9f1e7f2bdd6c3d",
   "environment": "Linux synthetic preview (PG15 testcontainers + next start)",
   "playwright": {
     "spec": "beta-panel/e2e/task34-r2-mutations.spec.ts",

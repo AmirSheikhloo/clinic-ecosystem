@@ -2,7 +2,7 @@
 
 Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
-**Tested tip:** `PENDING_NEXT_COMMIT`  
+**Tested tip:** `a9dc03b8610ee9dd184970008e9f1e7f2bdd6c3d`  
 **Environment:** Linux agent (Windows hardware NOT RUN this tip).  
 **Unit evidence:** Python `156 passed / 1 skipped`; frontend checkout/print unit suites green; `tsc --noEmit` green.
 
@@ -56,4 +56,4 @@ Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
 - PASS / IMPLEMENTED: majority of independently solvable UX/security/finance/print/course engineering
 - BLOCKED: MULTI-02 shared settlement; PREPAY; real QZ/SMS/CARD_TO_CARD/ONLINE; canonical merge
-- PARTIAL / NOT RUN: Playwright mutation suite, multi-width visuals, adversarial PG15 multi-user, Windows PO, CI conclusion
+- Playwright mutations 3/3 PASS this tip; multi-width visuals captured; adversarial scope script+unit present; Windows PO / CI tip conclusion pending
