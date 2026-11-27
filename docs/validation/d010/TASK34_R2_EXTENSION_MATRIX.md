@@ -40,8 +40,8 @@ Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 | PRINT-01 | 80/58mm Persian RTL; independent + batch; privacy; course/next hints | `features/print/*` unit tests | IMPLEMENTED (synthetic) | Physical hardware NOT RUN |
 | PRINT-02 | Enrollment/test-print; job identity; failed/unknown/disconnect; reprint≠checkout; QZ blocked | printJobs + workstationPrinter + snapshot API | IMPLEMENTED (synthetic) | Real QZ signing/hardware BLOCKED pending approval |
 | COURSE-01 | Versioned templates + sessions + conservation SQL | proposed_treatment_courses.sql + store/service | IMPLEMENTED (disposable) | Prepaid disabled |
-| RECALL-01 | Mehr→Aban→Azar rolling from completion | `test_rolling_recall_mehr_aban` | PASS | |
-| RECALL-02 | Synthetic reminder worker (dedupe/retry/quiet/opt-out) | reminder_worker.py | IMPLEMENTED | No real SMS |
+| RECALL-01 | Mehr→Aban→Azar rolling from completion | `test_rolling_recall_mehr_aban` + `test_treatment_courses_rolling_recall` | PASS (17 unit) | |
+| RECALL-02 | Synthetic reminder worker (dedupe/retry/quiet/opt-out) | `application/treatment_courses/reminder_worker.py` | IMPLEMENTED | No real SMS; PG15 claim NOT RUN (no Docker) |
 | RECALL-03 | Qualifying future appointment suppression | service path | IMPLEMENTED (code) | PG15 integration pending |
 | PREPAY-01/02 | Prepaid packages | Design-only; disabled | BLOCKED (policy) | |
 | SEC-01 | Object-level ALL/FILTER scopes | permissions + scope_access + appointment/finance/patient | PASS (unit) | Live multi-user PG pending |

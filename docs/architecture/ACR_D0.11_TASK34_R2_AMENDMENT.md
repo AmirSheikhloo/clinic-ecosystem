@@ -22,11 +22,15 @@ That document covers conservation, unique external evidence, idempotency, benefi
 
 ## 2. Treatment courses + rolling recall (COURSE / RECALL)
 
-Disposable tables (ops schema only): `treatment_course_templates`, `treatment_courses`, `treatment_course_sessions`, `treatment_recall_schedules`, `notification_outbox_synthetic`.
+Full proposed architecture: `docs/validation/d010/proposed/TREATMENT_COURSES_ROLLING_RECALL_ARCHITECTURE.md`.  
+Disposable SQL: `docs/validation/d010/d09_extracted/proposed_treatment_courses.sql` (apply via `apply_treatment_courses_schema`).
 
-- Clinical completion count from PERFORMED service records only.
-- Rolling next suggested date from actual completion Tehran local date + versioned interval.
-- Synthetic notification sink only; no real SMS/bot.
+Tables: `service_course_templates` + versions, `treatment_courses`, `treatment_course_sessions`, `treatment_reminder_policy_snapshots`, `treatment_recall_schedules`, `patient_notification_preferences`, `notification_outbox_synthetic`, `synthetic_notification_deliveries` (plus legacy alias `treatment_course_templates`).
+
+- Clinical completion from PERFORMED service records only; no payment-created completion; no cancellation/no-show consumption; no future-session artificial debt.
+- Rolling next suggested date from actual completion Tehran local date + Jalali calendar-month or fixed-day interval; reminder lead snapshot; quiet hours; opt-out; schedule versioning.
+- Synthetic reminder worker mirrors TP0006/hold-expiry claim+lease; sink only — no real SMS/bot.
+- Prepaid entitlement and shared settlement remain DISABLED.
 
 ## 3. Print jobs (PRINT)
 
