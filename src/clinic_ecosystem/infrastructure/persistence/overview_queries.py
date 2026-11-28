@@ -359,25 +359,52 @@ class SqlOverviewQueries:
     async def insurance_labels_for_patients(
         self, *, tenant_id: UUID, patient_ids: list[UUID]
     ) -> dict[UUID, str]:
-        """Best-effort insurance display names when disposable insurer tables exist."""
+        """Resolve insurance from patient coverage facts, then invoice expectations."""
         if not patient_ids:
             return {}
+        out: dict[UUID, str] = {}
+        coverages = await self._session.execute(
+            text(
+                "SELECT to_regclass('public.patient_insurance_coverages') IS NOT NULL AS ok"
+            )
+        )
+        if bool(coverages.mappings().one()["ok"]):
+            result = await self._session.execute(
+                text(
+                    """
+                    SELECT pic.patient_profile_id AS patient_id,
+                           pic.coverage_status,
+                           ci.insurer_name
+                    FROM patient_insurance_coverages pic
+                    LEFT JOIN clinic_insurers ci
+                      ON ci.tenant_id = pic.tenant_id AND ci.id = pic.insurer_id
+                    WHERE pic.tenant_id = :t
+                      AND pic.patient_profile_id = ANY(:patients)
+                    """
+                ),
+                {"t": tenant_id, "patients": patient_ids},
+            )
+            for row in result.mappings().all():
+                status = str(row["coverage_status"] or "").upper()
+                if status == "UNINSURED":
+                    out[row["patient_id"]] = "فاقد بیمه"
+                elif status == "UNKNOWN":
+                    out[row["patient_id"]] = "بیمه نامشخص"
+                elif row["insurer_name"]:
+                    out[row["patient_id"]] = str(row["insurer_name"])
+                else:
+                    out[row["patient_id"]] = "بیمه نامشخص"
+        missing = [pid for pid in patient_ids if pid not in out]
+        if not missing:
+            return out
         ready = await self._session.execute(
             text(
                 "SELECT to_regclass('public.clinic_insurers') IS NOT NULL AS ok"
             )
         )
         if not bool(ready.mappings().one()["ok"]):
-            catalog = await self._session.execute(
-                text(
-                    "SELECT to_regclass('public.insurance_catalog_entries') IS NOT NULL AS ok"
-                )
-            )
-            if not bool(catalog.mappings().one()["ok"]):
-                return {}
-            # Disposable catalog without patient link — nothing to project yet.
-            return {}
-        # Prefer insurer name tied to the patient's most recent invoice expectation.
+            return out
+        # Fallback: insurer name tied to the patient's most recent invoice expectation.
         result = await self._session.execute(
             text(
                 """
@@ -396,13 +423,12 @@ class SqlOverviewQueries:
                 ORDER BY inv.beneficiary_patient_id, inv.created_at_utc DESC, ie.created_at_utc DESC
                 """
             ),
-            {"t": tenant_id, "patients": patient_ids},
+            {"t": tenant_id, "patients": missing},
         )
-        return {
-            row["patient_id"]: str(row["insurer_name"])
-            for row in result.mappings().all()
-            if row["insurer_name"]
-        }
+        for row in result.mappings().all():
+            if row["insurer_name"]:
+                out[row["patient_id"]] = str(row["insurer_name"])
+        return out
 
     async def unique_patient_count(
         self,

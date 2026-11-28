@@ -15,15 +15,26 @@ from clinic_ecosystem.shared_kernel.uuid7 import new_uuid7
 # Maps alias → (persian first, last, staff_kind, login_email_fallback, role_source)
 # role_source: existing account login to copy role assignments from, or None for clerk.
 ALIAS_SPECS: tuple[tuple[str, str, str, str, str, str | None], ...] = (
-    ("owner", "مالک", "نمونه", "RECEPTIONIST", "owner@beta02.test", "owner@beta02.test"),
-    ("manager", "مدیر", "نمونه", "RECEPTIONIST", "manager@beta02.test", "manager@beta02.test"),
-    ("deputy", "جانشین", "نمونه", "RECEPTIONIST", "deputy@beta02.test", "deputy@beta02.test"),
-    ("receptionist", "پذیرشگر", "عمومی", "RECEPTIONIST", "receptionist@beta01b.test", "receptionist@beta01b.test"),
-    ("head", "سرپرست", "پذیرش", "RECEPTIONIST", "head@demo.test", "receptionist@beta01b.test"),
-    ("limited", "پذیرشگر", "محدود", "RECEPTIONIST", "limited@demo.test", "clerk-no-perms@beta01b.test"),
-    ("doctor", "پزشک", "نمونه", "DOCTOR", "doctor@demo.test", None),
-    ("clerk", "منشی", "بدون‌مجوز", "RECEPTIONIST", "clerk@demo.test", "clerk-no-perms@beta01b.test"),
+    ("owner", "حسین", "جعفری", "RECEPTIONIST", "owner@beta02.test", "owner@beta02.test"),
+    ("manager", "علی", "نادری", "RECEPTIONIST", "manager@beta02.test", "manager@beta02.test"),
+    ("deputy", "نرگس", "احمدی", "RECEPTIONIST", "deputy@beta02.test", "deputy@beta02.test"),
+    ("receptionist", "سارا", "نائینی", "RECEPTIONIST", "receptionist@beta01b.test", "receptionist@beta01b.test"),
+    ("head", "مریم", "صادقی", "RECEPTIONIST", "head@demo.test", "receptionist@beta01b.test"),
+    ("limited", "محمد", "رضایی", "RECEPTIONIST", "limited@demo.test", "clerk-no-perms@beta01b.test"),
+    ("doctor", "علی", "نادری", "DOCTOR", "doctor@demo.test", None),
+    ("clerk", "نرگس", "احمدی", "RECEPTIONIST", "clerk@demo.test", "clerk-no-perms@beta01b.test"),
 )
+
+_JOB_TITLES: dict[str, str] = {
+    "owner": "مالک کلینیک",
+    "manager": "مدیر",
+    "deputy": "مدیر داخلی",
+    "receptionist": "منشی",
+    "head": "سرپرست پذیرش",
+    "limited": "منشی",
+    "doctor": "پزشک",
+    "clerk": "منشی",
+}
 
 
 async def apply_preview_demo_aliases(
@@ -81,6 +92,55 @@ async def apply_preview_demo_aliases(
                 pwd,
                 now,
             )
+            # Correct synthetic display names + optional job_title on the existing person.
+            await conn.execute(
+                """
+                UPDATE tenant_persons
+                SET first_name = $3, last_name = $4, updated_at_utc = $5
+                WHERE tenant_id = $1 AND id = $2
+                """,
+                tenant_id,
+                row["person_id"],
+                first,
+                last,
+                now,
+            )
+            job_title = _JOB_TITLES.get(alias, "کارشناس")
+            has_job_title = await conn.fetchval(
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.columns
+                  WHERE table_schema='public' AND table_name='staff_profiles'
+                    AND column_name='job_title'
+                )
+                """
+            )
+            if has_job_title:
+                updated = await conn.execute(
+                    """
+                    UPDATE staff_profiles
+                    SET job_title = $3
+                    WHERE tenant_id = $1 AND person_id = $2
+                    """,
+                    tenant_id,
+                    row["person_id"],
+                    job_title,
+                )
+                if updated == "UPDATE 0":
+                    await conn.execute(
+                        """
+                        INSERT INTO staff_profiles (
+                          id, tenant_id, person_id, staff_kind, is_active, created_at_utc, job_title
+                        ) VALUES ($1,$2,$3,$4,TRUE,$5,$6)
+                        ON CONFLICT DO NOTHING
+                        """,
+                        new_uuid7(),
+                        tenant_id,
+                        row["person_id"],
+                        kind if kind in {"RECEPTIONIST", "DOCTOR", "ADMIN", "CLERK"} else "RECEPTIONIST",
+                        now,
+                        job_title,
+                    )
             # Also ensure a short-alias login account exists (same person) when distinct.
             alias_row = await conn.fetchrow(
                 """
@@ -174,16 +234,7 @@ async def apply_preview_demo_aliases(
         staff_kind = (
             kind if kind in {"RECEPTIONIST", "DOCTOR", "ADMIN", "CLERK"} else "RECEPTIONIST"
         )
-        job_title = {
-            "owner": "مالک کلینیک",
-            "manager": "مدیر عملیات",
-            "deputy": "جانشین مدیر",
-            "receptionist": "پذیرشگر",
-            "head": "سرپرست پذیرش",
-            "limited": "پذیرشگر محدود",
-            "doctor": "پزشک",
-            "clerk": "منشی",
-        }.get(alias, "کارشناس")
+        job_title = _JOB_TITLES.get(alias, "کارشناس")
         has_job_title = await conn.fetchval(
             """
             SELECT EXISTS (

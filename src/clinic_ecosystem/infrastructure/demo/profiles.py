@@ -72,7 +72,8 @@ DEMO = DemoTargets(
     inactive_patients=40,
     similar_name_clusters=25,
     shared_phone_families=32,
-    national_id_patients=36,
+    # Majority have sealed NIDs; exceptional/missing remain an intentional minority.
+    national_id_patients=420,
     exceptional_identity_patients=32,
     staff_total=42,
     receptionist_logins=8,

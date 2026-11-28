@@ -748,6 +748,76 @@ async def persist_ops_demo(
             now,
         )
 
+    # Clinic insurers + patient coverage facts (dashboard insurance column).
+    insurers_made = 0
+    coverages_made = 0
+    insurers_ok = await conn.fetchval(
+        "SELECT to_regclass('public.clinic_insurers') IS NOT NULL"
+    )
+    coverages_ok = await conn.fetchval(
+        "SELECT to_regclass('public.patient_insurance_coverages') IS NOT NULL"
+    )
+    insurer_ids: list[UUID] = []
+    if insurers_ok:
+        catalog = (
+            ("TAMIN", "تأمین اجتماعی"),
+            ("SALAMAT", "بیمه سلامت"),
+            ("NIROU", "نیروهای مسلح"),
+            ("IRAN", "بیمه ایران"),
+        )
+        for i, (code, name) in enumerate(catalog):
+            insurer_id = demo_uuid(seed, "clinic_insurer", i)
+            await conn.execute(
+                """
+                INSERT INTO clinic_insurers (
+                  id, tenant_id, is_active, created_at_utc, insurer_code, insurer_name
+                ) VALUES ($1,$2,TRUE,$3,$4,$5)
+                ON CONFLICT DO NOTHING
+                """,
+                insurer_id,
+                tenant_id,
+                now,
+                code,
+                name,
+            )
+            insurer_ids.append(insurer_id)
+            insurers_made += 1
+    if coverages_ok and insurer_ids:
+        patients = await conn.fetch(
+            """
+            SELECT id FROM patient_profiles
+            WHERE tenant_id = $1 AND is_active = TRUE
+            ORDER BY created_at_utc ASC, id ASC
+            """,
+            tenant_id,
+        )
+        for i, prow in enumerate(patients):
+            r = i % 10
+            if r < 7:
+                status = "RECORDED"
+                insurer_id = insurer_ids[i % len(insurer_ids)]
+            elif r < 8:
+                status = "UNINSURED"
+                insurer_id = None
+            else:
+                status = "UNKNOWN"
+                insurer_id = None
+            await conn.execute(
+                """
+                INSERT INTO patient_insurance_coverages (
+                  id, tenant_id, patient_profile_id, coverage_status, insurer_id, created_at_utc
+                ) VALUES ($1,$2,$3,$4,$5,$6)
+                ON CONFLICT (tenant_id, patient_profile_id) DO NOTHING
+                """,
+                demo_uuid(seed, "patient_insurance", i),
+                tenant_id,
+                prow["id"],
+                status,
+                insurer_id,
+                now,
+            )
+            coverages_made += 1
+
     # Online booking reviews + staff notifications (dashboard R2 disposable tables).
     reviews_made = 0
     notifications_made = 0
@@ -838,6 +908,8 @@ async def persist_ops_demo(
         "refunds": refunds_made,
         "permission_scopes_all_backfill": scope_rows,
         "scoped_receptionist_role_id": str(scoped_role_id) if scoped_role_id else None,
+        "clinic_insurers": insurers_made,
+        "patient_insurance_coverages": coverages_made,
         "online_booking_reviews": reviews_made,
         "staff_notifications": notifications_made,
     }

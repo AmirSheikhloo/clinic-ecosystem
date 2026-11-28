@@ -141,12 +141,12 @@ async def seed_beta01b_reception(conn: asyncpg.Connection) -> Beta01bSeed:
             id, tenant_id, first_name, last_name, birth_date, gender,
             aggregate_version, created_at_utc, updated_at_utc
         ) VALUES
-            ($1, $2, 'Rita', 'Reception', NULL, NULL, 1, $3, $3),
-            ($4, $2, 'Uma', 'Unauthorized', NULL, NULL, 1, $3, $3),
-            ($5, $2, 'Sam', 'ScheduleOnly', NULL, NULL, 1, $3, $3),
-            ($6, $2, 'Pat', 'Alpha', NULL, NULL, 1, $3, $3),
-            ($7, $2, 'Ina', 'Inactive', NULL, NULL, 1, $3, $3),
-            ($8, $2, 'Ned', 'NoOverbook', NULL, NULL, 1, $3, $3)
+            ($1, $2, 'سارا', 'نائینی', NULL, NULL, 1, $3, $3),
+            ($4, $2, 'مینا', 'بی‌مجوز', NULL, NULL, 1, $3, $3),
+            ($5, $2, 'سامان', 'نوبت‌کار', NULL, NULL, 1, $3, $3),
+            ($6, $2, 'پویا', 'آلفا', NULL, NULL, 1, $3, $3),
+            ($7, $2, 'اینا', 'غیرفعال', NULL, NULL, 1, $3, $3),
+            ($8, $2, 'نادر', 'بدون‌اوربوک', NULL, NULL, 1, $3, $3)
         """,
         person_recv,
         tenant_a,

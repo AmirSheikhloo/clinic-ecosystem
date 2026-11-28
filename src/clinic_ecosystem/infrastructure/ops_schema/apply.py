@@ -314,9 +314,23 @@ async def apply_dashboard_r2_schema(
         "SELECT to_regclass('public.ops_dashboard_r2_schema_marker') IS NOT NULL"
     )
     if marker:
-        # Re-run ALTER IF NOT EXISTS so upgrades remain safe on older markers.
+        # Re-run IF NOT EXISTS guards so upgrades remain safe on older markers.
         await conn.execute(
             "ALTER TABLE staff_profiles ADD COLUMN IF NOT EXISTS job_title text"
+        )
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS patient_insurance_coverages (
+              id UUID PRIMARY KEY,
+              tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+              patient_profile_id UUID NOT NULL,
+              coverage_status VARCHAR(32) NOT NULL,
+              insurer_id UUID NULL,
+              created_at_utc TIMESTAMPTZ NOT NULL,
+              UNIQUE (tenant_id, id),
+              UNIQUE (tenant_id, patient_profile_id)
+            )
+            """
         )
         return {"applied": False, "reason": "already_present"}
     staff_ok = await conn.fetchval(

@@ -46,6 +46,22 @@ CREATE TABLE IF NOT EXISTS clinic_notification_reads (
     REFERENCES user_accounts(tenant_id, id) MATCH FULL
 );
 
+-- Patient-level insurance coverage facts (distinct from invoice expectations).
+CREATE TABLE IF NOT EXISTS patient_insurance_coverages (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL REFERENCES tenant_registry(tenant_id),
+  patient_profile_id UUID NOT NULL,
+  coverage_status VARCHAR(32) NOT NULL,
+  insurer_id UUID NULL,
+  created_at_utc TIMESTAMPTZ NOT NULL,
+  UNIQUE (tenant_id, id),
+  UNIQUE (tenant_id, patient_profile_id),
+  FOREIGN KEY (tenant_id, patient_profile_id)
+    REFERENCES patient_profiles(tenant_id, id) MATCH FULL,
+  FOREIGN KEY (tenant_id, insurer_id)
+    REFERENCES clinic_insurers(tenant_id, id) MATCH SIMPLE
+);
+
 CREATE TABLE IF NOT EXISTS ops_dashboard_r2_schema_marker (
   label TEXT PRIMARY KEY,
   applied_at_utc TIMESTAMPTZ NOT NULL

@@ -50,6 +50,13 @@ def test_practitioner_name_sql_requires_practitioner_type() -> None:
     assert 'r.get("practitioner_name")' in overview
 
 
+def test_insurance_labels_prefer_patient_coverage_facts() -> None:
+    src = _queries_source()
+    assert "patient_insurance_coverages" in src
+    assert "فاقد بیمه" in src
+    assert "بیمه نامشخص" in src
+
+
 def test_online_metric_predicates_use_created_at_and_exclude_holds() -> None:
     src = _queries_source()
     assert "online_bookings_today" in src
