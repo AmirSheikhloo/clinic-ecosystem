@@ -74,8 +74,8 @@ def test_dashboard_day_allows_online_metric_and_filters() -> None:
 
 def test_financial_persian_labels_code_and_label() -> None:
     assert FINANCIAL_STATUS_FA["UNPAID"] == "پرداخت‌نشده"
-    assert FINANCIAL_STATUS_FA["PARTIAL"] == "پرداخت جزئی"
-    assert FINANCIAL_STATUS_FA["PAID"] == "تسویه‌شده"
+    assert FINANCIAL_STATUS_FA["PARTIAL"] == "پرداخت ناقص"
+    assert FINANCIAL_STATUS_FA["PAID"] == "پرداخت‌شده"
     overview = _overview_source()
     assert "financial_status_code" in overview
     assert "financial_status_label" in overview

@@ -228,8 +228,9 @@
     flex: none;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.5rem;
-    width: var(--ds-user-chip-width);
+    gap: 0.35rem;
+    width: auto;
+    min-width: var(--ds-user-chip-width);
     min-height: 2.5rem;
   }
 
@@ -488,12 +489,60 @@
   .ds-metric-grid-4 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+  .ds-metric-grid-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  @media (max-width: 80rem) {
+    .ds-metric-grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
   @media (max-width: 64rem) {
     .ds-metric-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ds-metric-grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 40rem) {
+    .ds-metric-grid-5 { grid-template-columns: 1fr; }
   }
   .is-active-metric {
-    border-color: var(--ds-primary);
-    box-shadow: inset 0 0 0 1px var(--ds-primary);
+    outline: 2px solid currentColor;
+    outline-offset: 1px;
+  }
+  .ds-metric-card {
+    border: 1px solid transparent;
+    position: relative;
+  }
+  .ds-metric-card.is-interactive {
+    cursor: pointer;
+  }
+  .ds-metric-card.is-interactive:hover {
+    filter: brightness(0.98);
+  }
+  .ds-metric-card.is-static {
+    cursor: default;
+  }
+  .ds-metric-card-today { background: var(--ds-metric-today-bg); color: var(--ds-metric-today-fg); }
+  .ds-metric-card-upcoming { background: var(--ds-metric-upcoming-bg); color: var(--ds-metric-upcoming-fg); }
+  .ds-metric-card-needs { background: var(--ds-metric-needs-bg); color: var(--ds-metric-needs-fg); }
+  .ds-metric-card-cancelled { background: var(--ds-metric-cancelled-bg); color: var(--ds-metric-cancelled-fg); }
+  .ds-metric-card-online { background: var(--ds-metric-online-bg); color: var(--ds-metric-online-fg); }
+  .ds-metric-card .ds-avatar {
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    color: currentColor;
+  }
+  .ds-metric-badge {
+    position: absolute;
+    inset-block-start: -0.35rem;
+    inset-inline-end: -0.35rem;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    padding-inline: 0.25rem;
   }
   .ds-avatar[data-accent="blue"] { background: color-mix(in srgb, #2563eb 18%, transparent); color: #1d4ed8; }
   .ds-avatar[data-accent="purple"] { background: color-mix(in srgb, #7c3aed 18%, transparent); color: #6d28d9; }

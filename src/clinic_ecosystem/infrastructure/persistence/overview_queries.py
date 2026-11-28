@@ -256,6 +256,18 @@ class SqlOverviewQueries:
                 " AND a.scheduled_start_at_utc >= :s AND a.scheduled_start_at_utc < :e"
             )
             order_clause = "ORDER BY a.scheduled_start_at_utc ASC, a.id ASC"
+        reviews_ready = await self._session.execute(
+            text("SELECT to_regclass('public.online_booking_reviews') IS NOT NULL AS ok")
+        )
+        has_reviews_table = bool(reviews_ready.mappings().one()["ok"])
+        reviewed_select = (
+            "EXISTS ("
+            "SELECT 1 FROM online_booking_reviews obr "
+            "WHERE obr.tenant_id = a.tenant_id AND obr.appointment_id = a.id"
+            ") AS online_reviewed"
+            if has_reviews_table
+            else "FALSE AS online_reviewed"
+        )
         count_row = await self._session.execute(
             text(
                 f"""
@@ -320,7 +332,8 @@ class SqlOverviewQueries:
                              AND r.resource_type = 'PRACTITIONER'
                            ORDER BY r.resource_name ASC, r.id ASC
                            LIMIT 1
-                       ) AS practitioner_name
+                       ) AS practitioner_name,
+                       {reviewed_select}
                 FROM appointments a
                 JOIN patient_profiles pp
                   ON pp.tenant_id = a.tenant_id AND pp.id = a.beneficiary_patient_id

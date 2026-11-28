@@ -214,19 +214,19 @@ test("R2-MUT-03 dashboard metric filter + page size + finance drawer", async ({ 
   await expect(page.getByTestId("dashboard-count")).toBeVisible({ timeout: 30_000 });
 
   await page.getByTestId("dashboard-cancelled").click();
-  await expect(page.getByTestId("dashboard-day-total")).toContainText(/cancelled|لغو|پالایه/i, {
+  await expect(page.getByTestId("schedule-title")).toContainText(/لغو/i, {
     timeout: 30_000,
   });
   await expect(page.getByTestId("dashboard-page")).toBeVisible();
   await expect(page.getByTestId("today-schedule")).toBeVisible();
 
-  await page.getByTestId("dashboard-count").click();
+  await page.getByTestId("active-metric-chip").click();
   const pageSize = page.getByTestId("dashboard-day-page-size");
   await expect(pageSize).toBeVisible({ timeout: 15_000 });
   await pageSize.selectOption("50");
   await expect(pageSize).toHaveValue("50");
-  await pageSize.selectOption("25");
-  await expect(pageSize).toHaveValue("25");
+  await pageSize.selectOption("10");
+  await expect(pageSize).toHaveValue("10");
 
   const dashFinance = page.getByTestId("dashboard-open-finance").first();
   if (await dashFinance.isVisible().catch(() => false)) {

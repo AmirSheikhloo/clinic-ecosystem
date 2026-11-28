@@ -15,10 +15,13 @@ type DataTableProps<T> = {
   rowKey: (row: T) => string;
   rowTestId?: string;
   empty?: ReactNode;
-  /** Rows are being refreshed or belong to a previous filter: dim them and mark the region busy. */
+  /** User-initiated blocking busy (dim). Prefer false for background refresh. */
   busy?: boolean;
+  /** Quiet background revalidation — keep rows opaque; optional subtle marker only. */
+  refreshing?: boolean;
   /** Minimum table width before the card scrolls horizontally. */
   minWidth?: string;
+  className?: string;
 };
 
 export function DataTable<T>({
@@ -28,7 +31,9 @@ export function DataTable<T>({
   rowTestId,
   empty,
   busy = false,
+  refreshing = false,
   minWidth = "40rem",
+  className = "",
 }: DataTableProps<T>) {
   if (!rows.length) {
     return <>{empty}</>;
@@ -36,7 +41,12 @@ export function DataTable<T>({
   const fixed = columns.some((column) => column.width);
 
   return (
-    <div className="ds-card ds-table-wrap p-0" aria-busy={busy || undefined} data-busy={busy || undefined}>
+    <div
+      className={`ds-card ds-table-wrap p-0 ${className}`.trim()}
+      aria-busy={busy || refreshing || undefined}
+      data-busy={busy || undefined}
+      data-refreshing={refreshing || undefined}
+    >
       <table className={`ds-table ${fixed ? "ds-table-fixed" : ""}`.trim()} style={{ minWidth }}>
         <colgroup>
           {columns.map((column) => (
@@ -46,7 +56,9 @@ export function DataTable<T>({
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.key}>{column.header}</th>
+              <th key={column.key} className={column.className}>
+                {column.header}
+              </th>
             ))}
           </tr>
         </thead>

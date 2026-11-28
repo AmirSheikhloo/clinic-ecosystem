@@ -241,6 +241,235 @@
     opacity: 0.6;
   }
 
+  /* Background refresh must not fade or skeleton the table. */
+  .ds-table-wrap[data-refreshing="true"] {
+    opacity: 1;
+  }
+
+  .ds-cell-center {
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .ds-cell-stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    width: 100%;
+  }
+
+  .ds-channel-chip {
+    display: inline-grid;
+    place-items: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 0.35rem;
+    background: var(--ds-channel-bg);
+    color: var(--ds-channel-fg);
+    flex: none;
+  }
+
+  .ds-ops-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .ds-ops-badge-waiting { background: var(--ds-ops-waiting-bg); color: var(--ds-ops-waiting-fg); }
+  .ds-ops-badge-completed { background: var(--ds-ops-completed-bg); color: var(--ds-ops-completed-fg); }
+  .ds-ops-badge-needs_status { background: var(--ds-ops-needs-bg); color: var(--ds-ops-needs-fg); }
+  .ds-ops-badge-cancelled { background: var(--ds-ops-cancelled-bg); color: var(--ds-ops-cancelled-fg); }
+  .ds-ops-badge-not_performed { background: var(--ds-ops-not-performed-bg); color: var(--ds-ops-not-performed-fg); }
+  .ds-ops-badge.is-pulse {
+    animation: ds-ops-pulse 0.8s ease-in-out 2;
+  }
+  @keyframes ds-ops-pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.12); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ds-ops-badge.is-pulse { animation: none; }
+  }
+
+  .ds-finance-cell {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+  }
+  .ds-finance-cell-btn {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    color: inherit;
+    padding: 0;
+  }
+  .ds-finance-status-label { font-weight: 600; font-size: 0.8125rem; }
+  .ds-finance-method, .ds-finance-outstanding { font-size: 0.7rem; color: var(--ds-text-muted); }
+  .ds-finance-review-warn {
+    font-size: 0.7rem;
+    color: var(--ds-ops-needs-fg);
+    background: var(--ds-ops-needs-bg);
+    border-radius: 0.35rem;
+    padding: 0.1rem 0.35rem;
+  }
+
+  .ds-day-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+  .ds-day-toolbar-search {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .ds-day-search {
+    width: clamp(15rem, 22vw, 17.5rem);
+    height: var(--ds-control-height);
+  }
+  .ds-filter-trigger {
+    position: relative;
+    height: var(--ds-control-height);
+    width: var(--ds-control-height);
+    padding: 0;
+  }
+  .ds-filter-dot {
+    position: absolute;
+    inset-block-start: 0.35rem;
+    inset-inline-end: 0.35rem;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: #dc2626;
+  }
+  .ds-adv-filters {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition:
+      max-height var(--ds-motion-expand) var(--ds-ease),
+      opacity var(--ds-motion-expand) var(--ds-ease),
+      padding var(--ds-motion-expand) var(--ds-ease);
+    background: color-mix(in srgb, var(--ds-primary) 6%, var(--ds-surface));
+    border-radius: var(--ds-radius-md);
+    border: 1px solid var(--ds-border);
+    padding: 0 0.85rem;
+  }
+  .ds-adv-filters.is-open {
+    max-height: 20rem;
+    opacity: 1;
+    padding: 0.85rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ds-adv-filters { transition: none; }
+  }
+  .ds-adv-filters-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  @media (max-width: 64rem) {
+    .ds-adv-filters-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .ds-pagination-footer {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.75rem;
+    padding-block: 0.5rem;
+  }
+  .ds-pagination-range { justify-self: start; font-size: 0.8125rem; color: var(--ds-text-muted); }
+  .ds-pagination-pages {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+  .ds-pagination-size {
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .ds-pagination-size-select {
+    width: auto;
+    min-width: 4.5rem;
+    height: var(--ds-control-height-sm);
+  }
+  .ds-chip-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    border: 1px solid var(--ds-border-strong);
+    background: var(--ds-surface);
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .ds-notify {
+    position: relative;
+  }
+  .ds-notify-trigger {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--ds-radius-md);
+    border: 0;
+    background: transparent;
+    color: var(--ds-text-muted);
+    cursor: pointer;
+  }
+  .ds-notify-badge {
+    position: absolute;
+    inset-block-start: 0.15rem;
+    inset-inline-end: 0.1rem;
+    min-width: 1rem;
+    height: 1rem;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    padding-inline: 0.2rem;
+  }
+  .ds-notify-panel {
+    position: absolute;
+    inset-block-start: calc(100% + 0.35rem);
+    inset-inline-end: 0;
+    z-index: var(--ds-z-popover);
+    width: min(22rem, 80vw);
+    max-height: 20rem;
+    overflow: auto;
+    border-radius: var(--ds-radius-md);
+    border: 1px solid var(--ds-border-strong);
+    background: var(--ds-surface);
+    box-shadow: var(--ds-shadow);
+  }
+  .ds-notify-item {
+    display: block;
+    width: 100%;
+    text-align: start;
+    padding: 0.65rem 0.85rem;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .ds-notify-item:hover { background: var(--ds-surface-muted); }
+  .ds-notify-list .is-unread .ds-notify-item { font-weight: 600; }
+
   .ds-table {
     width: 100%;
     border-collapse: separate;

@@ -13,14 +13,15 @@ type Props = {
 
 const show = (value: number | null | undefined) => (value === null || value === undefined ? "—" : formatCount(value));
 
-/** Renders a permission-stable metric grid; card identity never depends on response values. */
+/** Permission-stable metric grid; Today's card is non-interactive. */
 export function DashboardMetrics({ cards, loading, activeKey, onSelect }: Props) {
   if (!cards.length) return null;
   return (
-    <section className="ds-metric-grid ds-metric-grid-4" aria-label="شاخص‌ها" data-testid="dashboard-metrics">
+    <section className="ds-metric-grid ds-metric-grid-5" aria-label="شاخص‌ها" data-testid="dashboard-metrics">
       {cards.map((card) => {
         const filterKey = card.href.startsWith("#dash-") ? card.href.replace("#dash-", "") : card.key;
-        const active = activeKey === filterKey || activeKey === card.key;
+        const interactive = card.interactive !== false && Boolean(card.onActivate || (onSelect && card.href.startsWith("#dash-")));
+        const active = interactive && (activeKey === filterKey || activeKey === card.key);
         return (
           <StatCard
             key={card.testId}
@@ -30,15 +31,19 @@ export function DashboardMetrics({ cards, loading, activeKey, onSelect }: Props)
             hint={card.hint}
             loading={loading}
             testId={card.testId}
-            href={card.onActivate || onSelect ? undefined : card.href.startsWith("#") ? undefined : card.href}
+            href={!interactive ? undefined : card.onActivate || onSelect ? undefined : card.href.startsWith("#") ? undefined : card.href}
             accent={card.accent}
-            active={active}
+            active={Boolean(active)}
+            interactive={interactive}
+            badge={card.badge}
             onClick={
-              card.onActivate
-                ? card.onActivate
-                : onSelect && card.href.startsWith("#dash-")
-                  ? () => onSelect(filterKey)
-                  : undefined
+              !interactive
+                ? undefined
+                : card.onActivate
+                  ? card.onActivate
+                  : onSelect && card.href.startsWith("#dash-")
+                    ? () => onSelect(filterKey)
+                    : undefined
             }
           />
         );

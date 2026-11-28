@@ -63,4 +63,6 @@ P03_HANDOFF/beta_panel_preview/runtime/
 P03_HANDOFF/beta_panel_preview/PREVIEW_URL.txt
 P03_HANDOFF/beta_panel_preview/preview.env
 P03_HANDOFF/beta_panel_preview/*.log
-P03_HANDOFF/beta_panel_preview/*.json
+P03_HANDOFF/beta_panel_preview/demo_dataset_manifest.json
+P03_HANDOFF/beta_panel_preview/demo_seed_validation.json
+P03_HANDOFF/beta_panel_preview/ops_schema_apply.json

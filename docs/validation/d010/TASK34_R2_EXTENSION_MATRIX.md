@@ -2,10 +2,11 @@
 
 Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
-**Tested tip:** `191d2edec76866143c24e20d03cc8a2cff8f9f85`  
+**Tested tip:** dashboard PO increment (SHA pinned after green CI on this push)  
 **Environment:** Linux agent (Windows hardware NOT RUN this tip).  
-**CI:** [M1 Appointment Vertical Slice 46082122461](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122461) — BETA-01B browser + frontend validation **success** (all 6 tip checks green).  
-**Unit evidence:** Python unit/integration green in same job; frontend unit/typecheck/lint/build green; `tsc --noEmit` green.
+**Prior green tip:** `191d2ed` / M1 [46082122461](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122461).  
+**Prior evidence pin:** `3ce1db9`. Backend seed/review commit local base: `4fc5121`.  
+**Unit evidence:** Python dashboard R2 unit suite; frontend unit/typecheck green on this increment.
 
 | Decision ID | Scenario | Test / evidence | Status | Limitation |
 |---|---|---|---|---|
@@ -14,13 +15,22 @@ Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 | UX-03 | Eight demo aliases + Clinic123! one-click login | `demo_aliases.py` fail-closed disposable marker; login clears session | PASS (unit) | Requires preview stack env |
 | UX-04 | Top bar without search/theme/logout; sidebar red logout | TopBar/Sidebar | IMPLEMENTED | |
 | UX-05 | Hierarchical breadcrumbs + live clock | Breadcrumbs + LiveTehranClock | IMPLEMENTED | |
-| UX-06 | Auto refresh 20s + focus/reconnect | DashboardView poll | IMPLEMENTED | |
-| DASH-01 | 3 quick actions only | `quick-actions.ts` | IMPLEMENTED | |
-| DASH-02 | 4 exact metric predicates (server) | `operational_metric_counts` + summary fields | IMPLEMENTED | PG15 multi-user adversarial pending |
-| DASH-03 | Needs-status badge ≤2 pulses | StatusNeedsAttentionBadge | IMPLEMENTED | |
-| DASH-04 | Six RTL schedule columns + finance action | TodaySchedule + finance drawer | IMPLEMENTED | Enrichment still partial |
-| DASH-05 | Server search/sort/filters + 25/50/100 | `GET /api/v1/dashboard/day` | IMPLEMENTED | |
+| UX-06 | Auto refresh 30s + focus/reconnect; pause when hidden | DashboardView poll | IMPLEMENTED | Visual refresh-no-fade Playwright PARTIAL |
+| DASH-01 | 3 quick actions below metrics | `quick-actions.ts` + DashboardView order | IMPLEMENTED | |
+| DASH-02 | 5 exact metric predicates (server); Today non-interactive | `operational_metric_counts` + metric-cards | IMPLEMENTED | PG15 multi-user adversarial pending |
+| DASH-03 | Needs-status badge ≤2 pulses | OperationalStatusBadge | IMPLEMENTED | |
+| DASH-04 | Six RTL centered columns + finance cell | TodaySchedule + FinancialStatusCell | IMPLEMENTED | Visual width audit PARTIAL |
+| DASH-05 | Server search/filters + page sizes 5/10/15/20/40/50 default 10 | day API + PaginationFooter | IMPLEMENTED | Large-N 5000-row stress NOT RUN |
 | DASH-06 | Filled secondary appointments button | TodaySchedule link | IMPLEMENTED | |
+| DASH-07 | Concise title only; no greeting/date duplicate | PageHeader title | IMPLEMENTED | |
+| DASH-08 | Full Jalali + Tehran clock; clock ≠ query tick | LiveTehranClock | IMPLEMENTED | |
+| DASH-09 | Persian staff names + optional job_title (not auth) | seed + MeResponse + TopBarAccount | IMPLEMENTED | |
+| DASH-10 | Online unreviewed badge + review workflow + notifications | dashboard_ops + NotificationBell | IMPLEMENTED | Toast aggregation E2E PARTIAL |
+| DASH-11 | BookingChannelIndicator WEB/BOT; MANUAL none | BookingChannelIndicator | IMPLEMENTED | |
+| DASH-12 | Practitioner from PRACTITIONER resource only | overview_queries | IMPLEMENTED | |
+| DASH-13 | Ops labels در انتظار/انجام‌شده/نیازمند/لغوشده/انجام‌نشده | operational-status.ts | IMPLEMENTED | |
+| DASH-14 | Meaningful FA financial status (no raw UNPAID) | FINANCIAL_STATUS_FA + FinancialStatusCell | IMPLEMENTED | |
+| DASH-15 | Preview runtime manifests gitignored (no working-tree dirt) | .gitignore + untracked runtime | IMPLEMENTED | Windows repeated start/stop NOT RUN |
 | APPT-01 | Ordinary completion + bulk ops | Details dialog + BulkAppointmentOps | IMPLEMENTED | |
 | APPT-02 | Jalali calendar day/week/month | AppointmentsView | PASS (prior) | Period aggregates incomplete |
 | APPT-03 | Independent rows + group view | Prior group booking | PARTIAL | |

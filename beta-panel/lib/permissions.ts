@@ -79,7 +79,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/desk", label: "میز پذیرش", icon: "desk", group: "work", anyOf: [P.appointmentsSchedule, P.patientsSearch] },
   { href: "/appointments", label: "مدیریت نوبت‌ها", icon: "calendar", group: "work", anyOf: [P.appointmentsList] },
   { href: "/waitlist", label: "لیست انتظار", icon: "list", group: "work", anyOf: [P.waitlistView, P.waitlistManage] },
-  { href: "/finance", label: "امور مالی", icon: "desk", group: "work", anyOf: [P.financeInvoiceView, P.financeSummary] },
+  { href: "/finance", label: "امور مالی", icon: "wallet", group: "work", anyOf: [P.financeInvoiceView, P.financeSummary] },
   { href: "/patients", label: "بیماران", icon: "patients", group: "clinic", anyOf: [P.patientsSearch, P.patientsRegister] },
   { href: "/catalog", label: "خدمات و منابع", icon: "catalog", group: "clinic", anyOf: [P.catalogServicesRead, P.resourcesRead, P.servicesManage, P.resourcesManage] },
   { href: "/ops", label: "پیکربندی عملیات", icon: "catalog", group: "clinic", anyOf: [P.departmentsView, P.eligibilityManage, P.inventoryView, P.coursesView] },

@@ -29,8 +29,13 @@ Uow = Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)]
 
 FINANCIAL_STATUS_FA: dict[str, str] = {
     "UNPAID": "پرداخت‌نشده",
-    "PARTIAL": "پرداخت جزئی",
-    "PAID": "تسویه‌شده",
+    "PARTIAL": "پرداخت ناقص",
+    "PAID": "پرداخت‌شده",
+    "ZERO_PAYABLE": "بدون مبلغ قابل پرداخت",
+    "FULL_REFUND": "عودت کامل",
+    "PARTIAL_REFUND": "عودت جزئی",
+    "UNKNOWN": "وضعیت مالی نامشخص",
+    "NONE": "وضعیت مالی نامشخص",
 }
 
 DAY_METRICS = frozenset({"today", "upcoming", "needs_status", "cancelled", "online"})
@@ -261,6 +266,7 @@ async def dashboard_day(
             "insurance_label": insurance_by_patient.get(r["patient_profile_id"]),
             # First PRACTITIONER only — never fall back to room/device names.
             "practitioner_name": r.get("practitioner_name"),
+            "online_reviewed": bool(r.get("online_reviewed")),
         }
         if fin is not None:
             code = fin.get("financial_status")

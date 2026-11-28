@@ -20,8 +20,14 @@ export type CalendarItem = AppointmentItem & {
   national_id_masked?: string | null;
   insurance_label?: string | null;
   practitioner_name?: string | null;
+  practitioner_names?: string[] | null;
+  financial_status_code?: string | null;
   financial_status_label?: string | null;
   outstanding_irr?: number | null;
+  payment_method_label?: string | null;
+  finance_review_required?: boolean;
+  created_at_utc?: string | null;
+  online_reviewed?: boolean;
 };
 
 export type CalendarAggregates = {

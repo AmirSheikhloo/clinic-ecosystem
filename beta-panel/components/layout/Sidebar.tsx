@@ -79,7 +79,11 @@ export function Sidebar({ items, pathname, collapsed, pending = false, onToggle 
           {collapsed ? (
             <Icon name="info" size="sm" />
           ) : (
-            <span className="block text-[11px] text-[var(--ds-text-muted)]" data-testid="synthetic-env-marker">
+            <span
+              className="block text-[11px] font-medium"
+              style={{ color: "color-mix(in srgb, var(--ds-sidebar-text) 88%, transparent)" }}
+              data-testid="synthetic-env-marker"
+            >
               محیط مصنوعی — داده آزمایشی
             </span>
           )}

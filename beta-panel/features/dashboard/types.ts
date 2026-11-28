@@ -6,6 +6,8 @@ export type PeriodSummary = {
   upcoming_count?: number;
   needs_status_count?: number;
   cancelled_count?: number;
+  online_bookings_today?: number;
+  online_unreviewed_count?: number;
 };
 
 /** Enriched dashboard/day row fields (optional when data/permission present). */
@@ -14,8 +16,15 @@ export type DayEnrichment = {
   patient_phone_masked?: string | null;
   insurance_label?: string | null;
   practitioner_name?: string | null;
+  practitioner_names?: string[] | null;
+  financial_status_code?: string | null;
   financial_status_label?: string | null;
   outstanding_irr?: number | null;
+  payment_method_label?: string | null;
+  finance_review_required?: boolean;
+  booking_channel?: string | null;
+  created_at_utc?: string | null;
+  online_reviewed?: boolean;
 };
 
 export type FinanceSummary = {
@@ -41,16 +50,23 @@ export type Summary = {
 };
 
 export const UPCOMING_LIMIT = 12;
-export const DAY_PAGE_SIZES = [25, 50, 100] as const;
+export const DAY_PAGE_SIZES = [5, 10, 15, 20, 40, 50] as const;
+export const DAY_PAGE_DEFAULT: (typeof DAY_PAGE_SIZES)[number] = 10;
+
+export type MetricAccent = "today" | "upcoming" | "needs" | "cancelled" | "online";
 
 export type MetricCardDef = {
   key: string;
   label: string;
   value: number | null | undefined;
   href: string;
-  icon: "calendar" | "patients" | "staff" | "catalog" | "layers" | "desk" | "alert" | "list";
+  icon: import("@/components/ui/icon-paths").IconName;
   testId: string;
   hint?: string;
-  accent?: "blue" | "purple" | "amber" | "rose" | "green";
+  accent?: MetricAccent;
+  /** When false, card is display-only (Today's Appointments). */
+  interactive?: boolean;
+  /** Red review badge count (online unreviewed). */
+  badge?: number;
   filterKey?: string;
 };

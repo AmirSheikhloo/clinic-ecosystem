@@ -27,6 +27,16 @@ Sources inspected during this increment. Distinguishes **official documentation*
 | Engineering inference | ESC/POS 80mm/58mm paper widths are printer-dependent | https://reference.epson-biz.com/modules/ref_escpos/ | Wrong width layout / clipping | PRINT-01: default 80mm, optional 58mm; test margins in simulated preview | EXT-PRINT-01 |
 | Project decision | 80mm default / 58mm optional; Persian RTL compact receipt; synthetic watermark; no tax-invoice claim | Owner R2 §22 | Hardware absent on Linux agent | Simulated adapter PASS; physical/QZ NOT RUN / BLOCKED | EXT-PRINT-01 |
 | Project decision | Shared multi-patient settlement remains DISABLED; one-beneficiary invoice/receipt guards preserved | ACR-D0.11 + `ACR_D0.12_SETTLEMENT_BATCH_ATTRIBUTION_CANDIDATE.md` | Parent pays for two patients | Separate invoices + batch print; settlement-batch ACR candidate only | EXT-MULTI-02 |
+| Official | Carbon Data Table + Pagination: server-side paging, page-size in footer, bounded page window with ellipsis | https://carbondesignsystem.com/components/data-table/usage/ · https://carbondesignsystem.com/components/pagination/usage/ | 500 pages must not render 500 buttons | DASH-PAG-01: footer 5/10/15/20/40/50 default 10; ellipsis window | DASH-PAG-01 |
+| Official | Carbon Status indicator: text + color; never color alone | https://carbondesignsystem.com/components/status-indicator/usage/ | Color-blind misread of ops badge | OPS-01: icon+text badges; shared tokens | DASH-OPS-01 |
+| Official | TanStack Query: keepPreviousData / placeholderData; distinguish isLoading vs isFetching | https://tanstack.com/query/latest/docs/framework/react/guides/paginated-queries | Poll fade / empty flash | DASH-REFRESH-01: keepPrevious; no opacity fade on background refresh | DASH-REFRESH-01 |
+| Official | SWR: revalidate on focus; dedupe; stale-while-revalidate | https://swr.vercel.app/docs/revalidation | Hidden-tab poll waste; focus stale | DASH-REFRESH-02: 30s poll; pause when hidden; bump on focus/online | DASH-REFRESH-02 |
+| Official | WCAG 2.2 focus visible + reduced motion | https://www.w3.org/TR/wcag22/ | Continuous needs-status flash | DASH-03: ≤2 pulses then static; prefers-reduced-motion | DASH-OPS-PULSE |
+| Official | Apple HIG notifications: non-blocking; do not steal focus | https://developer.apple.com/design/human-interface-guidelines/notifications | Toast during checkout | NOTIF-01: toast non-modal; center persists after dismiss | DASH-NOTIF-01 |
+| Official | ARIA APG Disclosure / Dialog patterns for filter panel + notification popover | https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/ | Keyboard trap / lost focus | DASH-FILTER-01: expandable filters; Escape/outside close | DASH-FILTER-01 |
+| Project decision | Five metric cards; Today non-interactive; online metric by confirmation time; review badge independent of daily count | Owner dashboard PO instruction 2026-11-28 | Online booking for next month | DASH-05 online metric + unreviewed badge | DASH-ONLINE-01 |
+| Project decision | Ops labels: در انتظار / انجام‌شده / نیازمند تعیین وضعیت / لغوشده / انجام‌نشده — preserve underlying domain facts | Owner dashboard PO instruction | Elapsed time ≠ absence | OPS presentation mapping | DASH-OPS-01 |
+| Engineering inference | `formatJalaliDateTime(...).split(" ")[0]` yields day-only when fa-IR medium inserts spaces | Derived from Intl fa-IR + Latin digit conversion | Top-bar clock showed `7 · 14:34` | Use `formatJalaliDate` + explicit Tehran time suffix | DASH-CLOCK-01 |
 
 ## Executable edge-case tests produced by this research
 
@@ -40,6 +50,12 @@ Sources inspected during this increment. Distinguishes **official documentation*
 | EXT-PRINT-BATCH | `submitBatchPrintJobs` emits independent per-patient jobs under one batch id |
 | EXT-FIN-05 | Checkout intent store: same fingerprint → same key; payload change → new key |
 | EXT-MULTI-02 | Feature flag shared settlement OFF; one-beneficiary allocation guard remains |
+| DASH-PAG-01 | Page sizes 5/10/15/20/40/50; default 10; ellipsis window for large page counts |
+| DASH-REFRESH-01 | Background refresh does not set DataTable busy opacity |
+| DASH-ONLINE-01 | online_bookings_today by created_at; unreviewed backlog across midnight |
+| DASH-OPS-01 | operationalPresentation maps CONFIRMED→در انتظار, NO_SHOW→انجام‌نشده |
+| DASH-CLOCK-01 | Top bar clock contains month name + year + «به وقت تهران» |
+| DASH-NOTIF-01 | Notification read ≠ online booking review |
 
 ## SOURCE_UNAVAILABLE / NOT RUN
 
