@@ -1,5 +1,5 @@
 {
-  "tip_sha": "5a2e57512a509d25128fa92c11d1939ff9acb551",
+  "tip_sha": "70f2a38a249c1aac3df3b8856628614689697c32",
   "tip_short": "191d2ed",
   "branch": "cursor/d010-ops-contracts-validation-95a4",
   "pr": 10,
@@ -29,8 +29,9 @@
     "physical print hardware NOT RUN"
   ],
   "dashboard_po_increment": true,
-  "visual_artifacts": "/opt/cursor/artifacts/dashboard-po-5a2e575",
+  "visual_artifacts": "/opt/cursor/artifacts/dashboard-po-70f2a38",
   "prior_green_tip": "191d2ed",
   "prior_evidence_pin": "3ce1db9",
-  "notes": "Dashboard PO refinement tip; full R2 non-dashboard scope remains open. CI tip conclusion pending."
+  "notes": "Dashboard PO refinement tip; full R2 non-dashboard scope remains open. CI tip conclusion pending.",
+  "product_sha": "5a2e57512a509d25128fa92c11d1939ff9acb551"
 }
