@@ -41,6 +41,14 @@ class PatientRow:
     shared_phone_family: int | None = None
 
 
+_JOB_TITLES = {
+    "RECEPTIONIST": "پذیرشگر",
+    "PRACTITIONER": "پزشک",
+    "MULTI_PRACTITIONER": "پزشک چندخدمتی",
+    "DOCTOR": "پزشک",
+}
+
+
 @dataclass
 class StaffRow:
     id: UUID
@@ -52,6 +60,7 @@ class StaffRow:
     login_identifier: str | None = None
     resource_id: UUID | None = None
     resource_name: str | None = None
+    job_title: str | None = None
 
 
 @dataclass
@@ -103,14 +112,12 @@ def build_patients(targets: DemoTargets) -> PeopleBundle:
         )
         idx += 1
 
-    # Shared-phone family scenarios: 2–3 members share one phone.
+    # Shared-phone family scenarios: 2–3 members share one phone (distinct surnames).
     for f in range(targets.shared_phone_families):
         shared = synthetic_mobile(targets.seed, 50_000 + f)
         members = 2 + (f % 2)
         for m in range(members):
             first, last = pick_name(idx + 31)
-            # Keep family surname cohesion.
-            last = f"خانواده{f:02d}"
             person_id = demo_uuid(targets.seed, "patient_person", idx)
             patient_id = demo_uuid(targets.seed, "patient", idx)
             bundle.persons.append(
@@ -201,6 +208,7 @@ def build_staff(targets: DemoTargets) -> PeopleBundle:
                 login_identifier=f"recv.demo.{i}@clinic.test" if with_login else None,
                 resource_id=resource_id,
                 resource_name=resource_name,
+                job_title=_JOB_TITLES.get(kind, "کارشناس"),
             )
         )
     return bundle

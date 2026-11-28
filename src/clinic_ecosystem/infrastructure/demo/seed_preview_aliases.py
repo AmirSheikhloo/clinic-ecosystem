@@ -171,18 +171,55 @@ async def apply_preview_demo_aliases(
             last,
             now,
         )
-        await conn.execute(
-            """
-            INSERT INTO staff_profiles (
-              id, tenant_id, person_id, staff_kind, is_active, created_at_utc
-            ) VALUES ($1,$2,$3,$4,TRUE,$5)
-            """,
-            new_uuid7(),
-            tenant_id,
-            person_id,
-            kind if kind in {"RECEPTIONIST", "DOCTOR", "ADMIN", "CLERK"} else "RECEPTIONIST",
-            now,
+        staff_kind = (
+            kind if kind in {"RECEPTIONIST", "DOCTOR", "ADMIN", "CLERK"} else "RECEPTIONIST"
         )
+        job_title = {
+            "owner": "مالک کلینیک",
+            "manager": "مدیر عملیات",
+            "deputy": "جانشین مدیر",
+            "receptionist": "پذیرشگر",
+            "head": "سرپرست پذیرش",
+            "limited": "پذیرشگر محدود",
+            "doctor": "پزشک",
+            "clerk": "منشی",
+        }.get(alias, "کارشناس")
+        has_job_title = await conn.fetchval(
+            """
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name='staff_profiles'
+                AND column_name='job_title'
+            )
+            """
+        )
+        if has_job_title:
+            await conn.execute(
+                """
+                INSERT INTO staff_profiles (
+                  id, tenant_id, person_id, staff_kind, is_active, created_at_utc, job_title
+                ) VALUES ($1,$2,$3,$4,TRUE,$5,$6)
+                """,
+                new_uuid7(),
+                tenant_id,
+                person_id,
+                staff_kind,
+                now,
+                job_title,
+            )
+        else:
+            await conn.execute(
+                """
+                INSERT INTO staff_profiles (
+                  id, tenant_id, person_id, staff_kind, is_active, created_at_utc
+                ) VALUES ($1,$2,$3,$4,TRUE,$5)
+                """,
+                new_uuid7(),
+                tenant_id,
+                person_id,
+                staff_kind,
+                now,
+            )
         await conn.execute(
             """
             INSERT INTO user_accounts (

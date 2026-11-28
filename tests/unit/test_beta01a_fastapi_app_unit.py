@@ -95,6 +95,9 @@ def test_login_success_and_me(app_and_settings, monkeypatch) -> None:
         async def person_display(self, **kwargs):
             return ("Rita", "Reception")
 
+        async def staff_job_title(self, **kwargs):
+            return "پذیرشگر"
+
     monkeypatch.setattr(auth_mod, "SqlPermissionService", _FakePerms)
     monkeypatch.setattr(auth_mod, "SqlAccessAdmin", _FakeAdmin)
     app, settings, tenant_id = app_and_settings
@@ -142,6 +145,7 @@ def test_login_success_and_me(app_and_settings, monkeypatch) -> None:
         assert me.json()["permissions"] == ["BETA01B_PATIENTS_SEARCH", "BETA02_STAFF_VIEW"]
         assert me.json()["governance_roles"] == ["RECEPTIONIST"]
         assert me.json()["first_name"] == "Rita"
+        assert me.json()["job_title"] == "پذیرشگر"
 
 
 def test_login_invalid_credentials_generic(app_and_settings) -> None:

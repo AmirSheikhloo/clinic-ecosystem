@@ -58,12 +58,15 @@ class SqlOverviewQueries:
         now_utc: datetime,
         service_ids: set[UUID] | None = None,
     ) -> dict[str, int]:
-        """Exact dashboard predicates (Task 34 R2 §8).
+        """Exact dashboard predicates (Task 34 R2).
 
         - today: all appointments scheduled for the Tehran day (any status)
         - upcoming: CONFIRMED with start > now and still within the day
         - needs_status: due for human resolution (CHECKED_IN, or CONFIRMED with end <= now)
         - cancelled: status CANCELLED scheduled for the day
+        - online_bookings_today: ONLINE_WEB/ONLINE_BOT CONFIRMED by created_at within day
+          (excludes holds / expired holds)
+        - online_unreviewed_count: online CONFIRMED lacking online_booking_reviews (any date)
         """
         service_clause = ""
         params: dict[str, Any] = {
@@ -72,9 +75,17 @@ class SqlOverviewQueries:
             "e": end_at_utc,
             "now": now_utc,
         }
+        empty = {
+            "today": 0,
+            "upcoming": 0,
+            "needs_status": 0,
+            "cancelled": 0,
+            "online_bookings_today": 0,
+            "online_unreviewed_count": 0,
+        }
         if service_ids is not None:
             if not service_ids:
-                return {"today": 0, "upcoming": 0, "needs_status": 0, "cancelled": 0}
+                return empty
             service_clause = " AND service_id = ANY(:services)"
             params["services"] = list(service_ids)
         result = await self._session.execute(
@@ -100,11 +111,59 @@ class SqlOverviewQueries:
             params,
         )
         row = result.mappings().one()
+        online_service_clause = service_clause.replace("service_id", "a.service_id")
+        online_today_n = await self.scalar_count(
+            f"""
+            SELECT count(*) FROM appointments a
+            WHERE a.tenant_id = :t
+              AND a.booking_channel IN ('ONLINE_WEB', 'ONLINE_BOT')
+              AND a.status = 'CONFIRMED'
+              AND a.created_at_utc >= :s
+              AND a.created_at_utc < :e
+              {online_service_clause}
+            """,
+            params,
+        )
+        reviews_ready = await self._session.execute(
+            text(
+                "SELECT to_regclass('public.online_booking_reviews') IS NOT NULL AS ok"
+            )
+        )
+        if bool(reviews_ready.mappings().one()["ok"]):
+            online_unreviewed = await self.scalar_count(
+                f"""
+                SELECT count(*) FROM appointments a
+                WHERE a.tenant_id = :t
+                  AND a.booking_channel IN ('ONLINE_WEB', 'ONLINE_BOT')
+                  AND a.status = 'CONFIRMED'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM online_booking_reviews r
+                    WHERE r.tenant_id = a.tenant_id
+                      AND r.appointment_id = a.id
+                  )
+                  {online_service_clause}
+                """,
+                params,
+            )
+        else:
+            # Without the reviews table every online CONFIRMED row is unreviewed.
+            online_unreviewed = await self.scalar_count(
+                f"""
+                SELECT count(*) FROM appointments a
+                WHERE a.tenant_id = :t
+                  AND a.booking_channel IN ('ONLINE_WEB', 'ONLINE_BOT')
+                  AND a.status = 'CONFIRMED'
+                  {online_service_clause}
+                """,
+                params,
+            )
         return {
             "today": int(row["today"]),
             "upcoming": int(row["upcoming"]),
             "needs_status": int(row["needs_status"]),
             "cancelled": int(row["cancelled"]),
+            "online_bookings_today": online_today_n,
+            "online_unreviewed_count": online_unreviewed,
         }
 
     async def list_operational_day(
@@ -119,8 +178,11 @@ class SqlOverviewQueries:
         limit: int,
         offset: int,
         service_ids: set[UUID] | None = None,
+        online_review: str | None = None,
+        booking_channel: str | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
         """Server-paginated operational day rows matching a metric predicate."""
+        is_online = metric == "online"
         metric_sql = {
             "today": "TRUE",
             "upcoming": "a.status = 'CONFIRMED' AND a.scheduled_start_at_utc > :now",
@@ -129,6 +191,10 @@ class SqlOverviewQueries:
                 "(a.status = 'CONFIRMED' AND a.scheduled_end_at_utc <= :now)"
             ),
             "cancelled": "a.status = 'CANCELLED'",
+            "online": (
+                "a.status = 'CONFIRMED' "
+                "AND a.booking_channel IN ('ONLINE_WEB', 'ONLINE_BOT')"
+            ),
         }.get(metric, "TRUE")
         params: dict[str, Any] = {
             "t": tenant_id,
@@ -151,6 +217,45 @@ class SqlOverviewQueries:
                 "OR s.service_name ILIKE :pat)"
             )
             params["pat"] = like_contains(q.strip())
+        channel_clause = ""
+        if is_online and booking_channel in {"ONLINE_WEB", "ONLINE_BOT"}:
+            channel_clause = " AND a.booking_channel = :booking_channel"
+            params["booking_channel"] = booking_channel
+        review_clause = ""
+        if is_online and online_review in {"reviewed", "unreviewed"}:
+            reviews_ready = await self._session.execute(
+                text(
+                    "SELECT to_regclass('public.online_booking_reviews') IS NOT NULL AS ok"
+                )
+            )
+            has_reviews = bool(reviews_ready.mappings().one()["ok"])
+            if online_review == "reviewed":
+                if not has_reviews:
+                    return [], 0
+                review_clause = (
+                    " AND EXISTS ("
+                    "SELECT 1 FROM online_booking_reviews obr "
+                    "WHERE obr.tenant_id = a.tenant_id AND obr.appointment_id = a.id)"
+                )
+            else:
+                if has_reviews:
+                    review_clause = (
+                        " AND NOT EXISTS ("
+                        "SELECT 1 FROM online_booking_reviews obr "
+                        "WHERE obr.tenant_id = a.tenant_id AND obr.appointment_id = a.id)"
+                    )
+        # Online metric: never restrict by scheduled_start; unreviewed ignores created_at day.
+        if is_online:
+            if online_review == "unreviewed":
+                date_clause = ""
+            else:
+                date_clause = " AND a.created_at_utc >= :s AND a.created_at_utc < :e"
+            order_clause = "ORDER BY a.created_at_utc DESC, a.id ASC"
+        else:
+            date_clause = (
+                " AND a.scheduled_start_at_utc >= :s AND a.scheduled_start_at_utc < :e"
+            )
+            order_clause = "ORDER BY a.scheduled_start_at_utc ASC, a.id ASC"
         count_row = await self._session.execute(
             text(
                 f"""
@@ -163,11 +268,12 @@ class SqlOverviewQueries:
                 JOIN services s
                   ON s.tenant_id = a.tenant_id AND s.id = a.service_id
                 WHERE a.tenant_id = :t
-                  AND a.scheduled_start_at_utc >= :s
-                  AND a.scheduled_start_at_utc < :e
+                  {date_clause}
                   AND ({metric_sql})
                   {service_clause}
                   {search_clause}
+                  {channel_clause}
+                  {review_clause}
                 """
             ),
             params,
@@ -177,8 +283,8 @@ class SqlOverviewQueries:
             text(
                 f"""
                 SELECT a.id AS appointment_id, a.status, a.scheduled_start_at_utc,
-                       a.scheduled_end_at_utc, a.service_id, a.beneficiary_patient_id
-                         AS patient_profile_id,
+                       a.scheduled_end_at_utc, a.created_at_utc, a.service_id,
+                       a.beneficiary_patient_id AS patient_profile_id,
                        pp.person_id AS person_id,
                        p.first_name AS patient_first_name, p.last_name AS patient_last_name,
                        s.service_name,
@@ -203,7 +309,18 @@ class SqlOverviewQueries:
                            JOIN bookable_resources r
                              ON r.tenant_id = ara.tenant_id AND r.id = ara.resource_id
                            WHERE ara.tenant_id = a.tenant_id AND ara.appointment_id = a.id
-                       ), ARRAY[]::text[]) AS resource_names
+                       ), ARRAY[]::text[]) AS resource_names,
+                       (
+                           SELECT r.resource_name
+                           FROM appointment_resource_allocations ara
+                           JOIN bookable_resources r
+                             ON r.tenant_id = ara.tenant_id AND r.id = ara.resource_id
+                           WHERE ara.tenant_id = a.tenant_id
+                             AND ara.appointment_id = a.id
+                             AND r.resource_type = 'PRACTITIONER'
+                           ORDER BY r.resource_name ASC, r.id ASC
+                           LIMIT 1
+                       ) AS practitioner_name
                 FROM appointments a
                 JOIN patient_profiles pp
                   ON pp.tenant_id = a.tenant_id AND pp.id = a.beneficiary_patient_id
@@ -212,12 +329,13 @@ class SqlOverviewQueries:
                 JOIN services s
                   ON s.tenant_id = a.tenant_id AND s.id = a.service_id
                 WHERE a.tenant_id = :t
-                  AND a.scheduled_start_at_utc >= :s
-                  AND a.scheduled_start_at_utc < :e
+                  {date_clause}
                   AND ({metric_sql})
                   {service_clause}
                   {search_clause}
-                ORDER BY a.scheduled_start_at_utc ASC, a.id ASC
+                  {channel_clause}
+                  {review_clause}
+                {order_clause}
                 LIMIT :limit OFFSET :offset
                 """
             ),

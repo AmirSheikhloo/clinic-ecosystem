@@ -80,12 +80,12 @@ def main() -> int:
     runtime = artifact / "runtime"
     artifact.mkdir(parents=True, exist_ok=True)
     runtime.mkdir(parents=True, exist_ok=True)
-    stack = start_browser_stack(artifact_dir=artifact)
+    # Manifests, logs, and credentials stay under runtime/ (gitignored).
+    stack = start_browser_stack(artifact_dir=runtime)
     env_path = runtime / "preview.env"
     stack.write_env_file(env_path)
     panel_login = f"{stack.panel_base_url}/login"
     summary = runtime / "PREVIEW_URL.txt"
-    legacy = artifact / "PREVIEW_URL.txt"
     summary.write_text(
         "\n".join(
             [
@@ -103,7 +103,6 @@ def main() -> int:
         + "\n",
         encoding="utf-8",
     )
-    legacy.write_text(summary.read_text(encoding="utf-8"), encoding="utf-8")
     print(f"PANEL_URL={panel_login}")
     print(f"API_HEALTH={stack.api_base_url}/health")
     print(f"CREDENTIALS_FILE={env_path}")

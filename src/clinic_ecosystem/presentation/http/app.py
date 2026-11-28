@@ -29,6 +29,7 @@ from clinic_ecosystem.presentation.http import catalog_admin as catalog_admin_ro
 from clinic_ecosystem.presentation.http import finance as finance_routes
 from clinic_ecosystem.presentation.http import historical as historical_routes
 from clinic_ecosystem.presentation.http import ops_management as ops_management_routes
+from clinic_ecosystem.presentation.http import notifications as notifications_routes
 from clinic_ecosystem.presentation.http import overview as overview_routes
 from clinic_ecosystem.presentation.http import patient_ops as patient_ops_routes
 from clinic_ecosystem.presentation.http import patient_registry as patient_registry_routes
@@ -132,6 +133,7 @@ def create_app(
     app.include_router(access_routes.router)
     app.include_router(audit_routes.router)
     app.include_router(overview_routes.router)
+    app.include_router(notifications_routes.router)
     app.include_router(appointment_routes.router)
     app.include_router(appointment_admin_routes.router)
     app.include_router(finance_routes.router)

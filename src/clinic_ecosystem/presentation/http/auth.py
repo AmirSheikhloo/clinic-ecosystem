@@ -48,6 +48,7 @@ class MeResponse(BaseModel):
     is_active: bool
     first_name: str = ""
     last_name: str = ""
+    job_title: str | None = None
     permissions: list[str] = []
     governance_roles: list[str] = []
 
@@ -130,12 +131,17 @@ async def me(
     governance = await permissions.governance_roles(
         tenant_id=principal.account.tenant_id, person_id=principal.account.person_id
     )
-    name = await SqlAccessAdmin(uow.session).person_display(
+    admin = SqlAccessAdmin(uow.session)
+    name = await admin.person_display(
+        tenant_id=principal.account.tenant_id, person_id=principal.account.person_id
+    )
+    job_title = await admin.staff_job_title(
         tenant_id=principal.account.tenant_id, person_id=principal.account.person_id
     )
     return MeResponse(
         first_name=name[0] if name else "",
         last_name=name[1] if name else "",
+        job_title=job_title,
         permissions=sorted(granted),
         governance_roles=sorted(governance),
         account_id=str(principal.account.id),

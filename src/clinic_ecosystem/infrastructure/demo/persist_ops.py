@@ -748,6 +748,82 @@ async def persist_ops_demo(
             now,
         )
 
+    # Online booking reviews + staff notifications (dashboard R2 disposable tables).
+    reviews_made = 0
+    notifications_made = 0
+    reviews_ok = await conn.fetchval(
+        "SELECT to_regclass('public.online_booking_reviews') IS NOT NULL"
+    )
+    notif_ok = await conn.fetchval(
+        "SELECT to_regclass('public.clinic_staff_notifications') IS NOT NULL"
+    )
+    online_confirmed = [
+        a
+        for a in appts.appointments
+        if a.status == "CONFIRMED"
+        and a.booking_channel in {"ONLINE_WEB", "ONLINE_BOT"}
+    ]
+    if reviews_ok and online_confirmed:
+        # Review a minority so online_unreviewed_count stays visible.
+        review_n = max(1, min(len(online_confirmed) // 4, 40))
+        for i, appt in enumerate(online_confirmed[:review_n]):
+            await conn.execute(
+                """
+                INSERT INTO online_booking_reviews (
+                  id, tenant_id, appointment_id, reviewed_by_user_id,
+                  reviewed_at_utc, note, created_at_utc
+                ) VALUES ($1,$2,$3,$4,$5,$6,$5)
+                ON CONFLICT (tenant_id, appointment_id) DO NOTHING
+                """,
+                demo_uuid(seed, "online_review", i),
+                tenant_id,
+                appt.id,
+                operator_account_id,
+                now,
+                "بررسی نمایشی نوبت آنلاین",
+            )
+            reviews_made += 1
+    if notif_ok:
+        samples = [
+            ("ONLINE_BOOKING", "نوبت آنلاین جدید", "یک نوبت از وب‌سایت ثبت شد."),
+            ("ONLINE_BOOKING", "نوبت ربات", "یک نوبت از ربات ثبت شد."),
+            ("OPS", "یادآوری شیفت", "شیفت صندوق نمایشی باز است."),
+        ]
+        for i, (kind, title, body) in enumerate(samples):
+            related = online_confirmed[i].id if i < len(online_confirmed) else None
+            await conn.execute(
+                """
+                INSERT INTO clinic_staff_notifications (
+                  id, tenant_id, notification_kind, title, body,
+                  related_appointment_id, created_at_utc
+                ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+                ON CONFLICT (tenant_id, id) DO NOTHING
+                """,
+                demo_uuid(seed, "staff_notif", i),
+                tenant_id,
+                kind,
+                title,
+                body,
+                related,
+                now - timedelta(hours=i + 1),
+            )
+            notifications_made += 1
+        # Mark the oldest sample as read for the operator.
+        if notifications_made:
+            await conn.execute(
+                """
+                INSERT INTO clinic_notification_reads (
+                  id, tenant_id, notification_id, reader_user_id, read_at_utc
+                ) VALUES ($1,$2,$3,$4,$5)
+                ON CONFLICT (tenant_id, notification_id, reader_user_id) DO NOTHING
+                """,
+                demo_uuid(seed, "notif_read", 0),
+                tenant_id,
+                demo_uuid(seed, "staff_notif", len(samples) - 1),
+                operator_account_id,
+                now,
+            )
+
     return {
         "skipped": False,
         "department_id": str(dept_id),
@@ -762,4 +838,6 @@ async def persist_ops_demo(
         "refunds": refunds_made,
         "permission_scopes_all_backfill": scope_rows,
         "scoped_receptionist_role_id": str(scoped_role_id) if scoped_role_id else None,
+        "online_booking_reviews": reviews_made,
+        "staff_notifications": notifications_made,
     }

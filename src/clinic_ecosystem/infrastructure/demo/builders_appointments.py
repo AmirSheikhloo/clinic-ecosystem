@@ -39,6 +39,7 @@ class AppointmentRow:
     resource_id: UUID
     allocation_status: str
     created_at: datetime
+    practitioner_resource_id: UUID | None = None
 
 
 @dataclass
@@ -93,6 +94,7 @@ def build_appointments(
     tomorrow = today + timedelta(days=1)
     rooms = catalog.rooms
     services = catalog.services
+    pract_resources = [s.resource_id for s in staff if s.resource_id]
     active_patients = [p for p in patients if p.is_active] or patients
     bundle = AppointmentBundle()
 
@@ -109,14 +111,20 @@ def build_appointments(
         note: str | None,
         manual: bool,
         duration: int | None = None,
+        channel: str | None = None,
+        created_at: datetime | None = None,
     ) -> AppointmentRow:
         svc = services[service_idx % len(services)]
         dur = duration or svc.duration_minutes
         start, end = tehran_day_window(day, hour, minute, dur)
-        channel = "MANUAL_STAFF" if manual else "ONLINE_WEB"
-        pool = "MANUAL" if manual else "ONLINE"
+        if channel is None:
+            channel = "MANUAL_STAFF" if manual else "ONLINE_WEB"
+        pool = "MANUAL" if channel == "MANUAL_STAFF" else "ONLINE"
         # Occupying vs released allocation status mirrors appointment status.
         alloc = status
+        pract_id = (
+            pract_resources[seq % len(pract_resources)] if pract_resources else None
+        )
         row = AppointmentRow(
             id=demo_uuid(targets.seed, "appointment", seq),
             patient_id=patient.id,
@@ -130,7 +138,8 @@ def build_appointments(
             note=note,
             resource_id=room.id,
             allocation_status=alloc,
-            created_at=start - timedelta(days=1),
+            created_at=created_at or (start - timedelta(days=1)),
+            practitioner_resource_id=pract_id,
         )
         bundle.appointments.append(row)
         return row
@@ -224,6 +233,7 @@ def build_appointments(
         bundle.manual_overlap_pairs += 1
 
     # Non-overlapping ONLINE sample (EXCLUDE applies only to occupying ONLINE rows).
+    # Mix ONLINE_WEB / ONLINE_BOT; some created "today" for dashboard online metrics.
     online_count = min(200, max(20, targets.appointments // 100))
     for i in range(online_count):
         day = today + timedelta(days=3 + (i // (12 * len(rooms))))
@@ -233,6 +243,12 @@ def build_appointments(
         hour = 8 + (slot_index // 2) % 8
         minute = 0 if slot_index % 2 == 0 else 30
         patient = active_patients[(i + 41) % len(active_patients)]
+        channel = "ONLINE_BOT" if i % 3 == 0 else "ONLINE_WEB"
+        created = (
+            tehran_day_window(today, 9 + (i % 6), (i * 5) % 60, 1)[0]
+            if i % 4 == 0
+            else None
+        )
         add(
             seq=seq,
             patient=patient,
@@ -245,6 +261,8 @@ def build_appointments(
             note="ONLINE sample",
             manual=False,
             duration=30,
+            channel=channel,
+            created_at=created,
         )
         seq += 1
 

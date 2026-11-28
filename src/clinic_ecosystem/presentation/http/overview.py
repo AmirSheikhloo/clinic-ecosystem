@@ -7,9 +7,11 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 
-from clinic_ecosystem.application.shared.errors import ValidationFailed
+from clinic_ecosystem.application.shared.errors import Conflict, NotFound, ValidationFailed
 from clinic_ecosystem.domain.access import permissions as perm
+from clinic_ecosystem.infrastructure.persistence.dashboard_ops import SqlDashboardOps
 from clinic_ecosystem.infrastructure.persistence.finance_ops import SqlFinanceOps
 from clinic_ecosystem.infrastructure.persistence.overview_queries import SqlOverviewQueries
 from clinic_ecosystem.infrastructure.persistence.uow import SqlAlchemyUnitOfWork
@@ -25,11 +27,23 @@ router = APIRouter(prefix="/api/v1", tags=["overview"])
 Principal = Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)]
 Uow = Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)]
 
+FINANCIAL_STATUS_FA: dict[str, str] = {
+    "UNPAID": "پرداخت‌نشده",
+    "PARTIAL": "پرداخت جزئی",
+    "PAID": "تسویه‌شده",
+}
+
+DAY_METRICS = frozenset({"today", "upcoming", "needs_status", "cancelled", "online"})
+
 
 def _aware(value: datetime, field: str) -> datetime:
     if value.tzinfo is None:
         raise ValidationFailed(f"{field} must include a timezone offset", code="invalid_datetime")
     return value.astimezone(timezone.utc)
+
+
+class OnlineReviewIn(BaseModel):
+    note: str | None = Field(default=None, max_length=500)
 
 
 @router.get("/dashboard/summary")
@@ -86,6 +100,8 @@ async def dashboard_summary(
             "upcoming_count": ops_metrics["upcoming"],
             "needs_status_count": ops_metrics["needs_status"],
             "cancelled_count": ops_metrics["cancelled"],
+            "online_bookings_today": ops_metrics["online_bookings_today"],
+            "online_unreviewed_count": ops_metrics["online_unreviewed_count"],
         }
         # Next calendar period of equal length (for "tomorrow" when the range is one Tehran day).
         span = end - start
@@ -168,6 +184,8 @@ async def dashboard_day(
     q: Annotated[str | None, Query(max_length=120)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
     offset: Annotated[int, Query(ge=0, le=50_000)] = 0,
+    online_review: Annotated[str | None, Query()] = None,
+    booking_channel: Annotated[str | None, Query()] = None,
 ) -> dict:
     """Authoritative operational day dataset with exact metric predicates + pagination."""
     granted = await load_granted(principal, uow)
@@ -178,8 +196,17 @@ async def dashboard_day(
     start, end = _aware(start_at_utc, "start_at_utc"), _aware(end_at_utc, "end_at_utc")
     if end <= start or (end - start).days > 31:
         raise ValidationFailed("Invalid day range", code="invalid_time_range")
-    if metric not in {"today", "upcoming", "needs_status", "cancelled"}:
+    if metric not in DAY_METRICS:
         raise ValidationFailed("Invalid metric filter", code="invalid_metric")
+    if online_review is not None and online_review not in {"reviewed", "unreviewed", "all"}:
+        raise ValidationFailed("Invalid online_review filter", code="invalid_online_review")
+    if booking_channel is not None and booking_channel not in {"ONLINE_WEB", "ONLINE_BOT"}:
+        raise ValidationFailed("Invalid booking_channel filter", code="invalid_booking_channel")
+    if metric != "online" and (online_review is not None or booking_channel is not None):
+        raise ValidationFailed(
+            "online_review/booking_channel only valid for metric=online",
+            code="invalid_metric_filter",
+        )
     scopes = await load_scopes(principal, uow, perm.APPOINTMENTS_LIST)
     allowed_services = scope_service_ids(scopes) if scopes else set()
     queries = SqlOverviewQueries(uow.session)
@@ -194,6 +221,8 @@ async def dashboard_day(
         limit=limit,
         offset=offset,
         service_ids=allowed_services,
+        online_review=None if online_review in {None, "all"} else online_review,
+        booking_channel=booking_channel,
     )
     patient_ids = [r["patient_profile_id"] for r in rows]
     insurance_by_patient = await queries.insurance_labels_for_patients(
@@ -222,6 +251,7 @@ async def dashboard_day(
             "status": r["status"],
             "scheduled_start_at_utc": r["scheduled_start_at_utc"].isoformat(),
             "scheduled_end_at_utc": r["scheduled_end_at_utc"].isoformat(),
+            "created_at_utc": r["created_at_utc"].isoformat() if r.get("created_at_utc") else None,
             "booking_channel": r["booking_channel"],
             "capacity_pool": r["capacity_pool"],
             "aggregate_version": r["aggregate_version"],
@@ -229,10 +259,13 @@ async def dashboard_day(
             "national_id_masked": r.get("national_id_masked"),
             "patient_phone_masked": r.get("patient_phone_masked"),
             "insurance_label": insurance_by_patient.get(r["patient_profile_id"]),
-            "practitioner_name": resources[0] if resources else None,
+            # First PRACTITIONER only — never fall back to room/device names.
+            "practitioner_name": r.get("practitioner_name"),
         }
         if fin is not None:
-            item["financial_status_label"] = fin.get("financial_status")
+            code = fin.get("financial_status")
+            item["financial_status_code"] = code
+            item["financial_status_label"] = FINANCIAL_STATUS_FA.get(str(code), str(code))
             item["outstanding_irr"] = fin.get("outstanding")
         items.append(item)
     return {
@@ -241,6 +274,49 @@ async def dashboard_day(
         "limit": limit,
         "offset": offset,
         "metric": metric,
+    }
+
+
+@router.post("/dashboard/online-bookings/{appointment_id}/review")
+async def review_online_booking(
+    appointment_id: UUID,
+    principal: Principal,
+    uow: Uow,
+    body: OnlineReviewIn | None = None,
+) -> dict:
+    """Mark an online CONFIRMED booking as reviewed (idempotent)."""
+    granted = await load_granted(principal, uow)
+    if perm.APPOINTMENTS_LIST not in granted:
+        from fastapi import HTTPException, status
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "permission_denied", "message": "Permission denied"},
+        )
+    ops = SqlDashboardOps(uow.session)
+    if not await ops.reviews_schema_ready():
+        raise Conflict("Online booking reviews schema unavailable", code="ops_schema_unavailable")
+    tenant_id = principal.claims.tenant_id
+    if not await ops.appointment_is_online_confirmed(
+        tenant_id=tenant_id, appointment_id=appointment_id
+    ):
+        raise NotFound("Online confirmed appointment not found", code="appointment_not_found")
+    note = body.note if body else None
+    row, created = await ops.upsert_review(
+        tenant_id=tenant_id,
+        appointment_id=appointment_id,
+        reviewer_user_id=principal.account.id,
+        now=datetime.now(timezone.utc),
+        note=note,
+    )
+    await uow.commit()
+    return {
+        "appointment_id": str(appointment_id),
+        "review_id": str(row["id"]),
+        "reviewed_by_user_id": str(row["reviewed_by_user_id"]),
+        "reviewed_at_utc": row["reviewed_at_utc"].isoformat(),
+        "note": row.get("note"),
+        "created": created,
     }
 
 

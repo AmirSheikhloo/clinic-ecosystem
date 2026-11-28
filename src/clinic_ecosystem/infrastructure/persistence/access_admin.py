@@ -317,6 +317,37 @@ class SqlAccessAdmin:
         row = result.first()
         return (row.first_name, row.last_name) if row else None
 
+    async def staff_job_title(self, *, tenant_id: UUID, person_id: UUID) -> str | None:
+        """Return staff_profiles.job_title when the disposable column exists."""
+        ready = await self._session.execute(
+            text(
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                    AND table_name = 'staff_profiles'
+                    AND column_name = 'job_title'
+                ) AS ok
+                """
+            )
+        )
+        if not bool(ready.mappings().one()["ok"]):
+            return None
+        result = await self._session.execute(
+            text(
+                """
+                SELECT job_title FROM staff_profiles
+                WHERE tenant_id = :t AND person_id = :p
+                """
+            ),
+            {"t": tenant_id, "p": person_id},
+        )
+        row = result.first()
+        if row is None:
+            return None
+        title = row.job_title
+        return str(title) if title else None
+
     async def person_exists(self, *, tenant_id: UUID, person_id: UUID) -> bool:
         result = await self._session.execute(
             text("SELECT 1 FROM tenant_persons WHERE tenant_id = :t AND id = :p"),

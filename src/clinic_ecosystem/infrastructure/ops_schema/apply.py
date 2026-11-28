@@ -235,10 +235,12 @@ async def apply_ops_schema(
     )
     if exists:
         courses = await apply_treatment_courses_schema(conn, explicit=explicit)
+        dashboard = await apply_dashboard_r2_schema(conn, explicit=explicit)
         return {
             "applied": False,
             "reason": "already_present",
             "treatment_courses": courses,
+            "dashboard_r2": dashboard,
         }
 
     applied: list[str] = []
@@ -252,11 +254,13 @@ async def apply_ops_schema(
             await _exec_script(conn, path.read_text(encoding="utf-8"))
             applied.append(name)
     courses = await apply_treatment_courses_schema(conn, explicit=explicit)
+    dashboard = await apply_dashboard_r2_schema(conn, explicit=explicit)
     return {
         "applied": True,
         "files": applied,
         "skipped": sorted(SKIP),
         "treatment_courses": courses,
+        "dashboard_r2": dashboard,
     }
 
 
@@ -290,4 +294,43 @@ async def apply_treatment_courses_schema(
         "applied": True,
         "file": "proposed_treatment_courses.sql",
         "label": "treatment_courses_r2_v1",
+    }
+
+
+async def apply_dashboard_r2_schema(
+    conn: asyncpg.Connection, *, explicit: bool = False
+) -> dict:
+    """Apply disposable dashboard R2 DDL (job_title, reviews, notifications).
+
+    Idempotent via ``ops_dashboard_r2_schema_marker`` and IF NOT EXISTS guards.
+    Does not create official Alembic revisions.
+    """
+    if not ops_schema_authorized(explicit=explicit):
+        raise RuntimeError(
+            "Dashboard R2 schema apply refused: set CLINIC_OPS_SCHEMA_MODE=disposable "
+            "or pass explicit=True for an isolated harness only."
+        )
+    marker = await conn.fetchval(
+        "SELECT to_regclass('public.ops_dashboard_r2_schema_marker') IS NOT NULL"
+    )
+    if marker:
+        # Re-run ALTER IF NOT EXISTS so upgrades remain safe on older markers.
+        await conn.execute(
+            "ALTER TABLE staff_profiles ADD COLUMN IF NOT EXISTS job_title text"
+        )
+        return {"applied": False, "reason": "already_present"}
+    staff_ok = await conn.fetchval(
+        "SELECT to_regclass('public.staff_profiles') IS NOT NULL"
+    )
+    appts_ok = await conn.fetchval(
+        "SELECT to_regclass('public.appointments') IS NOT NULL"
+    )
+    if not staff_ok or not appts_ok:
+        return {"applied": False, "reason": "baseline_tables_missing"}
+    path = EXTRACTED / "proposed_dashboard_r2.sql"
+    await _exec_script(conn, path.read_text(encoding="utf-8"))
+    return {
+        "applied": True,
+        "file": "proposed_dashboard_r2.sql",
+        "label": "dashboard_r2_v1",
     }
