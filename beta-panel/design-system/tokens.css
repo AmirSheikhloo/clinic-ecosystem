@@ -131,6 +131,8 @@
   --ds-header-search-row: 3.25rem;
   --ds-search-width: clamp(14rem, 32%, 26rem);
   --ds-user-chip-width: 8.5rem;
+  /* Chip + notification bell + gap — keeps the Tehran clock track stable. */
+  --ds-topbar-account-track: calc(var(--ds-user-chip-width) + 2.75rem);
   /* Dashboard metric card palette (light) */
   --ds-metric-today-bg: #dfebff;
   --ds-metric-today-fg: #2456b3;

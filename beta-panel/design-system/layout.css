@@ -191,7 +191,7 @@
     inset-block-start: 0;
     z-index: var(--ds-z-header);
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) var(--ds-topbar-account-track);
     grid-template-areas:
       "menu lead account"
       "search search search";
@@ -229,18 +229,22 @@
     align-items: center;
     justify-content: flex-end;
     gap: 0.35rem;
-    width: auto;
-    min-width: var(--ds-user-chip-width);
+    width: var(--ds-topbar-account-track);
+    min-width: var(--ds-topbar-account-track);
+    max-width: var(--ds-topbar-account-track);
     min-height: 2.5rem;
+    overflow: hidden;
   }
 
   .ds-topbar-user {
     display: none;
     align-items: center;
     gap: 0.5rem;
-    width: 100%;
+    width: var(--ds-user-chip-width);
     min-width: 0;
+    max-width: var(--ds-user-chip-width);
     height: 2.5rem;
+    overflow: hidden;
   }
 
   .ds-topbar-logout {
@@ -253,7 +257,7 @@
 
   @media (min-width: 40rem) {
     .ds-topbar {
-      grid-template-columns: auto minmax(0, 1fr) var(--ds-search-width) auto;
+      grid-template-columns: auto minmax(0, 1fr) var(--ds-search-width) var(--ds-topbar-account-track);
       grid-template-areas: "menu lead search account";
       grid-template-rows: var(--ds-header-height);
     }
@@ -275,7 +279,7 @@
 
   @media (min-width: 64rem) {
     .ds-topbar {
-      grid-template-columns: minmax(0, 1fr) var(--ds-search-width) auto;
+      grid-template-columns: minmax(0, 1fr) var(--ds-search-width) var(--ds-topbar-account-track);
       grid-template-areas: "lead search account";
     }
 
