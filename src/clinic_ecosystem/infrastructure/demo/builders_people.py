@@ -173,11 +173,20 @@ def build_patients(targets: DemoTargets) -> PeopleBundle:
         idx += 1
 
     # Ensure national-id quota even if modulo skipped some.
+    # Use a dedicated high index band so HMAC lookup keys stay unique.
+    used_nids = {p.national_id for p in bundle.patients if p.national_id}
+    extra = 0
     for p in bundle.patients:
         if nid_budget <= 0:
             break
         if p.national_id is None and p.exception_reason is None:
-            p.national_id = synthetic_national_id(targets.seed, hash(p.id) % 1_000_000)
+            while True:
+                candidate = synthetic_national_id(targets.seed, 2_000_000 + extra)
+                extra += 1
+                if candidate not in used_nids:
+                    break
+            p.national_id = candidate
+            used_nids.add(candidate)
             nid_budget -= 1
 
     return bundle
