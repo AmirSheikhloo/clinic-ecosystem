@@ -2,7 +2,7 @@
 
 Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
-**Tested tip:** dashboard PO increment (SHA pinned after green CI on this push)  
+**Tested tip:** `5a2e575` (dashboard PO increment; CI tip conclusion pending)
 **Environment:** Linux agent (Windows hardware NOT RUN this tip).  
 **Prior green tip:** `191d2ed` / M1 [46082122461](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122461).  
 **Prior evidence pin:** `3ce1db9`. Backend seed/review commit local base: `4fc5121`.  
