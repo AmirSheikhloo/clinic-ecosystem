@@ -1,37 +1,41 @@
 {
-  "tip_sha": "70f2a38a249c1aac3df3b8856628614689697c32",
-  "tip_short": "191d2ed",
+  "tip_sha": "8eb5b49394cd0154f25f520151e0323494b2ed1c",
+  "tip_short": "8eb5b49",
   "branch": "cursor/d010-ops-contracts-validation-95a4",
   "pr": 10,
   "base": "development/clinic-operations",
   "ci": {
     "conclusion": "success",
     "checks": 6,
-    "m1_pr": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122461",
-    "m0_pr": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122470",
-    "m1_push": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082117310",
-    "m0_push": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082117264",
-    "beta01b_job": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122461/job/140783240797"
+    "m1_pr": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46145294357",
+    "m0_pr": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46145294354",
+    "m1_push": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46145290315",
+    "m0_push": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46145290356",
+    "beta01b_job": "https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46145294357/job/140979918781"
   },
   "playwright": {
-    "passed": 58,
+    "passed": 59,
     "failed": 0,
-    "duration": "3.9m",
+    "duration": "3.6m",
     "python_unit_integration": {
-      "passed": 281,
+      "passed": 291,
       "skipped": 1
+    },
+    "frontend_unit": {
+      "passed": 83,
+      "failed": 0
     }
   },
   "blocked_external": [
     "person_merge_events SOURCE_REQUIRED",
     "live CARD_TO_CARD/ONLINE Gate B",
     "MULTI-02 shared settlement ACR-D0.12 ratification",
-    "physical print hardware NOT RUN"
+    "physical print hardware NOT RUN",
+    "Windows PO hardware preview NOT RUN"
   ],
   "dashboard_po_increment": true,
   "visual_artifacts": "/opt/cursor/artifacts/dashboard-po-70f2a38",
   "prior_green_tip": "191d2ed",
   "prior_evidence_pin": "3ce1db9",
-  "notes": "Dashboard PO refinement tip; full R2 non-dashboard scope remains open. CI tip conclusion pending.",
-  "product_sha": "5a2e57512a509d25128fa92c11d1939ff9acb551"
+  "notes": "Dashboard PO refinement tip green on CI. Entire Task 34 R2 non-dashboard scope remains open."
 }

@@ -2,11 +2,12 @@
 
 Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
-**Tested tip:** `5a2e575` (dashboard PO increment; CI tip conclusion pending)
+**Tested tip:** `8eb5b49` (dashboard PO increment; CI green)  
 **Environment:** Linux agent (Windows hardware NOT RUN this tip).  
+**CI:** M1 [46145294357](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46145294357) · M0 [46145294354](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46145294354) — 6/6 success.  
 **Prior green tip:** `191d2ed` / M1 [46082122461](https://github.com/AmirSheikhloo/clinic-ecosystem/actions/runs/46082122461).  
-**Prior evidence pin:** `3ce1db9`. Backend seed/review commit local base: `4fc5121`.  
-**Unit evidence:** Python dashboard R2 unit suite; frontend unit/typecheck green on this increment.
+**Prior evidence pin:** `3ce1db9`. Backend seed/review base: `4fc5121`.  
+**Unit evidence:** Python 291 passed / 1 skipped; frontend unit 83; Playwright 59 passed.
 
 | Decision ID | Scenario | Test / evidence | Status | Limitation |
 |---|---|---|---|---|
@@ -67,4 +68,4 @@ Separate from the original 120 Task 28 rows. Status reflects tip evidence only.
 
 - PASS / IMPLEMENTED: majority of independently solvable UX/security/finance/print/course engineering
 - BLOCKED: MULTI-02 shared settlement; PREPAY; real QZ/SMS/CARD_TO_CARD/ONLINE; canonical merge
-- Playwright mutations 3/3 PASS this tip; multi-width visuals captured; adversarial scope script+unit present; Windows PO / CI tip conclusion pending
+- Playwright 59/59 PASS this tip; multi-width visuals captured under `/opt/cursor/artifacts/dashboard-po-70f2a38`; Windows PO hardware NOT RUN; non-dashboard R2 remains open
