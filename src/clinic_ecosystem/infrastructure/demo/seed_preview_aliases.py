@@ -92,55 +92,58 @@ async def apply_preview_demo_aliases(
                 pwd,
                 now,
             )
-            # Correct synthetic display names + optional job_title on the existing person.
-            await conn.execute(
-                """
-                UPDATE tenant_persons
-                SET first_name = $3, last_name = $4, updated_at_utc = $5
-                WHERE tenant_id = $1 AND id = $2
-                """,
-                tenant_id,
-                row["person_id"],
-                first,
-                last,
-                now,
-            )
-            job_title = _JOB_TITLES.get(alias, "کارشناس")
-            has_job_title = await conn.fetchval(
-                """
-                SELECT EXISTS (
-                  SELECT 1 FROM information_schema.columns
-                  WHERE table_schema='public' AND table_name='staff_profiles'
-                    AND column_name='job_title'
-                )
-                """
-            )
-            if has_job_title:
-                updated = await conn.execute(
+            # Only rewrite display names on the canonical email account — never when
+            # this alias merely resolved a copy_from source (would clobber receptionist).
+            canonical = str(row["login_identifier"]).lower() == email.lower()
+            if canonical:
+                await conn.execute(
                     """
-                    UPDATE staff_profiles
-                    SET job_title = $3
-                    WHERE tenant_id = $1 AND person_id = $2
+                    UPDATE tenant_persons
+                    SET first_name = $3, last_name = $4, updated_at_utc = $5
+                    WHERE tenant_id = $1 AND id = $2
                     """,
                     tenant_id,
                     row["person_id"],
-                    job_title,
+                    first,
+                    last,
+                    now,
                 )
-                if updated == "UPDATE 0":
-                    await conn.execute(
+                job_title = _JOB_TITLES.get(alias, "کارشناس")
+                has_job_title = await conn.fetchval(
+                    """
+                    SELECT EXISTS (
+                      SELECT 1 FROM information_schema.columns
+                      WHERE table_schema='public' AND table_name='staff_profiles'
+                        AND column_name='job_title'
+                    )
+                    """
+                )
+                if has_job_title:
+                    updated = await conn.execute(
                         """
-                        INSERT INTO staff_profiles (
-                          id, tenant_id, person_id, staff_kind, is_active, created_at_utc, job_title
-                        ) VALUES ($1,$2,$3,$4,TRUE,$5,$6)
-                        ON CONFLICT DO NOTHING
+                        UPDATE staff_profiles
+                        SET job_title = $3
+                        WHERE tenant_id = $1 AND person_id = $2
                         """,
-                        new_uuid7(),
                         tenant_id,
                         row["person_id"],
-                        kind if kind in {"RECEPTIONIST", "DOCTOR", "ADMIN", "CLERK"} else "RECEPTIONIST",
-                        now,
                         job_title,
                     )
+                    if updated == "UPDATE 0":
+                        await conn.execute(
+                            """
+                            INSERT INTO staff_profiles (
+                              id, tenant_id, person_id, staff_kind, is_active, created_at_utc, job_title
+                            ) VALUES ($1,$2,$3,$4,TRUE,$5,$6)
+                            ON CONFLICT DO NOTHING
+                            """,
+                            new_uuid7(),
+                            tenant_id,
+                            row["person_id"],
+                            kind if kind in {"RECEPTIONIST", "DOCTOR", "ADMIN", "CLERK"} else "RECEPTIONIST",
+                            now,
+                            job_title,
+                        )
             # Also ensure a short-alias login account exists (same person) when distinct.
             alias_row = await conn.fetchrow(
                 """
