@@ -56,12 +56,21 @@ async function loginAsReceptionist(page: Page) {
   await page.getByTestId("login-identifier").fill(loginId());
   await page.getByTestId("login-password").fill(password());
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/desk/, { timeout: 45_000 });
-  await expect(page.getByTestId("desk-page")).toBeVisible({ timeout: 45_000 });
+  // Task 34 R2: login lands on dashboard; reception flows navigate to /desk explicitly.
+  await expect(page).toHaveURL(/\/(dashboard|desk)/, { timeout: 45_000 });
   await assertHttpOnlySession(page);
+  if (!/\/desk/.test(page.url())) {
+    await page.goto("/desk");
+  }
+  await expect(page.getByTestId("desk-page")).toBeVisible({ timeout: 45_000 });
 }
 
 async function registerAndSelectPatient(page: Page, first: string, last: string) {
+  const nextPatient = page.getByTestId("desk-next-patient");
+  if (await nextPatient.first().isVisible().catch(() => false)) {
+    await nextPatient.first().click();
+  }
+  await expect(page.getByTestId("patient-first-name")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("patient-first-name").fill(first);
   await page.getByTestId("patient-last-name").fill(last);
   await page.getByTestId("desk-identity-exception").click();
@@ -71,7 +80,14 @@ async function registerAndSelectPatient(page: Page, first: string, last: string)
   await expect(page.getByTestId("desk-status")).toContainText("بیمار ثبت شد", {
     timeout: 30_000,
   });
-  await expect(page.getByTestId("selected-patient")).toContainText(`${first} ${last}`);
+  await expect(
+    page
+      .getByTestId("summary-patient")
+      .or(page.getByTestId("invoice-patient"))
+      .or(page.getByTestId("selected-patient"))
+      .filter({ hasText: `${first} ${last}` })
+      .first(),
+  ).toBeVisible({ timeout: 15_000 });
 }
 
 async function bookConsultation(page: Page, startLocal: string) {
@@ -186,10 +202,20 @@ test("unauthorized principal cannot use reception catalog", async ({ page }) => 
     throw new Error("Missing unauthorized fixture password for browser E2E");
   }
   await page.goto("/login");
+  await page.evaluate(async () => {
+    await fetch("/api/auth/csrf", { method: "GET", credentials: "same-origin" });
+  });
+  await expect
+    .poll(async () => (await page.context().cookies()).some((c) => c.name === CSRF && c.value.length > 0))
+    .toBe(true);
   await page.getByTestId("login-identifier").fill(unauthorizedLogin());
   await page.getByTestId("login-password").fill(unauthorizedPassword());
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/desk/, { timeout: 30_000 });
+  // Login may land on dashboard; open desk to assert fail-closed catalog boot.
+  await expect(page).toHaveURL(/\/(dashboard|desk)/, { timeout: 30_000 });
+  if (!/\/desk/.test(page.url())) {
+    await page.goto("/desk");
+  }
   // No catalog permission → boot fails closed (no bookable surface / no cross-tenant leak)
   await expect(page.getByTestId("desk-boot-error")).toBeVisible({ timeout: 45_000 });
   const bootText = await page.getByTestId("desk-boot-error").innerText();

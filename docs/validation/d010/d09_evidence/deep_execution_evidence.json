@@ -1,0 +1,380 @@
+{
+  "generated_at_utc": "2026-11-27T21:34:18.354442+00:00",
+  "baseline": "aff43da26d0aa27bff2c7af97ca001ad52f17a4c",
+  "summary": {
+    "cases_passed": 38,
+    "cases_failed": 0,
+    "cases_blocked": 2,
+    "defects": 0
+  },
+  "cases": [
+    {
+      "name": "discount_largest_remainder_sums",
+      "ok": true,
+      "status": "PASS",
+      "detail": "[4000, 3000, 3000]",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "discount_largest_remainder_ties",
+      "ok": true,
+      "status": "PASS",
+      "detail": "[34, 33, 33]",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "skip_12.sql",
+      "ok": true,
+      "status": "BLOCKED",
+      "detail": "D09-12 / \u00a710.3 person_merge_events SOURCE_REQUIRED (v1.3 alias)",
+      "bucket": "EXTERNAL_SOURCE_REQUIRED"
+    },
+    {
+      "name": "schema_apply",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "finance_identity_check_rejects_mismatch",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "finance_posted_invoice_immutable",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "finance_posted_rejects_new_line",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "finance_partial_allocation",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "finance_receipt_conservation_blocks_overalloc",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "finance_allocation_reversal",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "finance_refund_after_reversal",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "finance_refund_cumulative_cap",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "receipt_synthetic_pos_accepted",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "receipt_pos_requires_evidence",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "claim_verified_requires_review_attribution",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "claim_verify_with_attribution",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "card_to_card_online_live_disabled",
+      "ok": true,
+      "status": "BLOCKED",
+      "detail": "Gate B \u2014 synthetic suite does not activate live CARD_TO_CARD/ONLINE adapters",
+      "bucket": "EXTERNAL_SOURCE_REQUIRED"
+    },
+    {
+      "name": "inventory_fefo_order",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "inventory_balance_after_consume",
+      "ok": true,
+      "status": "PASS",
+      "detail": "bal=7",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "inventory_return_reusable",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "inventory_return_cap",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "inventory_quarantine_blocks_consume",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "inventory_paired_write_off_return",
+      "ok": true,
+      "status": "PASS",
+      "detail": "paired=2",
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
+    },
+    {
+      "name": "inventory_write_off",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
+    },
+    {
+      "name": "scopes_all_filter_mutual_exclusion",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "eligibility_one_to_one_mapping",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "online_closure_insert",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "online_closure_reason_required",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "arrival_checked_in_same_uow",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "historical_entry_recorded",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "waitlist_terminal_immutable",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "concurrency_refund_race_exactly_one_ok",
+      "ok": true,
+      "status": "PASS",
+      "detail": "results=ok,err:CheckViolationError",
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
+    },
+    {
+      "name": "concurrency_refund_race_not_both_ok",
+      "ok": true,
+      "status": "PASS",
+      "detail": "results=ok,err:CheckViolationError",
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
+    },
+    {
+      "name": "concurrency_refund_total_within_receipt",
+      "ok": true,
+      "status": "PASS",
+      "detail": "total=5E+4",
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
+    },
+    {
+      "name": "concurrency_refund_competing_rejected",
+      "ok": true,
+      "status": "PASS",
+      "detail": "errs=['err:CheckViolationError']",
+      "bucket": "IMPLEMENTATION_ACCEPTANCE"
+    },
+    {
+      "name": "rls_append_only_delete_denied",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "rls_missing_tenant_fail_closed",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "rls_cross_tenant_select_hidden",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "runtime_cannot_alter_schema",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    },
+    {
+      "name": "runtime_select_invoices_ok",
+      "ok": true,
+      "status": "PASS",
+      "detail": "",
+      "bucket": "PRE_IMPLEMENTATION"
+    }
+  ],
+  "defects": [],
+  "apply_log": [
+    {
+      "step": "deep/step3_eligibility",
+      "file": "05.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step3_departments",
+      "file": "06.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step4_scopes",
+      "file": "07.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step4_notes",
+      "file": "10.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step4_identity_reviews",
+      "file": "11.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step5_arrival",
+      "file": "08.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step5_waitlist",
+      "file": "04.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step5_online_close",
+      "file": "09.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step7_ledger_core",
+      "file": "00.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step7_ledger_core",
+      "file": "01.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step7_ledger_core",
+      "file": "02.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step7_b2_receipt_guards",
+      "file": "15.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step7_b1_invoice_guards",
+      "file": "14.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step9_inventory",
+      "file": "03.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step7_b3_crossrow",
+      "file": "16.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/step7_b4_misc",
+      "file": "17.sql",
+      "ok": true
+    },
+    {
+      "step": "deep/appendix_a_rls",
+      "file": "13.sql",
+      "ok": true
+    }
+  ]
+}

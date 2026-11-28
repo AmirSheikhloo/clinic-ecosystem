@@ -41,8 +41,11 @@ export async function loginAsReceptionist(page: Page) {
   await page.getByTestId("login-identifier").fill(loginId());
   await page.getByTestId("login-password").fill(password());
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/desk/, { timeout: 45_000 });
-  await expect(page.getByTestId("desk-page")).toBeVisible({ timeout: 45_000 });
+  // Login lands on dashboard (Task 34 R2); older builds redirected to /desk.
+  await expect(page).toHaveURL(/\/(dashboard|desk)/, { timeout: 45_000 });
+  await expect(page.getByTestId("app-sidebar").or(page.getByTestId("desk-page"))).toBeVisible({
+    timeout: 45_000,
+  });
   await assertHttpOnlySession(page);
 }
 
@@ -56,19 +59,20 @@ export async function assertRtlDocument(page: Page) {
   await expect(page.locator("html")).toHaveAttribute("lang", "fa");
 }
 
-/** Opens the theme menu when needed, applies palette and (optionally) appearance, then closes it. */
+/** Apply palette/appearance via /preferences (top-bar theme menu removed — UX-04). */
 export async function applyTheme(page: Page, theme: string, appearance?: "light" | "dark") {
-  const select = page.getByTestId("theme-select");
-  if (!(await select.isVisible())) await page.getByTestId("theme-menu-button").click();
-  await select.selectOption(theme);
+  const returnTo = page.url();
+  await page.goto("/preferences");
+  await expect(page.getByTestId("preferences-page")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId(`pref-theme-${theme}`).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   if (appearance) {
-    const current = await page.locator("html").getAttribute("data-appearance");
-    if (current !== appearance) await page.getByTestId("appearance-toggle").click();
+    await page.getByTestId(`pref-appearance-${appearance}`).click();
     await expect(page.locator("html")).toHaveAttribute("data-appearance", appearance);
   }
-  await page.keyboard.press("Escape");
-  await expect(select).toBeHidden();
+  if (returnTo && !returnTo.includes("/preferences") && !returnTo.includes("/login")) {
+    await page.goto(returnTo);
+  }
 }
 
 /** Main navigation link by its exact accessible name (avoids matching in-page links). */

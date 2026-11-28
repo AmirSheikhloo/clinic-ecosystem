@@ -2,92 +2,88 @@ import { P } from "@/lib/permissions";
 import type { DashboardAudience } from "./dashboard-role";
 import type { MetricCardDef, Summary } from "./types";
 
-function listHref(date: string, status?: string): string {
-  const params = new URLSearchParams({ view: "list", date });
-  if (status) params.set("status", status);
-  return `/appointments?${params.toString()}`;
+/** Filter the dashboard schedule table in-place (not navigate away). */
+export type MetricFilterKey = "today" | "upcoming" | "needs_status" | "cancelled" | "online";
+
+function dashFilter(key: MetricFilterKey): string {
+  return `#dash-${key}`;
 }
 
-/** Permission-stable card sets: which cards exist never depends on response values. */
+/**
+ * Five operational metric cards (Task 34 R2 dashboard PO).
+ * Today's Appointments is the default dataset and must not be interactive.
+ */
 export function buildMetricCards(
   audience: DashboardAudience,
   can: (code: string) => boolean,
   today: string,
-  tomorrow: string,
+  _tomorrow: string,
   data: Summary | null,
 ): MetricCardDef[] {
-  const cancelled = data?.appointments ? (data.appointments.by_status.CANCELLED ?? 0) : null;
-  const confirmed = data?.appointments ? (data.appointments.by_status.CONFIRMED ?? 0) : null;
-  const uniquePatients = data?.appointments?.unique_patients ?? null;
-  const checkedIn =
-    data?.appointments?.waiting_checked_in ??
-    (data?.appointments ? (data.appointments.by_status.CHECKED_IN ?? 0) : null);
+  const total = data?.appointments?.total ?? null;
+  const upcoming = data?.appointments?.upcoming_count ?? null;
+  const needsStatus = data?.appointments?.needs_status_count ?? null;
+  const cancelled =
+    data?.appointments?.cancelled_count ??
+    (data?.appointments ? (data.appointments.by_status.CANCELLED ?? 0) : null);
+  const online = data?.appointments?.online_bookings_today ?? null;
+  const onlineUnreviewed = data?.appointments?.online_unreviewed_count ?? null;
 
   if (audience.composition === "operational") {
-    const cards: MetricCardDef[] = [];
-    if (can(P.appointmentsList)) {
-      cards.push({
+    if (!can(P.appointmentsList)) return [];
+    return [
+      {
         key: "today",
         label: "نوبت‌های امروز",
-        value: data?.appointments?.total,
-        href: listHref(today),
+        value: total,
+        href: dashFilter("today"),
         icon: "calendar",
         testId: "dashboard-count",
-      });
-      cards.push({
-        key: "tomorrow",
-        label: "نوبت‌های فردا",
-        value: data?.tomorrow_appointments?.total,
-        href: listHref(tomorrow),
-        icon: "calendar",
-        testId: "dashboard-tomorrow",
-      });
-      cards.push({
-        key: "unique-patients",
-        label: "بیماران یکتای امروز",
-        value: uniquePatients,
-        href: listHref(today),
-        icon: "patients",
-        testId: "dashboard-unique-patients",
-        hint: "تعداد نوبت با تعداد بیمار یکتا متفاوت است",
-      });
-      cards.push({
-        key: "cancelled",
-        label: "لغوشدهٔ امروز",
-        value: cancelled,
-        href: listHref(today, "CANCELLED"),
+        accent: "today",
+        interactive: false,
+      },
+      {
+        key: "upcoming",
+        label: "نوبت‌های پیش رو",
+        value: upcoming,
+        href: dashFilter("upcoming"),
+        icon: "calendarClock",
+        testId: "dashboard-upcoming",
+        accent: "upcoming",
+        interactive: true,
+      },
+      {
+        key: "needs-status",
+        label: "نیازمند تعیین وضعیت",
+        value: needsStatus,
+        href: dashFilter("needs_status"),
         icon: "alert",
+        testId: "dashboard-needs-status",
+        accent: "needs",
+        interactive: true,
+      },
+      {
+        key: "cancelled",
+        label: "نوبت‌های لغوشده",
+        value: cancelled,
+        href: dashFilter("cancelled"),
+        icon: "calendarX",
         testId: "dashboard-cancelled",
-      });
-      cards.push({
-        key: "confirmed",
-        label: "تأییدشدهٔ امروز",
-        value: confirmed,
-        href: listHref(today, "CONFIRMED"),
-        icon: "desk",
-        testId: "dashboard-confirmed",
-      });
-      cards.push({
-        key: "checked-in",
-        label: "حاضر در کلینیک",
-        value: checkedIn,
-        href: listHref(today, "CHECKED_IN"),
-        icon: "desk",
-        testId: "dashboard-checked-in",
-        hint: "نوبت‌های با وضعیت حضور ثبت‌شده",
-      });
-    }
-    if (can(P.patientsSearch)) {
-      cards.push({
-        key: "patients",
-        label: "بیماران فعال",
-        value: data?.patients_active,
-        href: "/patients",
-        icon: "patients",
-        testId: "dashboard-patients",
-      });
-    }
-    return cards;
+        accent: "cancelled",
+        interactive: true,
+      },
+      {
+        key: "online",
+        label: "رزروهای آنلاین امروز",
+        value: online,
+        href: dashFilter("online"),
+        icon: "globe",
+        testId: "dashboard-online",
+        accent: "online",
+        interactive: true,
+        badge: onlineUnreviewed && onlineUnreviewed > 0 ? onlineUnreviewed : undefined,
+      },
+    ];
   }
 
   const cards: MetricCardDef[] = [];
@@ -95,60 +91,34 @@ export function buildMetricCards(
     cards.push({
       key: "today",
       label: "نوبت‌های امروز",
-      value: data?.appointments?.total,
-      href: listHref(today),
+      value: total,
+      href: `/appointments?view=list&date=${today}`,
       icon: "calendar",
       testId: "dashboard-count",
-    });
-    cards.push({
-      key: "tomorrow",
-      label: "نوبت‌های فردا",
-      value: data?.tomorrow_appointments?.total,
-      href: listHref(tomorrow),
-      icon: "calendar",
-      testId: "dashboard-tomorrow",
-    });
-    cards.push({
-      key: "unique-patients",
-      label: "بیماران یکتای امروز",
-      value: uniquePatients,
-      href: listHref(today),
-      icon: "patients",
-      testId: "dashboard-unique-patients",
+      accent: "today",
+      interactive: true,
     });
     cards.push({
       key: "cancelled",
       label: "لغوشدهٔ امروز",
       value: cancelled,
-      href: listHref(today, "CANCELLED"),
-      icon: "alert",
+      href: `/appointments?view=list&date=${today}&status=CANCELLED`,
+      icon: "calendarX",
       testId: "dashboard-cancelled",
-    });
-    cards.push({
-      key: "confirmed",
-      label: "تأییدشدهٔ امروز",
-      value: confirmed,
-      href: listHref(today, "CONFIRMED"),
-      icon: "desk",
-      testId: "dashboard-confirmed",
-    });
-    cards.push({
-      key: "checked-in",
-      label: "حاضر در کلینیک",
-      value: checkedIn,
-      href: listHref(today, "CHECKED_IN"),
-      icon: "desk",
-      testId: "dashboard-checked-in",
+      accent: "cancelled",
+      interactive: true,
     });
   }
-  if (can(P.patientsSearch)) {
+  if (can(P.financeSummary)) {
     cards.push({
-      key: "patients",
-      label: "بیماران فعال",
-      value: data?.patients_active,
-      href: "/patients",
-      icon: "patients",
-      testId: "dashboard-patients",
+      key: "finance-net",
+      label: "خالص دریافتی امروز",
+      value: data?.finance?.net_collected_irr,
+      href: "/finance",
+      icon: "wallet",
+      testId: "dashboard-finance-net",
+      accent: "online",
+      interactive: true,
     });
   }
   if (can(P.staffView)) {
@@ -159,26 +129,18 @@ export function buildMetricCards(
       href: "/staff",
       icon: "staff",
       testId: "dashboard-staff",
+      interactive: true,
     });
   }
-  if (can(P.catalogServicesRead)) {
+  if (can(P.patientsSearch)) {
     cards.push({
-      key: "services",
-      label: "خدمات فعال",
-      value: data?.services_active,
-      href: "/catalog",
-      icon: "catalog",
-      testId: "dashboard-services",
-    });
-  }
-  if (can(P.resourcesRead)) {
-    cards.push({
-      key: "resources",
-      label: "منابع فعال",
-      value: data?.resources_active,
-      href: "/catalog",
-      icon: "layers",
-      testId: "dashboard-resources",
+      key: "patients",
+      label: "بیماران فعال",
+      value: data?.patients_active,
+      href: "/patients",
+      icon: "patients",
+      testId: "dashboard-patients",
+      interactive: true,
     });
   }
   return cards;

@@ -131,6 +131,32 @@
   --ds-header-search-row: 3.25rem;
   --ds-search-width: clamp(14rem, 32%, 26rem);
   --ds-user-chip-width: 8.5rem;
+  /* Chip + notification bell + gap — keeps the Tehran clock track stable. */
+  --ds-topbar-account-track: calc(var(--ds-user-chip-width) + 2.75rem);
+  /* Dashboard metric card palette (light) */
+  --ds-metric-today-bg: #dfebff;
+  --ds-metric-today-fg: #2456b3;
+  --ds-metric-upcoming-bg: #ede5fc;
+  --ds-metric-upcoming-fg: #7045b0;
+  --ds-metric-needs-bg: #fff0cd;
+  --ds-metric-needs-fg: #92400e;
+  --ds-metric-cancelled-bg: #fce3e9;
+  --ds-metric-cancelled-fg: #ae2446;
+  --ds-metric-online-bg: #cffafe;
+  --ds-metric-online-fg: #155e75;
+  /* Operational status badges (light) */
+  --ds-ops-completed-bg: #bbf7d0;
+  --ds-ops-completed-fg: #166534;
+  --ds-ops-waiting-bg: #dbeafe;
+  --ds-ops-waiting-fg: #1d4ed8;
+  --ds-ops-needs-bg: #fde68a;
+  --ds-ops-needs-fg: #92400e;
+  --ds-ops-cancelled-bg: #fecdd3;
+  --ds-ops-cancelled-fg: #a11238;
+  --ds-ops-not-performed-bg: #e7e5e4;
+  --ds-ops-not-performed-fg: #44403c;
+  --ds-channel-bg: #dbeafe;
+  --ds-channel-fg: #1d4ed8;
   --ds-content-max: 80rem;
   --ds-line-height-tight: 1.25;
   --ds-line-height-body: 1.6;
@@ -195,6 +221,28 @@
   --ds-info: #7dd3fc;
   --ds-on-primary: #ffffff;
   --ds-sidebar: color-mix(in srgb, var(--ds-primary-strong) 35%, #0b121b);
+  --ds-metric-today-bg: #1e3a5f;
+  --ds-metric-today-fg: #93c5fd;
+  --ds-metric-upcoming-bg: #3b2a5c;
+  --ds-metric-upcoming-fg: #d8b4fe;
+  --ds-metric-needs-bg: #5b4310;
+  --ds-metric-needs-fg: #fcd34d;
+  --ds-metric-cancelled-bg: #5c1a2a;
+  --ds-metric-cancelled-fg: #fda4af;
+  --ds-metric-online-bg: #164e63;
+  --ds-metric-online-fg: #a5f3fc;
+  --ds-ops-completed-bg: #14532d;
+  --ds-ops-completed-fg: #86efac;
+  --ds-ops-waiting-bg: #1e3a8a;
+  --ds-ops-waiting-fg: #93c5fd;
+  --ds-ops-needs-bg: #78350f;
+  --ds-ops-needs-fg: #fde68a;
+  --ds-ops-cancelled-bg: #7f1d1d;
+  --ds-ops-cancelled-fg: #fecdd3;
+  --ds-ops-not-performed-bg: #292524;
+  --ds-ops-not-performed-fg: #d6d3d1;
+  --ds-channel-bg: #1e3a8a;
+  --ds-channel-fg: #93c5fd;
 }
 
 /* Display density (Preferences). Controls and table rows follow these; layout geometry does not. */

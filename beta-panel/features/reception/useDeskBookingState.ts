@@ -3,6 +3,12 @@
 import { useRef, useState } from "react";
 import { IdempotencyKeyStore, type OverlapConflict } from "@/lib/client";
 
+export type BookedLineLink = {
+  clientLineId: string;
+  serviceId: string;
+  appointmentId: string;
+};
+
 export type BookedSummary = {
   appointmentId: string;
   startIso: string;
@@ -11,6 +17,8 @@ export type BookedSummary = {
   serviceName: string;
   overlapAcknowledged: boolean;
   replayed: boolean;
+  /** Per-service appointment links for multi-line desk checkout. */
+  lines?: BookedLineLink[];
 };
 
 /** Mutable booking-intent state; any change to the intent invalidates cached keys and pending overlap. */

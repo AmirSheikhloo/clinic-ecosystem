@@ -5,6 +5,11 @@ on:
     branches:
       - feature/m1-01-appointment-vertical-slice
       - feature/beta-01b-reception
+      - cursor/d010-ops-contracts-validation-95a4
+  pull_request:
+    branches:
+      - main
+      - development/clinic-operations
   workflow_dispatch:
 
 permissions:

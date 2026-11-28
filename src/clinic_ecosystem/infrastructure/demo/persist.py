@@ -71,18 +71,47 @@ async def persist_identity_graph(
             for p in people.patients
         ],
     )
-    await copy_rows(
-        conn,
-        "staff_profiles",
-        [
-            "id", "tenant_id", "person_id", "staff_kind", "medical_council_code",
-            "is_active", "created_at_utc",
-        ],
-        [
-            (s.id, tenant_id, s.person_id, s.staff_kind, s.medical_council_code, s.is_active, now)
-            for s in staff.staff
-        ],
+    has_job_title = await conn.fetchval(
+        """
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema='public' AND table_name='staff_profiles'
+            AND column_name='job_title'
+        )
+        """
     )
+    if has_job_title:
+        await copy_rows(
+            conn,
+            "staff_profiles",
+            [
+                "id", "tenant_id", "person_id", "staff_kind", "medical_council_code",
+                "is_active", "created_at_utc", "job_title",
+            ],
+            [
+                (
+                    s.id, tenant_id, s.person_id, s.staff_kind, s.medical_council_code,
+                    s.is_active, now, s.job_title,
+                )
+                for s in staff.staff
+            ],
+        )
+    else:
+        await copy_rows(
+            conn,
+            "staff_profiles",
+            [
+                "id", "tenant_id", "person_id", "staff_kind", "medical_council_code",
+                "is_active", "created_at_utc",
+            ],
+            [
+                (
+                    s.id, tenant_id, s.person_id, s.staff_kind, s.medical_council_code,
+                    s.is_active, now,
+                )
+                for s in staff.staff
+            ],
+        )
     pwd = hash_password(DEMO_RECV_PASSWORD)
     login_rows = []
     for staff_index, s in enumerate(staff.staff):
@@ -230,6 +259,7 @@ async def persist_appointments(
 ) -> None:
     appt_rows = []
     alloc_params = []
+    alloc_seq = 0
     for i, a in enumerate(appts.appointments):
         appt_rows.append(
             (
@@ -240,7 +270,7 @@ async def persist_appointments(
         )
         alloc_params.append(
             (
-                demo_uuid(targets.seed, "allocation", i),
+                demo_uuid(targets.seed, "allocation", alloc_seq),
                 tenant_id,
                 a.id,
                 a.resource_id,
@@ -252,6 +282,28 @@ async def persist_appointments(
                 a.created_at,
             )
         )
+        alloc_seq += 1
+        # MANUAL pool bypasses ONLINE GiST EXCLUDE — safe to share practitioners.
+        if (
+            a.capacity_pool == "MANUAL"
+            and a.practitioner_resource_id
+            and a.practitioner_resource_id != a.resource_id
+        ):
+            alloc_params.append(
+                (
+                    demo_uuid(targets.seed, "allocation", alloc_seq),
+                    tenant_id,
+                    a.id,
+                    a.practitioner_resource_id,
+                    a.booking_channel,
+                    a.capacity_pool,
+                    a.allocation_status,
+                    a.start_utc,
+                    a.end_utc,
+                    a.created_at,
+                )
+            )
+            alloc_seq += 1
     await copy_rows(
         conn,
         "appointments",

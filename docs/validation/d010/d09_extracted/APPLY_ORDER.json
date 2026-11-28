@@ -1,0 +1,52 @@
+{
+  "step3_eligibility": [
+    "05"
+  ],
+  "step3_departments": [
+    "06"
+  ],
+  "step4_scopes": [
+    "07"
+  ],
+  "step4_notes": [
+    "10"
+  ],
+  "step4_identity_reviews": [
+    "11"
+  ],
+  "step5_waitlist": [
+    "04"
+  ],
+  "step5_arrival": [
+    "08"
+  ],
+  "step5_online_close": [
+    "09"
+  ],
+  "step7_ledger_core": [
+    "00",
+    "01",
+    "02"
+  ],
+  "step7_appendix_b_guards": [
+    "15"
+  ],
+  "step7_appendix_b_invoice": [
+    "14"
+  ],
+  "step7_appendix_b_crossrow": [
+    "16"
+  ],
+  "step7_appendix_b_misc": [
+    "17"
+  ],
+  "step9_inventory": [
+    "03"
+  ],
+  "appendix_a_rls": [
+    "13"
+  ],
+  "SKIP_merge_source_required": [
+    "12"
+  ]
+}

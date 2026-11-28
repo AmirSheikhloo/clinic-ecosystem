@@ -25,10 +25,6 @@ from urllib.parse import quote_plus
 import asyncpg
 
 from tests.integration.alembic_runner import upgrade_tenant_plane_async
-from tests.integration.beta01b_seed import (
-    TEST_RECEPTIONIST_PASSWORD,
-    TEST_UNAUTHORIZED_PASSWORD,
-)
 from tests.integration.beta02_seed import (
     DEPUTY_PASSWORD,
     MANAGER_PASSWORD,
@@ -44,6 +40,7 @@ from tests.integration.docker_probe import DOCKER_AVAILABLE, SKIP_REASON
 from clinic_ecosystem.infrastructure.demo.crypto_hooks import preview_demo_pii_env
 from clinic_ecosystem.infrastructure.demo.loader import load_demo_dataset
 from clinic_ecosystem.infrastructure.demo.profiles import DEMO_SEED
+from clinic_ecosystem.infrastructure.ops_schema import apply_ops_schema
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PANEL_DIR = REPO_ROOT / "beta-panel"
@@ -224,9 +221,16 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
         # Deterministic non-prod PII keys so demo can seal phones / National IDs.
         for key, value in preview_demo_pii_env(DEMO_SEED).items():
             os.environ.setdefault(key, value)
+        # Disposable ACR-D0.11 ops schema (never official Alembic).
+        os.environ.setdefault("CLINIC_OPS_SCHEMA_MODE", "disposable")
         demo_profile = os.environ.get("CLINIC_DEMO_PROFILE", "demo").strip() or "demo"
         conn = await asyncpg.connect(migrator.asyncpg_dsn())
         try:
+            await conn.execute("SET ROLE db_migrator")
+            ops_apply = await apply_ops_schema(conn, explicit=True)
+            (artifact_dir / "ops_schema_apply.json").write_text(
+                json.dumps(ops_apply, indent=2) + "\n", encoding="utf-8"
+            )
             ops = await seed_beta02_operations(conn)
             demo = await load_demo_dataset(
                 conn,
@@ -236,12 +240,25 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
                 profile=demo_profile,
                 seed=DEMO_SEED,
             )
-            return ops, demo
+            from clinic_ecosystem.infrastructure.demo.seed_preview_aliases import (
+                apply_preview_demo_aliases,
+            )
+
+            alias_info = await apply_preview_demo_aliases(
+                conn,
+                tenant_id=ops.base.tenant_a_id,
+                receptionist_login=ops.base.receptionist_login,
+            )
+            return ops, demo, alias_info
         finally:
             await conn.close()
 
-    ops_seed, demo_result = asyncio.run(_migrate_and_seed())
+    ops_seed, demo_result, alias_info = asyncio.run(_migrate_and_seed())
     seed = ops_seed.base
+    from clinic_ecosystem.infrastructure.auth.demo_aliases import DEMO_SHARED_PASSWORD
+
+    # Preview uses the shared demo password after alias seed rewrite.
+    preview_password = DEMO_SHARED_PASSWORD
     # Persist demo manifest beside artifacts for Product Owner / validation.
     (artifact_dir / "demo_dataset_manifest.json").write_text(
         json.dumps(demo_result.manifest, indent=2, ensure_ascii=False) + "\n",
@@ -268,6 +285,17 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
             "CLINIC_ACCESS_TOKEN_SIGNING_SECRET": signing_secret,
             "CLINIC_DATABASE_URL": app_url,
             "CLINIC_ACCESS_TOKEN_TTL_SECONDS": "900",
+            "CLINIC_OPS_SCHEMA_MODE": "disposable",
+            "CLINIC_DEMO_ALIASES_ENABLED": "1",
+            "CLINIC_DEMO_DISPOSABLE_MARKER": "clinic-ecosystem-synthetic-preview-v1",
+            "CLINIC_DEMO_ALIAS_OWNER": ops_seed.owner_login,
+            "CLINIC_DEMO_ALIAS_MANAGER": ops_seed.manager_login,
+            "CLINIC_DEMO_ALIAS_DEPUTY": ops_seed.deputy_login,
+            "CLINIC_DEMO_ALIAS_RECEPTIONIST": seed.receptionist_login,
+            "CLINIC_DEMO_ALIAS_HEAD": "head",
+            "CLINIC_DEMO_ALIAS_LIMITED": "limited",
+            "CLINIC_DEMO_ALIAS_DOCTOR": "doctor",
+            "CLINIC_DEMO_ALIAS_CLERK": "clerk",
             "PYTHONUNBUFFERED": "1",
         }
     )
@@ -301,9 +329,11 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
         {
             "CLINIC_ENV": "test",
             "CLINIC_BETA_PANEL_ENABLED": "1",
+            "CLINIC_DEMO_ALIASES_ENABLED": "1",
             "CLINIC_API_BASE_URL": api_base,
             "PORT": str(panel_port),
             "HOSTNAME": "127.0.0.1",
+            "NEXT_PUBLIC_CLINIC_DEMO_ALIASES": "1",
         }
     )
     panel_log = (artifact_dir / "panel.log").open("w", encoding="utf-8")
@@ -320,15 +350,16 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
         panel_base_url=panel_base,
         api_base_url=api_base,
         receptionist_login=seed.receptionist_login,
-        receptionist_password=TEST_RECEPTIONIST_PASSWORD,
+        receptionist_password=preview_password,
         unauthorized_login=seed.unauthorized_login,
-        unauthorized_password=TEST_UNAUTHORIZED_PASSWORD,
+        # Alias seed rewrites clerk-no-perms to the shared demo password.
+        unauthorized_password=preview_password,
         owner_login=ops_seed.owner_login,
-        owner_password=OWNER_PASSWORD,
+        owner_password=preview_password,
         manager_login=ops_seed.manager_login,
-        manager_password=MANAGER_PASSWORD,
+        manager_password=preview_password,
         deputy_login=ops_seed.deputy_login,
-        deputy_password=DEPUTY_PASSWORD,
+        deputy_password=preview_password,
         service_name="Tenant A Consultation",
         resource_name="Room Alpha",
         tenant_a_id=str(seed.tenant_a_id),
@@ -345,7 +376,7 @@ def start_browser_stack(*, artifact_dir: Path) -> BrowserStack:
         payload = json.dumps(
             {
                 "login_identifier": seed.receptionist_login,
-                "password": TEST_RECEPTIONIST_PASSWORD,
+                "password": preview_password,
             }
         ).encode("utf-8")
         req = urllib.request.Request(

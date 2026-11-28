@@ -16,6 +16,8 @@ export type Me = {
   is_active: boolean;
   first_name: string;
   last_name: string;
+  /** Optional descriptive job title — never an authorization source. */
+  job_title?: string | null;
   permissions: string[];
   governance_roles: string[];
 };

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import type { IdentityType } from "@/features/patients/PatientRegisterForm";
 import { isValidNationalIdChecksum, normalizeNationalIdInput } from "@/lib/national-id";
 import { tehranTodayYmd } from "@/lib/tehran";
+import { PERSIAN_INSURANCE_CATALOG } from "./insurance-catalog";
 
 const IDENTITY_OPTIONS = [
   { value: "IR_NATIONAL_ID" as const, label: "کد ملی", testId: "desk-identity-national" },
@@ -33,6 +34,8 @@ type Props = {
   onIdentityExceptionReasonChange: (value: string) => void;
   registering: boolean;
   onRegister: (event: FormEvent) => void;
+  insuranceCode?: string;
+  onInsuranceCodeChange?: (value: string) => void;
 };
 
 export function PatientQuickRegister({
@@ -52,6 +55,8 @@ export function PatientQuickRegister({
   onIdentityExceptionReasonChange,
   registering,
   onRegister,
+  insuranceCode = "NONE",
+  onInsuranceCodeChange,
 }: Props) {
   const digits = normalizeNationalIdInput(nationalId);
   const needsId = identityType !== "EXCEPTION";
@@ -114,6 +119,22 @@ export function PatientQuickRegister({
         maxLength={20}
         autoComplete="off"
       />
+      <label className="block text-sm">
+        بیمه
+        <select
+          className="ds-input mt-1"
+          value={insuranceCode}
+          onChange={(e) => onInsuranceCodeChange?.(e.target.value)}
+          data-testid="patient-insurance"
+        >
+          {PERSIAN_INSURANCE_CATALOG.map((entry) => (
+            <option key={entry.code} value={entry.code} disabled={!entry.clinicContractActive && entry.code !== "NONE" && entry.code !== "OTHER"}>
+              {entry.nameFa}
+              {!entry.clinicContractActive ? " (بدون قرارداد فعال)" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
       <JalaliDateField
         label="تاریخ تولد (اختیاری)"
         value={birthDate}

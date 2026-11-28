@@ -46,6 +46,26 @@ RECEPTIONIST_EXTRA = (
     "BETA02_APPOINTMENTS_CHECK_IN",
     "BETA02_APPOINTMENTS_COMPLETE",
     "BETA02_APPOINTMENTS_MARK_NO_SHOW",
+    "BETA02_FINANCE_INVOICE_VIEW",
+    "BETA02_FINANCE_INVOICE_DRAFT",
+    "BETA02_FINANCE_INVOICE_POST",
+    "BETA02_FINANCE_RECEIPT_RECORD",
+    "BETA02_FINANCE_DISCOUNT",
+    "BETA02_FINANCE_SUMMARY",
+    "BETA02_WAITLIST_VIEW",
+    "BETA02_WAITLIST_MANAGE",
+    "BETA02_INVENTORY_VIEW",
+    "BETA02_DEPARTMENTS_VIEW",
+    "BETA02_ELIGIBILITY_MANAGE",
+    "BETA02_CASHIER_SHIFT_MANAGE",
+    "BETA02_FINANCE_REFUND",
+    "BETA02_FINANCE_ADJUSTMENT",
+    "BETA02_INVENTORY_ADJUST",
+    "BETA02_DEPARTMENTS_MANAGE",
+    "BETA02_ONLINE_CLOSURE_MANAGE",
+    "BETA02_HEAD_RECEPTIONIST",
+    "BETA02_COURSES_VIEW",
+    "BETA02_COURSES_MANAGE",
 )
 
 
@@ -100,15 +120,52 @@ async def seed_beta02_operations(conn: asyncpg.Connection) -> Beta02Seed:
         new_uuid7(), new_uuid7(), new_uuid7(), new_uuid7(),
     )
 
+    # Persian display names for Product Owner demo roles.
+    persian_names = {
+        "owner": ("رضا", "مالکی"),
+        "manager": ("سارا", "مدیری"),
+        "deputy": ("امیر", "جانشینی"),
+        "target": ("نرگس", "هدف‌مند"),
+    }
+    job_titles = {
+        "owner": "مالک کلینیک",
+        "manager": "مدیر عملیات",
+        "deputy": "جانشین مدیر",
+        "target": "کارشناس",
+    }
     await conn.execute("SET ROLE db_migrator")
     await conn.execute("SELECT set_config('app.current_tenant_id', $1, false)", str(tenant))
+    has_job_title = await conn.fetchval(
+        """
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema='public' AND table_name='staff_profiles'
+            AND column_name='job_title'
+        )
+        """
+    )
     for name, person in people.items():
+        first, last = persian_names[name]
         await conn.execute(
             "INSERT INTO tenant_persons (id, tenant_id, first_name, last_name, birth_date, gender,"
             " aggregate_version, created_at_utc, updated_at_utc)"
             " VALUES ($1,$2,$3,$4,NULL,NULL,1,$5,$5)",
-            person, tenant, name.capitalize(), "Beta02", now,
+            person, tenant, first, last, now,
         )
+        if has_job_title:
+            await conn.execute(
+                "INSERT INTO staff_profiles (id, tenant_id, person_id, staff_kind,"
+                " medical_council_code, is_active, created_at_utc, job_title)"
+                " VALUES ($1,$2,$3,'RECEPTIONIST',NULL,TRUE,$4,$5)",
+                new_uuid7(), tenant, person, now, job_titles[name],
+            )
+        else:
+            await conn.execute(
+                "INSERT INTO staff_profiles (id, tenant_id, person_id, staff_kind,"
+                " medical_council_code, is_active, created_at_utc)"
+                " VALUES ($1,$2,$3,'RECEPTIONIST',NULL,TRUE,$4)",
+                new_uuid7(), tenant, person, now,
+            )
         await conn.execute(
             "INSERT INTO user_accounts (id, tenant_id, person_id, login_identifier,"
             " normalized_login_identifier, password_hash_argon2id, is_active,"

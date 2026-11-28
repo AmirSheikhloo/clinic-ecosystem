@@ -15,6 +15,10 @@ import { shiftTehranYmd, tehranTodayYmd } from "@/lib/client";
 import { P } from "@/lib/permissions";
 import { CATALOG_CACHE_MS } from "@/lib/query-cache";
 import { useApiQuery } from "@/lib/use-api-query";
+import {
+  AppointmentFinanceDrawer,
+  type FinanceDrawerTarget,
+} from "@/features/finance/AppointmentFinanceDrawer";
 import { AppointmentDetailsDialog } from "./AppointmentDetailsDialog";
 import { AppointmentListView } from "./AppointmentListView";
 import { AppointmentTable } from "./AppointmentTable";
@@ -66,6 +70,7 @@ export function AppointmentsView() {
   const [refresh, setRefresh] = useState(0);
   const [listTotal, setListTotal] = useState<number | null>(null);
   const [listLoading, setListLoading] = useState(false);
+  const [financeTarget, setFinanceTarget] = useState<FinanceDrawerTarget | null>(null);
   const allowed = can(P.appointmentsList);
   const calendarMode = mode !== "list";
 
@@ -125,7 +130,12 @@ export function AppointmentsView() {
         onModeChange={setMode}
         anchor={anchor}
         onAnchorChange={setAnchor}
-        count={mode === "list" ? listTotal : items ? items.length : null}
+        count={
+          mode === "list"
+            ? listTotal
+            : calendar.data?.aggregates?.total ?? (items ? items.length : null)
+        }
+        aggregates={mode === "list" ? null : calendar.data?.aggregates ?? null}
         loading={mode === "list" ? listLoading : calendar.loading}
         onRefresh={() => setRefresh((v) => v + 1)}
         filters={filters}
@@ -147,6 +157,15 @@ export function AppointmentsView() {
           refreshKey={refresh}
           onTotalChange={onListTotal}
           onLoadingChange={onListLoading}
+          canFinance={can(P.financeInvoiceView)}
+          onOpenFinance={(row) =>
+            setFinanceTarget({
+              appointmentId: row.appointment_id,
+              patientId: row.patient_profile_id,
+              patientName: `${row.patient_first_name} ${row.patient_last_name}`,
+              serviceName: row.service_name,
+            })
+          }
         />
       ) : (
         <QueryBoundary loading={calendar.loading && !calendar.data} error={calendar.error} deniedWhat="مشاهدهٔ نوبت‌ها" onRetry={calendar.reload}>
@@ -178,6 +197,13 @@ export function AppointmentsView() {
               range={range}
               anchor={anchor}
               groups={groups}
+              dayCounts={
+                calendar.data.aggregates
+                  ? Object.fromEntries(
+                      calendar.data.aggregates.by_day.map((d) => [d.date, d.count]),
+                    )
+                  : undefined
+              }
               todayYmd={tehranTodayYmd()}
               onPickDay={(ymd) => {
                 setAnchor(ymd);
@@ -192,8 +218,13 @@ export function AppointmentsView() {
           appointmentId={openId}
           onClose={() => setOpenId(null)}
           onChanged={() => setRefresh((v) => v + 1)}
+          onOpenFinance={(target) => setFinanceTarget(target)}
         />
       )}
+      <AppointmentFinanceDrawer
+        target={financeTarget}
+        onClose={() => setFinanceTarget(null)}
+      />
     </main>
   );
 }

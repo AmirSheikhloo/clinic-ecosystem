@@ -15,6 +15,7 @@ from clinic_ecosystem.infrastructure.auth.access_tokens import (
     AccessTokenClaims,
     issue_access_token,
 )
+from clinic_ecosystem.infrastructure.auth.demo_aliases import resolve_login_identifier
 from clinic_ecosystem.infrastructure.auth.passwords import verify_password
 from clinic_ecosystem.infrastructure.auth.settings import (
     AuthSettings,
@@ -63,7 +64,9 @@ class AuthService:
         # Never accept a client-supplied tenant_id for app.current_tenant_id.
         await uow.bind_tenant(realm_tenant_id)
         users = SqlUserAccountRepository(uow.session)
-        normalized = normalize_login_identifier(login_identifier)
+        # Isolated-preview aliases only (fail closed when catalog disabled).
+        resolved = resolve_login_identifier(login_identifier)
+        normalized = normalize_login_identifier(resolved)
         # Row lock serializes concurrent failure counting / successful reset.
         account = await users.find_by_normalized_login(
             tenant_id=realm_tenant_id,

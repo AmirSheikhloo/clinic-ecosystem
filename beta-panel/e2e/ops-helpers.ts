@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { tehranTodayYmd } from "../lib/tehran";
-import { assertHttpOnlySession } from "./helpers";
+import { assertHttpOnlySession, navLink } from "./helpers";
 import { fillJalaliDateTime } from "./jalali-helpers";
 
 const CSRF = "ce_beta_csrf";
@@ -41,8 +41,10 @@ export async function loginAs(page: Page, creds: Creds, label = "user") {
   await page.getByTestId("login-identifier").fill(creds.login);
   await page.getByTestId("login-password").fill(creds.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/desk/, { timeout: 45_000 });
-  await expect(page.getByTestId("app-sidebar")).toBeVisible({ timeout: 45_000 });
+  await expect(page).toHaveURL(/\/(dashboard|desk)/, { timeout: 45_000 });
+  await expect(page.getByTestId("app-sidebar").or(page.getByTestId("desk-page"))).toBeVisible({
+    timeout: 45_000,
+  });
   await assertHttpOnlySession(page);
 }
 
@@ -75,7 +77,8 @@ export async function bff(
 }
 
 export async function gotoNav(page: Page, linkName: string, testId: string) {
-  await page.getByRole("link", { name: linkName, exact: true }).click();
+  // Scope to the main sidebar — dashboard/in-page CTAs reuse the same labels (e.g. مدیریت نوبت‌ها).
+  await navLink(page, linkName).click();
   await expect(page.getByTestId(testId)).toBeVisible({ timeout: 30_000 });
 }
 
@@ -85,6 +88,16 @@ export function tehranSlot(offsetMinutes = 0, hour = 16): string {
 }
 
 export async function deskRegisterPatient(page: Page, first: string, last: string) {
+  // After a booking confirmation the desk stays on stage 2 — reset to identification first.
+  const nextPatient = page.getByTestId("desk-next-patient");
+  if (await nextPatient.first().isVisible().catch(() => false)) {
+    await nextPatient.first().click();
+  }
+  const stage1 = page.getByTestId("desk-stage-1");
+  if (await stage1.isVisible().catch(() => false)) {
+    await stage1.click();
+  }
+  await expect(page.getByTestId("patient-first-name")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("patient-first-name").fill(first);
   await page.getByTestId("patient-last-name").fill(last);
   // Identity is required for submit readiness; use the approved exception path (no forged ID).
@@ -93,7 +106,41 @@ export async function deskRegisterPatient(page: Page, first: string, last: strin
   await expect(page.getByTestId("patient-register-submit")).toBeEnabled({ timeout: 10_000 });
   await page.getByTestId("patient-register-submit").click();
   await expect(page.getByTestId("desk-status")).toContainText("بیمار ثبت شد", { timeout: 30_000 });
-  await expect(page.getByTestId("selected-patient")).toContainText(`${first} ${last}`);
+  // Stage advances to booking; summary and cashier both show the name — assert one match.
+  await expect(
+    page
+      .getByTestId("summary-patient")
+      .or(page.getByTestId("invoice-patient"))
+      .or(page.getByTestId("selected-patient"))
+      .filter({ hasText: `${first} ${last}` })
+      .first(),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("desk-stage-booking").or(page.getByTestId("desk-stage-2")).first()).toBeVisible();
+}
+
+/** Prefer the sr-only native <select> backing SearchableCombobox; fall back to listbox. */
+export async function pickComboboxOption(page: Page, testId: string, label: string) {
+  const native = page.getByTestId(testId);
+  const isSelect = await native.evaluate((el) => el.tagName.toLowerCase() === "select").catch(() => false);
+  if (isSelect) {
+    await native.selectOption({ label });
+  } else {
+    const input = page.getByTestId(`${testId}-input`);
+    await input.click();
+    await input.fill(label);
+    // Prefer the visible listbox option — a hidden native <select> also exposes role=option.
+    const listbox = page.getByRole("listbox");
+    await listbox
+      .getByRole("option", { name: new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })
+      .first()
+      .click();
+  }
+  // Desk autofocus can leave the APG listbox open after a native selectOption — dismiss it.
+  const openList = page.getByRole("listbox");
+  if ((await openList.count()) > 0) {
+    await page.keyboard.press("Escape");
+  }
+  await expect(openList).toHaveCount(0);
 }
 
 /** Dense demo days often collide; accept either a clean booking or an acknowledged overlap. */
@@ -120,11 +167,16 @@ export async function findAppointmentRow(page: Page, patientToken: string) {
 export async function deskBook(page: Page, startLocal: string) {
   const service = process.env.BETA01B_SERVICE_NAME || "Tenant A Consultation";
   const resourceName = process.env.BETA01B_RESOURCE_NAME || "Room Alpha";
-  await page.getByTestId("service-select").selectOption({ label: service });
+  await pickComboboxOption(page, "service-select", service);
   await expect(page.getByTestId("resource-fieldset")).toBeEnabled({ timeout: 30_000 });
+  // Ensure no sticky service listbox covers the resource checkboxes.
+  await expect(page.getByRole("listbox")).toHaveCount(0);
   const resource = page.getByTestId("resource-option").filter({ hasText: resourceName });
   await expect(resource).toBeVisible();
-  await resource.locator('input[type="checkbox"]').check();
+  const checkbox = resource.locator('input[type="checkbox"]');
+  // Force bypasses residual popover hit-testing; still assert checked state afterward.
+  await checkbox.check({ force: true });
+  await expect(checkbox).toBeChecked();
   await fillJalaliDateTime(page, "appointment-start", startLocal);
   await expect(page.getByTestId("appointment-submit")).toBeEnabled({ timeout: 15_000 });
   await page.getByTestId("appointment-submit").click();

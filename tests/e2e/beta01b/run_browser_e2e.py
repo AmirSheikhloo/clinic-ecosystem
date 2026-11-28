@@ -41,12 +41,19 @@ def main() -> int:
 
         stack.write_env_file(ENV_FILE)
         # Load env for child without printing secrets.
+        # playwright.env values are shell-quoted for `source`; strip quotes for Node.
+        def _unquote(raw: str) -> str:
+            text = raw.strip()
+            if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
+                return text[1:-1]
+            return text
+
         env = os.environ.copy()
         for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
             if not line or "=" not in line:
                 continue
             key, value = line.split("=", 1)
-            env[key] = value
+            env[key] = _unquote(value)
         env["BETA01B_E2E_ENV_FILE"] = str(ENV_FILE)
 
         print(

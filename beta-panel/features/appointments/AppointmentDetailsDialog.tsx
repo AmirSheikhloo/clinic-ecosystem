@@ -17,11 +17,17 @@ import { resourceTypeLabel } from "@/lib/resources";
 import { useApiQuery } from "@/lib/use-api-query";
 import { useIdempotencyKey } from "@/lib/use-idempotency";
 import { failureMessage } from "./action-errors";
+import type { FinanceDrawerTarget } from "@/features/finance/AppointmentFinanceDrawer";
 import { CancelPanel } from "./CancelPanel";
 import { ReschedulePanel } from "./ReschedulePanel";
 import type { AppointmentDetails } from "./types";
 
-type Props = { appointmentId: string; onClose: () => void; onChanged: () => void };
+type Props = {
+  appointmentId: string;
+  onClose: () => void;
+  onChanged: () => void;
+  onOpenFinance?: (target: FinanceDrawerTarget) => void;
+};
 type Mode = "view" | "cancel" | "reschedule";
 type LifecycleAction = "check-in" | "complete" | "no-show";
 
@@ -40,14 +46,21 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function AppointmentDetailsDialog({ appointmentId, onClose, onChanged }: Props) {
+export function AppointmentDetailsDialog({ appointmentId, onClose, onChanged, onOpenFinance }: Props) {
   const { can } = useSession();
   const toast = useToast();
   const [mode, setMode] = useState<Mode>("view");
   const [busy, setBusy] = useState<LifecycleAction | null>(null);
   const [failure, setFailure] = useState<ApiFail | null>(null);
+  const [histReason, setHistReason] = useState("");
+  const [histBusy, setHistBusy] = useState(false);
+  const [histMsg, setHistMsg] = useState<string | null>(null);
   const idem = useIdempotencyKey();
   const query = useApiQuery<AppointmentDetails>(`/api/v1/appointments/${appointmentId}`, "بارگذاری جزئیات نوبت ناموفق بود");
+  const hist = useApiQuery<{ entry: { late_entry_reason: string; recorded_at_utc: string } | null }>(
+    `/api/v1/appointments/${appointmentId}/historical-entry`,
+    "بارگذاری سابقهٔ ثبت دیرهنگام ناموفق بود",
+  );
   const detail = query.data;
 
   function done(message: string) {
@@ -125,10 +138,75 @@ export function AppointmentDetailsDialog({ appointmentId, onClose, onChanged }: 
               </ul>
             </section>
 
+            <section className="space-y-2 border-t border-[var(--ds-border)] pt-4" data-testid="historical-entry">
+              <h3 className="ds-section-title">ثبت تاریخی</h3>
+              {hist.data?.entry ? (
+                <p className="text-sm">
+                  دلیل: {hist.data.entry.late_entry_reason}
+                  <span className="ms-2 tabular-nums text-[var(--ds-text-muted)]">
+                    ثبت: {formatTehran(hist.data.entry.recorded_at_utc)}
+                  </span>
+                </p>
+              ) : can(P.appointmentsSchedule) ? (
+                <div className="flex flex-col gap-2">
+                  <input
+                    className="ds-input"
+                    placeholder="دلیل ثبت دیرهنگام"
+                    value={histReason}
+                    onChange={(e) => setHistReason(e.target.value)}
+                    data-testid="historical-reason"
+                  />
+                  <Button
+                    loading={histBusy}
+                    disabled={!histReason.trim()}
+                    onClick={async () => {
+                      setHistBusy(true);
+                      setHistMsg(null);
+                      const result = await apiJson(`/api/v1/appointments/${appointmentId}/historical-entry`, {
+                        method: "POST",
+                        body: { late_entry_reason: histReason.trim() },
+                      });
+                      setHistBusy(false);
+                      if (!result.ok) {
+                        setHistMsg(result.message);
+                        return;
+                      }
+                      setHistReason("");
+                      hist.reload();
+                      toast.success("ثبت تاریخی ذخیره شد");
+                    }}
+                    data-testid="historical-save"
+                  >
+                    ثبت با دلیل و زمان واقعی
+                  </Button>
+                  {histMsg ? <Alert>{histMsg}</Alert> : null}
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--ds-text-muted)]">ثبت تاریخی موجود نیست.</p>
+              )}
+            </section>
+
             {mode === "view" ? (
               <section className="space-y-3 border-t border-[var(--ds-border)] pt-4" aria-label="عملیات نوبت">
                 <h3 className="ds-section-title">عملیات</h3>
                 <div className="flex flex-wrap items-center gap-2">
+                  {onOpenFinance && can(P.financeInvoiceView) ? (
+                    <Button
+                      variant="subtle"
+                      disabled={!!busy}
+                      data-testid="appointment-open-finance"
+                      onClick={() =>
+                        onOpenFinance({
+                          appointmentId: detail.appointment_id,
+                          patientId: detail.patient_profile_id,
+                          patientName: `${detail.patient_first_name} ${detail.patient_last_name}`,
+                          serviceName: detail.service_name,
+                        })
+                      }
+                    >
+                      وضعیت مالی
+                    </Button>
+                  ) : null}
                   {detail.can_check_in ? (
                     <Button loading={busy === "check-in"} disabled={!!busy} onClick={() => void runLifecycle("check-in")} data-testid="appointment-check-in">
                       ثبت حضور

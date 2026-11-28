@@ -1,8 +1,8 @@
 /**
  * Shell geometry regression suite (real BFF + API + PG15, synthetic data).
  *
- * Contract: the sidebar, top bar, search slot, account controls and the page frame keep the same
- * position and size across navigation, loading, long names, dialogs and scrollbar changes at a
+ * Contract: the sidebar, top bar, Tehran clock slot, account controls and the page frame keep the
+ * same position and size across navigation, loading, long names, dialogs and scrollbar changes at a
  * given viewport and sidebar mode (tolerance: 1 CSS px). Rectangles are sampled on every animation
  * frame while the interaction runs, so intermediate movement is measured and not only the settled
  * state. Layout-shift entries are recorded too; limitation: Chrome flags shifts that follow a
@@ -26,7 +26,7 @@ test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
 test.describe.configure({ mode: "serial" });
 
 const TOLERANCE = 1;
-const PARTS: ShellPart[] = ["sidebar", "topbar", "search", "account", "frame"];
+const PARTS: ShellPart[] = ["sidebar", "topbar", "clock", "account", "frame"];
 const PAGES: [label: string, path: string][] = [
   ["داشبورد", "/dashboard"],
   ["میز پذیرش", "/desk"],
@@ -117,7 +117,7 @@ test("sidebar width is identical on every page in both modes", async ({ page }) 
   }
 });
 
-test("long account names and breadcrumbs do not resize the search or account areas", async ({ page }) => {
+test("long account names and breadcrumbs do not resize the clock or account areas", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await loginAs(page, credsFromEnv("OWNER"), "owner");
   const created = await bff(page, "POST", "/api/patients", {
@@ -143,8 +143,14 @@ test("long account names and breadcrumbs do not resize the search or account are
   await settle(page);
   expectWithin("long account name", rectDeltas(reference, await shellRects(page)));
   const chip = await page.getByTestId("current-user").evaluate((node) => {
-    const label = node.querySelector(".truncate") as HTMLElement;
-    return { truncated: label.scrollWidth > label.clientWidth, overflowsChip: node.scrollWidth > node.clientWidth + 1 };
+    // Prefer the display-name line; the outer flex wrapper may not overflow once children truncate.
+    const label =
+      (node.querySelector("span.block.truncate") as HTMLElement | null) ??
+      (node.querySelector(".truncate") as HTMLElement | null);
+    return {
+      truncated: Boolean(label && label.scrollWidth > label.clientWidth),
+      overflowsChip: node.scrollWidth > node.clientWidth + 1,
+    };
   });
   expect(chip.truncated).toBe(true);
   expect(chip.overflowsChip).toBe(false);
@@ -177,8 +183,8 @@ test("narrow desktop width truncates breadcrumbs inside their column", async ({ 
     const crumbBox = (await page.getByTestId("breadcrumbs").boundingBox())!;
     const apart = (a: { x: number; width: number }, b: { x: number; width: number }) =>
       a.x + a.width <= b.x + TOLERANCE || b.x + b.width <= a.x + TOLERANCE;
-    expect(apart(rects.search!, rects.account!), "search and account overlap").toBe(true);
-    expect(apart(crumbBox, rects.search!), "breadcrumbs overlap search").toBe(true);
+    expect(apart(rects.clock!, rects.account!), "clock and account overlap").toBe(true);
+    expect(apart(crumbBox, rects.clock!), "breadcrumbs overlap clock").toBe(true);
     expect(apart(crumbBox, rects.account!), "breadcrumbs overlap account").toBe(true);
     expect(crumbBox.x).toBeGreaterThanOrEqual(rects.topbar!.x - TOLERANCE);
     expect(crumbBox.x + crumbBox.width).toBeLessThanOrEqual(rects.topbar!.x + rects.topbar!.width + TOLERANCE);
@@ -226,34 +232,27 @@ test("delayed session and data responses keep the shell fixed (skeletons hold th
 test("dialogs and drawers open and close without moving the shell", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
-  for (const path of ["/patients", "/access"]) {
-    await page.goto(path);
-    await settle(page);
-    const reference = await shellRects(page);
-    const opener = path === "/patients" ? page.getByTestId("patients-new") : page.getByTestId("theme-menu-button");
-    await startSampling(page);
-    await opener.click();
-    await page.waitForTimeout(500);
-    if (path === "/patients") {
-      await expect(page.getByTestId("patients-register-dialog")).toBeVisible();
-      await expect(page.locator("html")).toHaveAttribute("data-scroll-locked", "true");
-      // The overlay must paint above the sidebar and header (no stacking context trapping it).
-      const topmost = await page.getByTestId("patients-register-dialog").evaluate((panel) => {
-        const box = panel.getBoundingClientRect();
-        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-        return Boolean(hit && panel.contains(hit));
-      });
-      expect(topmost).toBe(true);
-    } else {
-      await expect(page.getByTestId("theme-select")).toBeVisible();
-    }
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(500);
-    const samples = await stopSampling(page);
-    expectWithin(`${path} overlay per-frame`, maxFrameDeviation(samples));
-    expectWithin(`${path} overlay settled`, rectDeltas(reference, await shellRects(page)));
-    await expect(page.locator("html")).not.toHaveAttribute("data-scroll-locked", "true");
-  }
+  // Top-bar theme menu removed (UX-04); exercise patient register dialog only.
+  await page.goto("/patients");
+  await settle(page);
+  const reference = await shellRects(page);
+  await startSampling(page);
+  await page.getByTestId("patients-new").click();
+  await page.waitForTimeout(500);
+  await expect(page.getByTestId("patients-register-dialog")).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-scroll-locked", "true");
+  const topmost = await page.getByTestId("patients-register-dialog").evaluate((panel) => {
+    const box = panel.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return Boolean(hit && panel.contains(hit));
+  });
+  expect(topmost).toBe(true);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(500);
+  const samples = await stopSampling(page);
+  expectWithin("/patients overlay per-frame", maxFrameDeviation(samples));
+  expectWithin("/patients overlay settled", rectDeltas(reference, await shellRects(page)));
+  await expect(page.locator("html")).not.toHaveAttribute("data-scroll-locked", "true");
 });
 
 test("navigation does not remount the shell and keeps the same DOM nodes", async ({ page }) => {
@@ -262,7 +261,7 @@ test("navigation does not remount the shell and keeps the same DOM nodes", async
   await expect(page.getByTestId("dashboard-page")).toBeVisible({ timeout: 45_000 });
   await page.evaluate(() => {
     const w = window as unknown as { __shell: Element[] };
-    w.__shell = ["app-sidebar", "app-topbar", "global-search", "topbar-account"].map(
+    w.__shell = ["app-sidebar", "app-topbar", "tehran-clock", "topbar-account"].map(
       (id) => document.querySelector(`[data-testid="${id}"]`)!,
     );
   });
@@ -272,7 +271,7 @@ test("navigation does not remount the shell and keeps the same DOM nodes", async
   }
   const same = await page.evaluate(() => {
     const w = window as unknown as { __shell: Element[] };
-    return ["app-sidebar", "app-topbar", "global-search", "topbar-account"].every(
+    return ["app-sidebar", "app-topbar", "tehran-clock", "topbar-account"].every(
       (id, index) => document.querySelector(`[data-testid="${id}"]`) === w.__shell[index] && w.__shell[index].isConnected,
     );
   });

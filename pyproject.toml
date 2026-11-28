@@ -21,6 +21,8 @@ dependencies = [
   "PyJWT>=2.9",
   "pydantic>=2.7",
   "cryptography>=42.0",
+  # Required on Windows (and minimal Linux images) for zoneinfo Asia/Tehran.
+  "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]

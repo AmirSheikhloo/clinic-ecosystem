@@ -15,9 +15,37 @@ export type CalendarItem = AppointmentItem & {
   capacity_pool: string;
   resource_names: string[];
   aggregate_version: number;
+  /** Optional enriched projections when available from ops APIs. */
+  patient_phone_masked?: string | null;
+  national_id_masked?: string | null;
+  insurance_label?: string | null;
+  practitioner_name?: string | null;
+  practitioner_names?: string[] | null;
+  financial_status_code?: string | null;
+  financial_status_label?: string | null;
+  outstanding_irr?: number | null;
+  payment_method_label?: string | null;
+  finance_review_required?: boolean;
+  created_at_utc?: string | null;
+  online_reviewed?: boolean;
 };
 
-export type CalendarResponse = { items: CalendarItem[]; truncated: boolean; limit: number };
+export type CalendarAggregates = {
+  total: number;
+  by_status: Record<string, number>;
+  by_day: Array<{ date: string; count: number }>;
+  period: "day" | "week" | "month" | "custom" | string;
+  cancelled_count?: number;
+  completed_count?: number;
+  no_show_count?: number;
+};
+
+export type CalendarResponse = {
+  items: CalendarItem[];
+  truncated: boolean;
+  limit: number;
+  aggregates?: CalendarAggregates;
+};
 
 export type AppointmentDetails = CalendarItem & {
   created_at_utc: string;

@@ -19,6 +19,7 @@ export function useDeskCatalog(onServiceChange: () => void) {
   const [services, setServices] = useState<Service[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [serviceId, setServiceId] = useState("");
+  const [durationOverride, setDurationOverride] = useState<number | null>(null);
   const [requirementsState, setRequirementsState] = useState<RequirementsState>({ status: "idle" });
   const reqToken = useRef(0);
 
@@ -102,16 +103,18 @@ export function useDeskCatalog(onServiceChange: () => void) {
   function changeService(nextServiceId: string) {
     reqToken.current += 1;
     setServiceId(nextServiceId);
+    setDurationOverride(null);
     onServiceChange();
     setRequirementsState(
       nextServiceId ? { status: "loading", serviceId: nextServiceId } : { status: "idle" },
     );
   }
 
-  const durationMinutes = useMemo(
+  const catalogDuration = useMemo(
     () => services.find((s) => s.id === serviceId)?.default_duration_minutes || 30,
     [services, serviceId],
   );
+  const durationMinutes = durationOverride ?? catalogDuration;
 
   const requirementsReady =
     !!serviceId && requirementsState.status === "ready" && requirementsState.serviceId === serviceId;
@@ -133,6 +136,7 @@ export function useDeskCatalog(onServiceChange: () => void) {
     requirementsReady,
     requirements,
     durationMinutes,
+    setDurationMinutes: setDurationOverride,
   };
 }
 

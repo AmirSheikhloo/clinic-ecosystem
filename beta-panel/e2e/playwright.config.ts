@@ -27,12 +27,14 @@ function loadEnvFile(): void {
 
 loadEnvFile();
 
-const baseURL = process.env.BETA01B_PANEL_BASE_URL;
+// Also unquote values injected by the Python orchestrator (shell-quoted env file).
+const baseURL = unquote(process.env.BETA01B_PANEL_BASE_URL || "");
 if (!baseURL) {
   throw new Error("BETA01B_PANEL_BASE_URL is required for browser E2E");
 }
 
-const artifactDir = process.env.BETA01B_ARTIFACT_DIR || path.join(process.cwd(), "test-results");
+const artifactDir =
+  unquote(process.env.BETA01B_ARTIFACT_DIR || "") || path.join(process.cwd(), "test-results");
 
 export default defineConfig({
   testDir: "./",

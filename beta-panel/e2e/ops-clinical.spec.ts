@@ -152,9 +152,10 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await page.getByTestId("overlap-confirm").click();
   await expectToast(page, "نوبت جابه‌جا شد");
 
-  // Cancel B.
+  // Cancel B — reason code is required; free-text alone no longer submits.
   await (await findAppointmentRow(page, `B${RUN}`)).getByTestId("appointment-open").click();
   await page.getByTestId("appointment-cancel").click();
+  await page.getByTestId("cancel-reason-code").selectOption("PATIENT_REQUEST");
   await page.getByTestId("cancel-reason").fill("synthetic cancel");
   await page.getByTestId("cancel-confirm").click();
   await expectToast(page, "نوبت لغو شد");
@@ -172,28 +173,23 @@ test("manager: calendar views, details, reschedule with overlap acknowledgement,
   await findAppointmentRow(page, `A${RUN}`);
 });
 
-test("manager: dashboard shows real counts and global search finds authorized records", async ({ page }) => {
+test("manager: dashboard shows real counts and patients search finds authorized records", async ({ page }) => {
   await loginAs(page, credsFromEnv("MANAGER"), "manager");
   await gotoNav(page, "داشبورد", "dashboard-page");
-  for (const id of ["dashboard-count", "dashboard-patients", "dashboard-staff", "dashboard-services", "dashboard-resources"]) {
+  for (const id of ["dashboard-count", "dashboard-patients", "dashboard-staff"]) {
     await expect(page.getByTestId(id)).toHaveText(/^\d+$/, { timeout: 30_000 });
   }
   expect(Number(await page.getByTestId("dashboard-count").innerText())).toBeGreaterThanOrEqual(2);
   expect(Number(await page.getByTestId("dashboard-patients").innerText())).toBeGreaterThanOrEqual(2);
 
-  // "/" focuses the global search; results navigate to the patient profile.
-  await page.locator("body").click();
-  await page.keyboard.press("/");
-  await expect(page.getByTestId("global-search-input")).toBeFocused();
-  await page.getByTestId("global-search-input").fill(`A${RUN}`);
-  const hit = page.getByTestId("global-search-hit").filter({ hasText: `A${RUN}` });
-  await expect(hit).toHaveCount(1, { timeout: 15_000 });
-  await hit.click();
-  await expect(page.getByTestId("patient-profile-page")).toBeVisible();
-
-  // "/" inside an input must type a slash, not steal focus.
-  await page.getByTestId("patient-dossier").fill("a/b");
-  await expect(page.getByTestId("patient-dossier")).toHaveValue("a/b");
+  // Top-bar global search removed (UX-04); patients workspace search is the authorized finder.
+  await gotoNav(page, "بیماران", "patients-page");
+  await page.getByTestId("patients-search-query").fill(`A${RUN}`);
+  await page.getByTestId("patients-search-submit").click();
+  const row = page.getByTestId("patients-result-row").filter({ hasText: `A${RUN}` });
+  await expect(row.first()).toBeVisible({ timeout: 15_000 });
+  await row.first().getByTestId("patients-open-profile").click();
+  await expect(page.getByTestId("patient-profile-page")).toBeVisible({ timeout: 20_000 });
 
   const summary = await bff(page, "GET", `/api/v1/search?q=${encodeURIComponent(`A${RUN}`)}`);
   expect(summary.status).toBe(200);

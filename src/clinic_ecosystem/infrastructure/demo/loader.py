@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 import asyncpg
 
@@ -24,6 +23,10 @@ from clinic_ecosystem.infrastructure.demo.persist import (
     persist_crypto,
     persist_identity_graph,
 )
+from clinic_ecosystem.infrastructure.demo.persist_ops import (
+    ops_schema_present,
+    persist_ops_demo,
+)
 from clinic_ecosystem.infrastructure.demo.profiles import (
     DEMO_SEED,
     DemoTargets,
@@ -32,7 +35,9 @@ from clinic_ecosystem.infrastructure.demo.profiles import (
     targets_as_dict,
 )
 
-TEHRAN = ZoneInfo("Asia/Tehran")
+from clinic_ecosystem.infrastructure.timezones import require_tehran_zoneinfo
+
+TEHRAN = require_tehran_zoneinfo()
 
 
 @dataclass(frozen=True)
@@ -92,7 +97,28 @@ async def load_demo_dataset(
         conn, tenant_id=tenant_id, catalog=catalog, staff=staff_bundle, now=now
     )
     await persist_crypto(conn, tenant_id=tenant_id, crypto=crypto, now=now)
+    # ACR-D0.11 arrival triggers require visit/arrival facts before CHECKED_IN.
+    # Insert as CONFIRMED first; persist_ops raises status with paired arrival facts.
+    if await ops_schema_present(conn):
+        # Arrival/service_record guards reject direct INSERT of CHECKED_IN/COMPLETED.
+        for appt in appts.appointments:
+            if appt.status in {"CHECKED_IN", "COMPLETED"}:
+                appt.status = "CONFIRMED"
+                appt.allocation_status = "CONFIRMED"
     await persist_appointments(conn, tenant_id=tenant_id, targets=targets, appts=appts)
+    ops_counts: dict[str, Any] = {"skipped": True, "reason": "no_operator_account"}
+    if receptionist_account_id is not None:
+        ops_counts = await persist_ops_demo(
+            conn,
+            tenant_id=tenant_id,
+            targets=targets,
+            people=people,
+            staff=staff_bundle,
+            catalog=catalog,
+            appts=appts,
+            operator_account_id=receptionist_account_id,
+            now=now,
+        )
     audit_count = await persist_audit(
         conn,
         tenant_id=tenant_id,
@@ -144,6 +170,7 @@ async def load_demo_dataset(
         "checked_in_waiting_today": appts.checked_in_waiting_today,
         "multi_service_groups": appts.multi_service_group_count,
         "audit_entries": audit_count,
+        "ops": ops_counts,
         "tehran_today": today.isoformat(),
     }
     manifest = {
@@ -158,8 +185,9 @@ async def load_demo_dataset(
         "notes": [
             "Synthetic data only; National IDs/phones are not real persons.",
             "Dates anchored to Asia/Tehran calendar day at generation time.",
-            "No finance/inventory rows (tp0001–tp0007 only).",
+            "Ops finance/waitlist/inventory rows require disposable ACR-D0.11 schema.",
             "RLS left enabled; inserts run as db_migrator with tenant GUC.",
+            "Canonical patient merge remains disabled.",
         ],
     }
     return DemoLoadResult(

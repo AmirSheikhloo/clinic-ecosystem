@@ -1,0 +1,218 @@
+[
+  {
+    "file": "00.sql",
+    "label": "### 2.3 Proposed DDL \u2014 independent charge catalog, cashier references, invoice",
+    "tables": [
+      "billable_items",
+      "cashier_shifts",
+      "clinic_payment_instruments",
+      "invoice_documents",
+      "invoice_lines",
+      "invoice_item_service_links",
+      "draft_discount_actions",
+      "document_number_counters",
+      "service_record_charge_links"
+    ],
+    "funcs": [],
+    "chars": 11624
+  },
+  {
+    "file": "01.sql",
+    "label": "### 2.4 Payment attempts, claims, verified receipts, allocation/reversal, adjustment, refund",
+    "tables": [
+      "payment_attempts",
+      "unverified_payment_claims",
+      "payment_receipts",
+      "receipt_allocations",
+      "financial_adjustments",
+      "clinic_payment_refunds"
+    ],
+    "funcs": [],
+    "chars": 12771
+  },
+  {
+    "file": "02.sql",
+    "label": "### 2.6 Insurance and revenue-share records",
+    "tables": [
+      "clinic_insurers",
+      "invoice_insurer_expectations",
+      "insurer_settlement_entries",
+      "clinic_service_referrers",
+      "revenue_share_allocations",
+      "revenue_share_adjustments"
+    ],
+    "funcs": [],
+    "chars": 6032
+  },
+  {
+    "file": "03.sql",
+    "label": "### 3.2 Proposed DDL",
+    "tables": [
+      "inventory_items",
+      "inventory_lots",
+      "stock_movements",
+      "inventory_lot_state_events",
+      "service_item_suggestions"
+    ],
+    "funcs": [],
+    "chars": 7699
+  },
+  {
+    "file": "04.sql",
+    "label": "### 4.1 Model and Proposed DDL",
+    "tables": [
+      "appointment_waitlist_entries"
+    ],
+    "funcs": [],
+    "chars": 2106
+  },
+  {
+    "file": "05.sql",
+    "label": "### 5.1 Authoritative basis and DDL",
+    "tables": [
+      "staff_practitioner_resources",
+      "staff_service_links"
+    ],
+    "funcs": [],
+    "chars": 1441
+  },
+  {
+    "file": "06.sql",
+    "label": "### 6.1 Department semantics and DDL",
+    "tables": [
+      "departments",
+      "department_service_links",
+      "department_practitioner_links"
+    ],
+    "funcs": [],
+    "chars": 1861
+  },
+  {
+    "file": "07.sql",
+    "label": "### 6.2 Scope schema tied to actual `TP0003` grants",
+    "tables": [
+      "role_permission_scopes"
+    ],
+    "funcs": [],
+    "chars": 1575
+  },
+  {
+    "file": "08.sql",
+    "label": "### 7.2 Proposed DDL",
+    "tables": [
+      "reception_groups",
+      "reception_group_appointments",
+      "clinic_visits",
+      "visit_appointments",
+      "appointment_arrival_facts",
+      "service_records",
+      "service_record_practitioners",
+      "historical_appointment_entries"
+    ],
+    "funcs": [],
+    "chars": 6847
+  },
+  {
+    "file": "09.sql",
+    "label": "### 8.1 Source, policy and DDL",
+    "tables": [
+      "service_availability_guards",
+      "online_availability_closures"
+    ],
+    "funcs": [],
+    "chars": 2146
+  },
+  {
+    "file": "10.sql",
+    "label": "## 9. TP-OPS-NOTES \u2014 Patient operational notes, tags and pinned alerts",
+    "tables": [
+      "patient_operational_notes",
+      "patient_note_actions",
+      "staff_tag_catalog",
+      "patient_staff_tags"
+    ],
+    "funcs": [],
+    "chars": 3488
+  },
+  {
+    "file": "11.sql",
+    "label": "### 10.2 Identity completion and corrections",
+    "tables": [
+      "patient_identity_reviews"
+    ],
+    "funcs": [],
+    "chars": 1466
+  },
+  {
+    "file": "12.sql",
+    "label": "### 10.3 Canonical/alias merge (`SOURCE_REQUIRED` \u2014 Clause 773)",
+    "tables": [
+      "person_merge_events"
+    ],
+    "funcs": [],
+    "chars": 781
+  },
+  {
+    "file": "13.sql",
+    "label": "## Appendix A \u2014 Concrete proposed RLS and grants (per approved migration)",
+    "tables": [],
+    "funcs": [],
+    "chars": 3942
+  },
+  {
+    "file": "14.sql",
+    "label": "### B.1 Posted/voided invoice and draft child immutability",
+    "tables": [],
+    "funcs": [
+      "ops_invoice_guard",
+      "ops_draft_child_guard"
+    ],
+    "chars": 3711
+  },
+  {
+    "file": "15.sql",
+    "label": "### B.2 Receipt guard creation and beneficiary attribution integrity",
+    "tables": [
+      "ledger_receipt_guards",
+      "receipt_beneficiary_attributions"
+    ],
+    "funcs": [
+      "ops_create_receipt_guard",
+      "ops_receipt_attribution_guard"
+    ],
+    "chars": 2789
+  },
+  {
+    "file": "16.sql",
+    "label": "### B.3 Proposed cross-row financial, inventory, scope, practitioner and lifecycle constraint triggers (partial; see Appendix D)",
+    "tables": [],
+    "funcs": [
+      "ops_item_service_link_check",
+      "ops_service_record_charge_link_check",
+      "ops_receipt_allocation_reconcile",
+      "ops_financial_adjustment_reconcile",
+      "ops_clinic_refund_reconcile",
+      "ops_inventory_lot_guard",
+      "ops_stock_movement_reconcile",
+      "ops_practitioner_mapping_guard",
+      "ops_role_permission_scope_guard",
+      "ops_terminal_state_guard",
+      "ops_note_action_guard",
+      "ops_appointment_lifecycle_facts_guard"
+    ],
+    "chars": 25671
+  },
+  {
+    "file": "17.sql",
+    "label": "block_17",
+    "tables": [],
+    "funcs": [
+      "ops_bookable_resource_type_guard",
+      "ops_receipt_instrument_guard",
+      "ops_receipt_evidence_link_guard",
+      "ops_invoice_post_link_guard",
+      "ops_patient_tag_guard"
+    ],
+    "chars": 8654
+  }
+]

@@ -76,6 +76,17 @@ export function tehranDayBoundsUtc(dateYmd: string): { start: string; end: strin
   return { start, end };
 }
 
+/** Compact 24h Tehran clock `HH:mm`. */
+export function formatTehranClock(now: Date = new Date()): string {
+  const parts = tehranParts(now);
+  return `${String(Number(parts.hour) % 24).padStart(2, "0")}:${parts.minute}`;
+}
+
+/** Compact Jalali date label for the top bar (Latin digits). */
+export function tehranTodayJalaliLabel(now: Date = new Date()): string {
+  return formatJalaliDateTime(now.toISOString()).split(" ")[0] || formatJalaliDateTime(now.toISOString());
+}
+
 /**
  * Display helper: Jalali calendar in Asia/Tehran with Latin digits 0–9.
  * API/DB contracts remain Gregorian/UTC; this is presentation only.

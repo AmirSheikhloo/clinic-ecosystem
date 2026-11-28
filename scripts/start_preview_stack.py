@@ -62,18 +62,30 @@ def _open_browser(panel_login_url: str) -> None:
 
 
 def main() -> int:
+    from clinic_ecosystem.infrastructure.timezones import tehran_zoneinfo_preflight
+
+    tz = tehran_zoneinfo_preflight()
+    if not tz.get("ok"):
+        print(
+            "Timezone preflight failed before stack start:\n"
+            f"  {tz.get('error')}\n"
+            "Install runtime dependency tzdata (pip install -e '.[dev]') and retry.",
+            file=sys.stderr,
+        )
+        return 2
+    print("Timezone preflight OK (Asia/Tehran).", flush=True)
     if not docker_ready():
         return 2
     artifact = REPO / "P03_HANDOFF" / "beta_panel_preview"
     runtime = artifact / "runtime"
     artifact.mkdir(parents=True, exist_ok=True)
     runtime.mkdir(parents=True, exist_ok=True)
-    stack = start_browser_stack(artifact_dir=artifact)
+    # Manifests, logs, and credentials stay under runtime/ (gitignored).
+    stack = start_browser_stack(artifact_dir=runtime)
     env_path = runtime / "preview.env"
     stack.write_env_file(env_path)
     panel_login = f"{stack.panel_base_url}/login"
     summary = runtime / "PREVIEW_URL.txt"
-    legacy = artifact / "PREVIEW_URL.txt"
     summary.write_text(
         "\n".join(
             [
@@ -91,7 +103,6 @@ def main() -> int:
         + "\n",
         encoding="utf-8",
     )
-    legacy.write_text(summary.read_text(encoding="utf-8"), encoding="utf-8")
     print(f"PANEL_URL={panel_login}")
     print(f"API_HEALTH={stack.api_base_url}/health")
     print(f"CREDENTIALS_FILE={env_path}")

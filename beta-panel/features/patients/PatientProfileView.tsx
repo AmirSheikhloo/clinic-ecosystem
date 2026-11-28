@@ -16,6 +16,8 @@ import { apiJson } from "@/lib/api";
 import { formatJalaliDate, formatJalaliFromTehranYmd } from "@/lib/format/jalali";
 import { P } from "@/lib/permissions";
 import { useApiQuery } from "@/lib/use-api-query";
+import { PatientCoursesPanel } from "@/features/courses/PatientCoursesPanel";
+import { PatientDossierOps } from "./PatientDossierOps";
 import { PatientEditForm } from "./PatientEditForm";
 import { PatientHistory } from "./PatientHistory";
 import type { PatientRow } from "./types";
@@ -136,6 +138,8 @@ export function PatientProfileView({ patientId }: { patientId: string }) {
               />
               {can(P.patientsViewHistory) ? <PatientHistory patientId={patientId} /> : <AccessDenied what="مشاهدهٔ سابقهٔ نوبت‌ها" />}
             </div>
+            <PatientCoursesPanel patientId={patientId} />
+            <PatientDossierOps patientId={patientId} />
           </>
         )}
       </QueryBoundary>

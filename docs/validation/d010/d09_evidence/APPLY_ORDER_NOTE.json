@@ -1,0 +1,10 @@
+{
+  "source": "ACR-D0.9 \u00a711 + disposable execution",
+  "corrections_vs_naive_document_order": [
+    "Apply \u00a77 arrival composite UNIQUE constraints (08.sql) before waitlist (04.sql) because converted_appointment FK references appointments(tenant_id,id,beneficiary_patient_id,service_id).",
+    "Apply inventory DDL (03.sql) before Appendix B.3 cross-row triggers (16.sql) because inventory_* triggers reference inventory_lots/stock_movements.",
+    "Set app.ops_migration_tables JSON before Appendix A (13.sql).",
+    "Skip person_merge_events (12.sql) \u2014 D09-12 SOURCE_REQUIRED."
+  ],
+  "ddl_contract_changes": "None required for green apply of proposed D0.9 SQL on tp0007 baseline; defects were harness ordering/comment-aware SQL splitting, not rejected D0.9 table contracts."
+}

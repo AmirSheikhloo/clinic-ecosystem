@@ -9,7 +9,7 @@ import { formatRangeTitle, stepView, type CalendarView } from "@/lib/calendar/ja
 import { formatCount } from "@/lib/format/numbers";
 import { appointmentStatusLabel } from "@/lib/format/status";
 import { tehranTodayYmd } from "@/lib/client";
-import { CALENDAR_STATUSES, type SortKey, type WorkspaceMode } from "./types";
+import { CALENDAR_STATUSES, type CalendarAggregates, type SortKey, type WorkspaceMode } from "./types";
 
 export type CalendarFilters = { serviceId: string; resourceId: string; status: string };
 export type Option = { id: string; label: string };
@@ -20,6 +20,7 @@ type Props = {
   anchor: string;
   onAnchorChange: (ymd: string) => void;
   count: number | null;
+  aggregates?: CalendarAggregates | null;
   loading: boolean;
   onRefresh: () => void;
   filters: CalendarFilters;
@@ -65,6 +66,14 @@ export function CalendarToolbar(props: Props) {
             <span className="inline-block min-w-[1.5ch] tabular-nums" data-testid="appointments-count">
               {props.count === null ? "—" : formatCount(props.count)}
             </span>
+            {props.aggregates ? (
+              <span className="ms-2 text-xs text-[var(--ds-text-muted)]" data-testid="calendar-aggregates">
+                تکمیل {formatCount(props.aggregates.completed_count ?? 0)} · لغو{" "}
+                {formatCount(props.aggregates.cancelled_count ?? 0)} · عدم‌حضور{" "}
+                {formatCount(props.aggregates.no_show_count ?? 0)}
+                {props.aggregates.period ? ` · ${props.aggregates.period}` : ""}
+              </span>
+            ) : null}
           </>
         }
         actions={

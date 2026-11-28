@@ -26,12 +26,19 @@ from clinic_ecosystem.presentation.http import audit as audit_routes
 from clinic_ecosystem.presentation.http import auth as auth_routes
 from clinic_ecosystem.presentation.http import catalog as catalog_routes
 from clinic_ecosystem.presentation.http import catalog_admin as catalog_admin_routes
+from clinic_ecosystem.presentation.http import finance as finance_routes
+from clinic_ecosystem.presentation.http import historical as historical_routes
+from clinic_ecosystem.presentation.http import ops_management as ops_management_routes
+from clinic_ecosystem.presentation.http import notifications as notifications_routes
 from clinic_ecosystem.presentation.http import overview as overview_routes
+from clinic_ecosystem.presentation.http import patient_ops as patient_ops_routes
 from clinic_ecosystem.presentation.http import patient_registry as patient_registry_routes
 from clinic_ecosystem.presentation.http import patients as patient_routes
 from clinic_ecosystem.presentation.http.common import install_problem_handlers
 from clinic_ecosystem.presentation.http import resources as resource_routes
 from clinic_ecosystem.presentation.http import staff as staff_routes
+from clinic_ecosystem.presentation.http import treatment_courses as treatment_courses_routes
+from clinic_ecosystem.presentation.http import waitlist as waitlist_routes
 
 logger = logging.getLogger("clinic_ecosystem.http")
 
@@ -126,6 +133,13 @@ def create_app(
     app.include_router(access_routes.router)
     app.include_router(audit_routes.router)
     app.include_router(overview_routes.router)
+    app.include_router(notifications_routes.router)
     app.include_router(appointment_routes.router)
     app.include_router(appointment_admin_routes.router)
+    app.include_router(finance_routes.router)
+    app.include_router(waitlist_routes.router)
+    app.include_router(ops_management_routes.router)
+    app.include_router(patient_ops_routes.router)
+    app.include_router(historical_routes.router)
+    app.include_router(treatment_courses_routes.router)
     return app

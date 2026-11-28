@@ -74,7 +74,11 @@ export function useDeskSubmit({
   function recordBooking(
     appointmentId: string,
     startIso: string,
-    flags: { overlapAcknowledged: boolean; replayed?: boolean },
+    flags: {
+      overlapAcknowledged: boolean;
+      replayed?: boolean;
+      lines?: Array<{ clientLineId: string; serviceId: string; appointmentId: string }>;
+    },
   ) {
     if (!selectedPatient) return;
     setLastBooking({
@@ -85,6 +89,7 @@ export function useDeskSubmit({
       serviceName: services.find((item) => item.id === serviceId)?.service_name ?? "",
       overlapAcknowledged: flags.overlapAcknowledged,
       replayed: !!flags.replayed,
+      lines: flags.lines,
     });
   }
 
@@ -266,12 +271,18 @@ export function useDeskSubmit({
           `گروه پذیرش با تأیید تداخل ثبت شد — ${ids.length} نوبت: ${ids.join("، ")}${replayNote(data.replayed)}`,
         );
         if (data.lines?.[0]) {
-          const first = draftLines[0];
           recordBooking(data.lines[0].appointment_id, "", {
             overlapAcknowledged: true,
             replayed: data.replayed,
+            lines: (data.lines ?? []).map((line) => {
+              const draft = draftLines.find((d) => d.key === line.client_line_id);
+              return {
+                clientLineId: line.client_line_id,
+                serviceId: draft?.serviceId ?? "",
+                appointmentId: line.appointment_id,
+              };
+            }),
           });
-          void first;
         }
         return;
       }
@@ -378,6 +389,14 @@ export function useDeskSubmit({
         recordBooking(data.lines[0].appointment_id, "", {
           overlapAcknowledged: false,
           replayed: data.replayed,
+          lines: (data.lines ?? []).map((line) => {
+            const draft = draftLines.find((d) => d.key === line.client_line_id);
+            return {
+              clientLineId: line.client_line_id,
+              serviceId: draft?.serviceId ?? "",
+              appointmentId: line.appointment_id,
+            };
+          }),
         });
       }
     } catch {

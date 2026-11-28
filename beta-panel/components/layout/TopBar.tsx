@@ -3,12 +3,11 @@
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Button } from "@/components/ui/Button";
 import { breadcrumbsFor } from "@/lib/breadcrumbs";
-import { GlobalSearch } from "./GlobalSearch";
+import { LiveTehranClock } from "./LiveTehranClock";
 import { TopBarAccount } from "./TopBarAccount";
 
 /**
- * Header geometry is a grid with explicit tracks (see layout.css): the lead area takes the
- * remaining space and truncates, the search and account areas never depend on breadcrumb text.
+ * Header: breadcrumbs + live Jalali/Tehran clock + account (no global search/theme/logout).
  */
 export function TopBar({ pathname, onOpenNav }: { pathname: string; onOpenNav: () => void }) {
   return (
@@ -22,13 +21,10 @@ export function TopBar({ pathname, onOpenNav }: { pathname: string; onOpenNav: (
         data-testid="mobile-nav-open"
       />
       <div className="ds-topbar-lead">
-        <span className="ds-dev-notice" data-testid="dev-notice">
-          نسخهٔ توسعه — داده مصنوعی
-        </span>
         <Breadcrumbs items={breadcrumbsFor(pathname)} />
       </div>
       <div className="ds-topbar-search">
-        <GlobalSearch />
+        <LiveTehranClock />
       </div>
       <TopBarAccount />
     </header>

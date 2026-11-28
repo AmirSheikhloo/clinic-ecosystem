@@ -1,0 +1,376 @@
+{
+  "generated_at_utc": "2026-11-26T22:33:48.946519+00:00",
+  "lineage": {
+    "baseline_commit": "8309f2a044e944123ddb1f49a8bad1255e4ce2e0",
+    "official_tp_revisions_on_disk": [
+      "tp0001_extensions_and_tenant_root.py",
+      "tp0002_identity_and_person_model.py",
+      "tp0003_rbac_governance_minimum.py",
+      "tp0004_catalog_resources_requirements.py",
+      "tp0005_appointments_allocations_holds.py",
+      "tp0006_idempotency_outbox_inbox_audit.py",
+      "tp0007_rls_and_role_policies.py"
+    ],
+    "official_head": "tp0007",
+    "appendix_e2_allocation": "TP0001\u2013TP0007 only (frozen)",
+    "proposed_logical_packages": [
+      "TP-OPS-ELIGIBILITY",
+      "TP-OPS-ARRIVAL",
+      "TP-OPS-SCOPES",
+      "TP-OPS-NOTES",
+      "TP-OPS-WAITLIST",
+      "TP-OPS-ONLINE-CLOSE",
+      "TP-OPS-LEDGER",
+      "TP-OPS-INVENTORY",
+      "person_merge_events"
+    ],
+    "no_tp0008_plus_landed": true,
+    "acr_d09_source_present": false,
+    "acr_d09_note": "ACR-D0.9 was referenced as attached in Task 33 but was not present in the agent VM, uploads, stores, GitHub, or conversation transcript. Gmail MCP auth was declined. Findings D09-01..14 below are provisional IDs assigned to defects discovered during disposable execution against ACR-D0.6 SQL; remap 1:1 when the authoritative D0.9 text is supplied."
+  },
+  "apply_log": [
+    {
+      "phase": "proposed",
+      "file": "04_tp_ops_eligibility.sql",
+      "ok": true
+    },
+    {
+      "phase": "proposed",
+      "file": "06_tp_ops_arrival.sql",
+      "ok": true
+    },
+    {
+      "phase": "proposed",
+      "file": "05_tp_ops_scopes.sql",
+      "ok": true
+    },
+    {
+      "phase": "proposed",
+      "file": "08_tp_ops_notes.sql",
+      "ok": true
+    },
+    {
+      "phase": "proposed",
+      "file": "03_tp_ops_waitlist.sql",
+      "ok": true
+    },
+    {
+      "phase": "proposed",
+      "file": "07_tp_ops_online_close.sql",
+      "ok": true
+    },
+    {
+      "phase": "proposed",
+      "file": "01_tp_ops_ledger.sql",
+      "ok": true
+    },
+    {
+      "phase": "proposed",
+      "file": "02_tp_ops_inventory.sql",
+      "ok": true
+    },
+    {
+      "phase": "proposed",
+      "file": "09_person_merge_events.sql",
+      "ok": true
+    },
+    {
+      "phase": "corrected",
+      "file": "04_tp_ops_eligibility.sql",
+      "ok": true
+    },
+    {
+      "phase": "corrected",
+      "file": "06_tp_ops_arrival.sql",
+      "ok": true
+    },
+    {
+      "phase": "corrected",
+      "file": "05_tp_ops_scopes.sql",
+      "ok": true
+    },
+    {
+      "phase": "corrected",
+      "file": "08_tp_ops_notes.sql",
+      "ok": true
+    },
+    {
+      "phase": "corrected",
+      "file": "03_tp_ops_waitlist.sql",
+      "ok": true
+    },
+    {
+      "phase": "corrected",
+      "file": "07_tp_ops_online_close.sql",
+      "ok": true
+    },
+    {
+      "phase": "corrected",
+      "file": "01_tp_ops_ledger.sql",
+      "ok": true
+    },
+    {
+      "phase": "corrected",
+      "file": "02_tp_ops_inventory.sql",
+      "ok": true
+    },
+    {
+      "phase": "corrected",
+      "file": "09_person_merge_events.sql",
+      "ok": true
+    },
+    {
+      "phase": "rls",
+      "file": "rls_clause746.sql",
+      "ok": true
+    }
+  ],
+  "cases": [
+    {
+      "name": "lineage_head_tp0007",
+      "ok": true,
+      "detail": "tp0007"
+    },
+    {
+      "name": "postgres_15",
+      "ok": true,
+      "detail": "15.20 (Debian 15.20-1.pgdg13+1)"
+    },
+    {
+      "name": "corrected_packages_apply",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "rls_apply",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "rls_same_tenant_sees_invoice",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "rls_cross_tenant_hidden",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "rls_no_tenant_fail_closed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "finance_line_identity_ok",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "finance_line_identity_rejects_mismatch",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "finance_reconciliation_paid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "finance_refund_cap_enforced",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "finance_receipt_append_only",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "inventory_fefo_picks_earliest_expiry",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "inventory_consume_updates_lot",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "inventory_no_future_booking_deduction",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "eligibility_staff_service_link",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "lifecycle_checked_in_sets_arrived_at",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "arrival_constraint_validates_after_backfill",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "scopes_ref_integrity",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "waitlist_insert",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "notes_insert",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "online_close_insert",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "online_close_requires_target",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "document_number_monotonic",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "rls_policy_names_match_tp0007",
+      "ok": true,
+      "detail": "{'tenant_runtime_guard', 'tenant_migrator_maintenance', 'tenant_runtime_base'}"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "D09-01",
+      "title": "ACR-D0.9 source text unavailable in execution environment",
+      "severity": "BLOCKER_FOR_1TO1_MAP",
+      "status": "SOURCE_UNAVAILABLE",
+      "evidence": "Task 33 claimed attached ACR-D0.9; file absent; Gmail auth declined.",
+      "correction": "Proceeded with ACR-D0.6 proposed SQL + disposable evidence; remap when D0.9 arrives."
+    },
+    {
+      "finding_id": "D09-02",
+      "title": "RLS policy naming drift vs tp0007 / Appendix F.6",
+      "severity": "HIGH",
+      "status": "RESOLVED",
+      "evidence": "ACR-D0.6 prose used tenant_isolation_guard; live tp0007 uses tenant_runtime_guard.",
+      "correction": "D0.10 + rls_clause746.sql use tenant_runtime_guard."
+    },
+    {
+      "finding_id": "D09-03",
+      "title": "Mandatory composite FKs used MATCH SIMPLE",
+      "severity": "HIGH",
+      "status": "RESOLVED",
+      "evidence": "invoice_documents.beneficiary_patient_id is NOT NULL but FK was MATCH SIMPLE (clause 743).",
+      "correction": "Corrected to MATCH FULL in corrected/01_tp_ops_ledger.sql."
+    },
+    {
+      "finding_id": "D09-04",
+      "title": "RLS/grants specified only in prose, not executable SQL",
+      "severity": "HIGH",
+      "status": "RESOLVED",
+      "evidence": "Proposed packages lacked ENABLE/FORCE RLS and grants; runtime roles untested.",
+      "correction": "Added docs/validation/d010/rls_clause746.sql and executed against db_app_runtime."
+    },
+    {
+      "finding_id": "D09-05",
+      "title": "Append-only finance tables lacked revoke/trigger evidence",
+      "severity": "HIGH",
+      "status": "RESOLVED",
+      "evidence": "payment_receipts UPDATE succeeded under prose-only grants.",
+      "correction": "Append-only via BEFORE UPDATE/DELETE reject triggers (UPDATE kept for FOR UPDATE locks); case finance_receipt_append_only."
+    },
+    {
+      "finding_id": "D09-06",
+      "title": "Refund cumulative cap not enforced in DDL",
+      "severity": "HIGH",
+      "status": "RESOLVED",
+      "evidence": "Over-refund inserts possible without app FOR UPDATE discipline.",
+      "correction": "Added clinic_refund_amount_within_receipt trigger; verified."
+    },
+    {
+      "finding_id": "D09-07",
+      "title": "inventory_item_id FK never closed after inventory package",
+      "severity": "MEDIUM",
+      "status": "RESOLVED",
+      "evidence": "Ledger left inventory_item_id dangling without deferred FK step.",
+      "correction": "Corrected inventory package adds MATCH SIMPLE FK when invoice_lines exists."
+    },
+    {
+      "finding_id": "D09-08",
+      "title": "DEPARTMENT scope_kind without departments catalog",
+      "severity": "HIGH",
+      "status": "RESOLVED",
+      "evidence": "Scopes DDL allowed DEPARTMENT without referent table.",
+      "correction": "Added departments + integrity trigger in corrected scopes package."
+    },
+    {
+      "finding_id": "D09-09",
+      "title": "Arrival CHECK unsafe for Expand-and-Contract upgrades",
+      "severity": "MEDIUM",
+      "status": "RESOLVED",
+      "evidence": "Immediate CHECK on CHECKED_IN\u2227arrived_at would fail populated upgrades.",
+      "correction": "Constraint added NOT VALID; VALIDATE after backfill demonstrated."
+    },
+    {
+      "finding_id": "D09-10",
+      "title": "Online closures allowed null service and resource (no target)",
+      "severity": "MEDIUM",
+      "status": "RESOLVED",
+      "evidence": "Clinic-wide vs targeted closure ambiguous; empty target accepted.",
+      "correction": "Added online_availability_closures_target_chk + created_by FK."
+    },
+    {
+      "finding_id": "D09-11",
+      "title": "Waitlist/notes missing created_by composite FKs",
+      "severity": "MEDIUM",
+      "status": "RESOLVED",
+      "evidence": "Operator attribution columns lacked tenant-scoped FKs.",
+      "correction": "Added MATCH FULL FKs to user_accounts."
+    },
+    {
+      "finding_id": "D09-12",
+      "title": "Official tp0008+ must not be invented",
+      "severity": "GOVERNANCE",
+      "status": "RESOLVED",
+      "evidence": "Lineage audit: only tp0001\u2013tp0007 on disk; Appendix E.2 ends at TP0007.",
+      "correction": "Packages remain logical TP-OPS-*; no Alembic files landed."
+    },
+    {
+      "finding_id": "D09-13",
+      "title": "Financial identity CHECK + derived balance reconciliation",
+      "severity": "HIGH",
+      "status": "RESOLVED",
+      "evidence": "Executable proof of identity CHECK and receipt allocation equality.",
+      "correction": "Cases finance_line_* and finance_reconciliation_paid."
+    },
+    {
+      "finding_id": "D09-14",
+      "title": "Practitioner eligibility + FEFO inventory + lifecycle arrival",
+      "severity": "HIGH",
+      "status": "RESOLVED",
+      "evidence": "Behavioral cases for staff_service_links, FEFO order, CHECKED_IN+arrived_at.",
+      "correction": "See evidence cases list."
+    }
+  ],
+  "summary": {
+    "cases_passed": 25,
+    "cases_failed": 0,
+    "findings_resolved": 13,
+    "findings_open": 0,
+    "findings_source_unavailable": 1
+  }
+}
